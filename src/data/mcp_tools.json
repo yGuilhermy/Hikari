@@ -1,0 +1,148 @@
+[
+  {
+    "meta": {
+      "label": "🎵 Download de Áudio (YouTube)",
+      "description": "Baixa o áudio de vídeos do YouTube em MP3",
+      "disableable": true
+    },
+    "type": "function",
+    "function": {
+      "name": "download_audio",
+      "description": "Use APENAS se o usuário fornecer um LINK URL (YouTube) E pedir para 'baixar', 'download', 'mp3' ou 'tocar' ou variantes. EXTRAIA A URL EXATA. NUNCA invente links. Se não houver link, não use esta tool.",
+      "textual_triggers": "Gatilhos: \"baixe essa musica\", \"download do vídeo\", \"quero o mp3\", \"link do audio\".",
+      "textual_args": "{ \"url\": \"URL do video\" }",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "URL do vídeo do YouTube" }
+        },
+        "required": ["url"]
+      }
+    }
+  },
+  {
+    "meta": {
+      "label": "🎮 Busca de Jogos (Torrent/Magnet)",
+      "description": "Busca links de download pirata de jogos",
+      "disableable": true
+    },
+    "type": "function",
+    "function": {
+      "name": "search_game",
+      "description": "Use APENAS se o usuário pedir explicitamente para BAIXAR (Download/Torrent)/procurar/arrumar/trazer/pegar/mandar um jogo pirata. NÃO use para buscar informações sobre jogos. Ignore caso for mobile e avise que é apenas para PC. Corrija para o nome correto do jogo antes de usar a tool. Exemplo: Se o usuário pedir 'quero baixar o jogo GTA V', use 'Grand Theft Auto V' como game_name.",
+      "textual_triggers": "Gatilhos: \"quero baixar o jogo X\", \"me arruma o torrent de Y\", \"crack do jogo Z\".",
+      "textual_args": "{ \"game_name\": \"Nome do Jogo\" }",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "game_name": { "type": "string", "description": "Nome do Jogo" }
+        },
+        "required": ["game_name"]
+      }
+    }
+  },
+  {
+    "meta": {
+      "label": "🔎 Pesquisa na Web",
+      "description": "Busca informações atuais na internet (Brave/DDG/Bing)",
+      "disableable": true
+    },
+    "type": "function",
+    "function": {
+      "name": "search_web",
+      "description": "Use APENAS para buscar informações ATUAIS, notícias recentes (2024-2026), cotações, previsões do tempo, ou fatos que você não sabe. Gatilhos: 'pesquise sobre X', 'quem é Y', 'notícias de hoje', 'preço do dolar'.",
+      "textual_triggers": "Gatilhos: \"pesquise sobre X\", \"quem foi Y\", \"informações sobre o jogo Z\", \"notícias de hoje\".",
+      "textual_args": "{ \"query\": \"termo de busca otimizado\" }",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "Termo de busca" }
+        },
+        "required": ["query"]
+      }
+    }
+  },
+  {
+    "meta": {
+      "label": "💬 Resposta de Texto (Geral)",
+      "description": "Responde perguntas gerais, chat, matemática etc.",
+      "disableable": false
+    },
+    "type": "function",
+    "function": {
+      "name": "generate_reply",
+      "description": "Use APENAS para responder perguntas de conhecimento geral, matemática, conselhos, piadas, ou quando não houver necessidade de download/busca externa.",
+      "textual_triggers": null,
+      "textual_args": "{ \"content\": \"texto da resposta\" }",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string", "description": "O texto da resposta para o usuário." }
+        },
+        "required": ["content"]
+      }
+    }
+  },
+  {
+    "meta": {
+      "label": "📋 Menu de Ajuda / Help / Socials",
+      "description": "Exibe o menu interativo de ajuda, redes sociais e changelog",
+      "disableable": true
+    },
+    "type": "function",
+    "function": {
+      "name": "show_bot_menu",
+      "description": "MENU DE AJUDA E SISTEMA. Use APENAS para exibir painéis interativos. Gatilhos: 'comandos', 'ajuda', 'help', 'menu', 'redes sociais', 'redes sociais do seu criador', 'changelog', 'mensagem secreta', 'regras do bot', 'termos'. NÃO use para explicar comandos por texto.",
+      "textual_triggers": "Gatilhos: \"quais seus comandos?\", \"me ajuda\", \"help\", \"quem te criou\", \"suas redes sociais\", \"redes sociais do criador\", \"novidades\", \"changelog\", \"mensagem secreta\", \"quais as regras?\", \"termos de uso\"",
+      "textual_args": "{ \"context\": \"geral\" | \"socials\" | \"changelog\" | \"regras\" | \"Mensagem Secreta\" }",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "context": {
+            "type": "string",
+            "enum": ["geral", "socials", "changelog", "regras", "Mensagem Secreta"],
+            "description": "Categoria do menu a ser exibido."
+          }
+        },
+        "required": ["context"]
+      }
+    }
+  },
+  {
+    "meta": {
+      "label": "🎨 Geração de Imagem (SDXL)",
+      "description": "Gera uma imagem a partir de uma descrição de texto usando SDXL-Flash",
+      "disableable": true
+    },
+    "type": "function",
+    "function": {
+      "name": "generate_image",
+      "description": "Use QUANDO o usuário pedir para GERAR, CRIAR, DESENHAR ou IMAGINAR uma imagem, ilustração ou arte. Gatilhos: 'gera uma imagem de', 'desenhe', 'crie uma foto de', 'cria uma arte de', 'imagine', 'me mostra como ficaria'. SEMPRE inclua um negative_prompt robusto bloqueando conteúdo NSFW, adulto, gore e violento para manter a resposta family-friendly.",
+      "textual_triggers": "Gatilhos: \"gera uma imagem de X\", \"desenhe Y\", \"crie uma foto de Z\", \"me mostre como seria\".",
+      "textual_args": "{ \"prompt\": \"descrição detalhada da imagem\", \"negative_prompt\": \"nsfw, nude, explicit, gore, violence, blood, adult content, 18+, pornographic, sexual, disturbing\" }",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "Descrição detalhada da imagem a ser gerada. Seja específico sobre estilo, cores, composição."
+          },
+          "negative_prompt": {
+            "type": "string",
+            "description": "O que NÃO deve aparecer na imagem. SEMPRE inclua: 'nsfw, nude, explicit, gore, violence, blood, adult content, 18+, pornographic, sexual, disturbing'"
+          },
+          "width": {
+            "type": "integer",
+            "description": "Largura da imagem em pixels (padrão: 1024, max: 1280)"
+          },
+          "height": {
+            "type": "integer",
+            "description": "Altura da imagem em pixels (padrão: 1024, max: 1280)"
+          }
+        },
+        "required": ["prompt", "negative_prompt"]
+      }
+    }
+  }
+]
+

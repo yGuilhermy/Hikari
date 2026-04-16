@@ -1,0 +1,69 @@
+[
+  {
+    "id": "geral",
+    "label": "🤖 Todos os Comandos",
+    "description": "Lista detalhada e explicativa de cada funcionalidade",
+    "commands": [
+      {
+        "title": "🧠 /ia_chat",
+        "content": "O comando principal de interação. Você envia um texto e a Hikari processa usando o modelo de IA configurado.\n\n**Uso:** `/ia_chat prompt:[seu texto] visibility:[público/privado]`\n\n- **Visibilidade:** Você pode escolher se a resposta será visível para todos ou apenas para você (ephemeral)."
+      },
+      {
+        "title": "🎨 /ia_imagem",
+        "content": "Gera imagens artísticas baseadas em descrições textuais.\n\n**Uso:** `/ia_imagem prompt:[descrição] negative_prompt:[o que evitar]`\n\n- **Provedores:** Suporta Stable Diffusion XL, Stability AI e outros dependendo da configuração do dono."
+      },
+      {
+        "title": "🎵 /baixar_musica",
+        "content": "Converte vídeos do YouTube em arquivos de áudio MP3 de alta qualidade e envia diretamente no chat usando yt-dlp.\n\n**Uso:** `/baixar_musica url:[link do youtube]`"
+      },
+      {
+        "title": "🎭 /chat_humor",
+        "content": "Ajusta a personalidade e o humor da Hikari especificamente para o canal atual.\n\n**Uso:** `/chat_humor instrucao:[texto] mood:[humor]`\n\n- Requer permissão de **Gerenciar Canais**."
+      },
+      {
+        "title": "📜 /chat_resumo",
+        "content": "A Hikari lê as últimas mensagens do canal e gera um resumo inteligente dos tópicos discutidos.\n\n**Uso:** `/chat_resumo quantidade:[nº de mensagens]` (Máximo 100)"
+      },
+      {
+        "title": "🗣️ /chat_espontaneo",
+        "content": "Configura o modo onde a Hikari pode enviar mensagens por conta própria baseada na atividade ou tempo de inatividade.\n\n**Uso:** `/chat_espontaneo estado:[on/off] frequencia:[alta/media/baixa]`\n\n- Restrito ao **Dono do Bot**."
+      },
+      {
+        "title": "🔍 /anime_origem",
+        "content": "Descobre qual é o anime, o episódio e o minuto exato de uma cena a partir de uma imagem enviada usando API do trace.moe.\n\n**Uso:** `/anime_origem imagem:[anexo]`"
+      },
+      {
+        "title": "🎮 /buscar_jogo",
+        "content": "Busca jogos em repositórios conhecidos (DODI/FitGirl) e retorna o link Magnet/Torrent.\n\n**Uso:** `/buscar_jogo nome:[título do jogo]`"
+      },
+      {
+        "title": "🛡️ /adm_automod",
+        "content": "Ativa ou desativa o sistema de bloqueio automático por palavras-chave em um servidor específico, Restrito ao **Dono do Bot**.\n\n**Uso:** `/adm_automod id:[server_id] ativo:[true/false]`"
+      },
+      {
+        "title": "🔨 /adm_banir",
+        "content": "Bane um usuário, servidor ou canal de interagir com a Hikari globalmente, Restrito ao **Dono do Bot**.\n\n**Uso:** `/adm_banir tipo:[user/guild/channel] id:[id] motivo:[texto]`"
+      },
+      {
+        "title": "⚙️ /ia_config",
+        "content": "Ajusta parâmetros técnicos da IA (Temperatura, Tokens, etc).\n\n- Restrito ao **Dono do Bot**."
+      },
+      {
+        "title": "📝 /ia_prompt",
+        "content": "Sobrescreve o System Prompt (personalidade base) do servidor atual.\n\n- Restrito ao **Dono do Bot**."
+      }
+    ]
+  },
+  {
+    "id": "regras",
+    "label": "⚖️ Regras & Termos",
+    "description": "Limitações e Termos de Uso da IA",
+    "answer": "⚖️ **Regras & Termos de Uso — Hikari** ⚖️\n\n🔹 **DIRETRIZES DE USO**\n1. **PROIBIDO CONTEÚDO NSFW:** Uso para pornografia ou violência extrema resulta em banimento.\n2. **ANTI-SPAM:** Não flode comandos.\n3. **RESPEITO:** Proibido discurso de ódio ou assédio.\n\n🔹 **PRIVACIDADE**\nSuas mensagens são processadas para gerar respostas e logs de segurança são mantidos para evitar abusos.\n\n🚨 **AVISO:** Violações podem resultar em banimento permanente de toda a rede Hikari."
+  },
+  {
+    "id": "sobre",
+    "label": "✨ Sobre o Projeto",
+    "description": "Informações e links do desenvolvimento",
+    "answer": "✨ **Hikari - Open Source Agent** ✨\n\nA Hikari é um projeto de bot multifuncional focado em IA e utilidades, agora totalmente de **Código Aberto**! Você pode baixar, modificar e hospedar sua própria versão.\n\n🚀 **GitHub:** [yGuilhermy/Hikari](https://github.com/yGuilhermy/Hikari)\n\n💙 **Criador:** Discord: <@593372065730396160>\nInstagram: [yGuilhermy](https://instagram.com/yguilhermy)\n**TikTok:** [@yguilhermy](https://tiktok.com/@yguilhermy)\n\nContribua com o projeto enviando issues ou sugerindo melhorias!"
+  }
+]

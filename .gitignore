@@ -1,0 +1,27 @@
+# 📦 Dependências
+node_modules/
+package-lock.json
+
+# 🔑 Segredos e Configurações de Usuário
+.env
+.env.local
+
+# 🗄️ Dados e Persistência (Ignorar tudo exceto estrutura base)
+src/data/*
+!src/data/help.json
+!src/data/mcp_tools.json
+
+# 🗑️ Temporários e Logs
+src/data/temp_images/
+src/data/temp_audio/
+*.log
+historico.txt
+
+# 🛠️ IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
