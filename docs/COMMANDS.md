@@ -11,6 +11,7 @@ Este documento detalha todos os comandos slash (/) disponíveis na Hikari, suas 
 3. [🎵 Multimídia & Utilidades](#-multimídia--utilidades)
 4. [🎮 Jogos & Downloads](#-jogos--downloads)
 5. [⚙️ Configuração & Administração](#-configuração--administração)
+6. [💡 Dicas de Especialista](#-dicas-de-especialista)
 
 ---
 
@@ -127,6 +128,15 @@ Sistema de banimento global da rede Hikari.
 - **Tipo:** Usuário, Servidor ou Canal.
 - **ID:** Identificador do alvo.
 - **Motivo:** Justificativa do bloqueio.
+
+---
+
+## 💡 Dicas de Especialista
+
+- 💡 **Privacidade em Primeiro Lugar:** Use o parâmetro `visibilidade: Privado` no comando `/ia_chat` para tratar de assuntos sensíveis ou evitar poluir o chat com textos longos da IA.
+- 💡 **Qualidade de Imagem:** Ao usar `/ia_imagem`, capriche no `negative_prompt` com termos como `blurry, deformed, low quality` para forçar a IA a gerar resultados mais nítidos.
+- 💡 **Multiversidade de IAs:** Se um provedor de imagem estiver lento, experimente trocar o `provider` manualmente. O `Pollinations` é geralmente o mais estável, enquanto o `Together` oferece modelos FLUX de alta fidelidade.
+- 💡 **Histórico de Contexto:** A Hikari "lembra" das últimas mensagens do canal. Use isso a seu favor ao pedir resumos ou continuar uma conversa sem precisar repetir tudo.
 
 ---
 
