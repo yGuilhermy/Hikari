@@ -4,6 +4,15 @@ Bem-vindo ao guia técnico de implantação da **Hikari**. Este documento detalh
 
 ---
 
+## 📂 Sumário
+
+1. [🖥️ 1. Requisitos do Sistema](#-1-requisitos-do-sistema)
+2. [📥 2. Instalação Passo a Passo](#-2-instalação-passo-a-passo)
+3. [🎮 3. Banco de Dados de Jogos (FitGirl & DODI)](#-3-banco-de-dados-de-jogos-fitgirl--dodi)
+4. [🚀 4. Execução](#-4-execução)
+
+---
+
 ## 🖥️ 1. Requisitos do Sistema
 
 Para uma operação estável, a instância deve atender aos seguintes requisitos:
@@ -61,7 +70,7 @@ A funcionalidade de busca de jogos (`/buscar_jogo`) não funciona por mágica; e
 
 ## 🚀 4. Execução
 
-Uma vez configurado o arquivo `.env` (Veja o [Guia de Configuração](./CONFIGURATION.md)), inicie o processo:
+Uma vez configurado o arquivo `.env` (Veja o [Guia de Ambiente](./ENVIRONMENT.md)), inicie o processo:
 
 ```bash
 # Modo standard

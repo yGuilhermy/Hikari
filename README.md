@@ -70,6 +70,8 @@ Para guias detalhados, dicas de configuração e funcionamento técnico, consult
 - [⚙️ **Configuração & Multi-Token**](./docs/CONFIGURATION.md): Como usar várias chaves e gerenciar donos.
 - [🛡️ **Segurança & AutoMod**](./docs/MODERATION.md): Entenda como funciona a proteção do bot.
 - [✨ **Lista de Funcionalidades**](./docs/FEATURES.md): O que e como pedir as coisas para a Hikari.
+- [🎮 **Guia de Comandos**](./docs/COMMANDS.md): Detalhes de todos os comandos Slash (/).
+- [🛠️ **Variáveis & APIs**](./docs/ENVIRONMENT.md): O que é cada campo do .env e onde pegar as keys.
 - [🛠️ **Sistema de Tools (MCP)**](./docs/ADVANCED.md): Documentação para desenvolvedores e ferramentas.
 
 ---

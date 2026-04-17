@@ -4,6 +4,15 @@ Este guia é voltado para desenvolvedores e entusiastas que desejam expandir o c
 
 ---
 
+## 📂 Sumário
+
+1. [🧰 1. Entendendo as "Tools" (Ferramentas)](#-1-entendo-as-tools-ferramentas)
+2. [📂 2. Como criar uma nova Ferramenta?](#-2-como-criar-uma-nova-ferramenta)
+3. [🏗️ 3. Personalizando a Alma (System Prompt)](#-3-personalizando-a-alma-system-prompt)
+4. [💡 Dicas de Desenvolvimento](#-dicas-de-desenvolvimento)
+
+---
+
 ## 🧰 1. Entendendo as "Tools" (Ferramentas)
 
 A Hikari não sabe fazer tudo sozinha. Ela utiliza "Tools" para estender suas capacidades. Quando a IA responde em formato JSON contendo um campo `tool`, o bot interrompe a resposta de texto e executa uma função programada.

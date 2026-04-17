@@ -4,6 +4,15 @@ A Hikari não é apenas um wrapper de chat. Ela é um ecossistema de processamen
 
 ---
 
+## 📂 Sumário
+
+1. [🧠 1. Inteligência Artificial: O Ciclo de Vida do Prompt](#-1-inteligência-artificial-o-ciclo-de-vida-do-prompt)
+2. [🎨 2. Geração de Imagens (Hierarquia de Provedores)](#-2-geração-de-imagens-hierarquia-de-provedores)
+3. [🎵 3. Processamento de Áudio e YouTube](#-3-processamento-de-áudio-e-youtube)
+4. [💡 Dicas de Uso Avançado](#-dicas-de-uso-avançado)
+
+---
+
 ## 🧠 1. Inteligência Artificial: O Ciclo de Vida do Prompt
 
 A Hikari processa todas as mensagens de IA através de uma **Fila Global (`processingQueue`)**.
@@ -49,6 +58,11 @@ Implementamos um sistema higiênico de download via `youtubeAudioHandler.js`.
 - 💡 **Resumo de Chat (`/chat_resumo`):** A IA lê as últimas N mensagens e cria um mapeamento sântico de quem falou o que e sobre quais tópicos. Excelente para gerenciar canais movimentados.
 - 💡 **Trace.moe Integration:** A função `/anime_origem` permite que você encontre animes apenas enviando um frame. Ela retorna o título, episódio e o timestamp aproximado.
 - 💡 **Busca de Jogos:** Ao usar `/buscar_jogo`, a Hikari pesquisa links Magnéticos em bancos de dados FitGirl e DODI com prioridade para seeds saudáveis.
+
+---
+
+> [!TIP]
+> Para ver a lista completa de comandos e explicações detalhadas, veja o [Guia de Comandos](./COMMANDS.md).
 
 ---
 

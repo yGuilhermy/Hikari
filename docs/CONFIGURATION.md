@@ -4,6 +4,15 @@ Este documento aborda a arquitetura de configuração da Hikari, focando na resi
 
 ---
 
+## 📂 Sumário
+
+1. [🔑 1. Arquitetura Multi-Token](#-1-arquitetura-multi-token)
+2. [👑 2. Sistema de Governança (Multi-Owner)](#-2-sistema-de-governança-multi-owner)
+3. [🛠️ 3. Mapeamento de Configurações](#-3-mapeamento-de-configurações-srcconfigindexjs)
+4. [💡 Dicas de Configuração Avançada](#-dicas-de-configuração-avançada)
+
+---
+
 ## 🔑 1. Arquitetura Multi-Token
 
 Para contornar limites de taxa (Rate Limits) impostos por provedores como Google e Stability, implementamos um sistema de **Key Rotation** no core do bot.

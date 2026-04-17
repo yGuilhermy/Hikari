@@ -4,6 +4,15 @@ A Hikari opera sob uma filosofia de "Sanidade como Serviço". Este documento exp
 
 ---
 
+## 📂 Sumário
+
+1. [⚖️ 1. O Fluxo de Termos de Serviço (TOS)](#-1-o-fluxo-de-termos-de-serviço-tos)
+2. [🛡️ 2. Hierarquia do AutoMod](#-2-hierarquia-do-automod-automated-blocking)
+3. [🔨 3. Comandos de Administração Remota](#-3-comandos-de-administração-remota)
+4. [💡 Dicas de Moderação e Segurança](#-dicas-de-moderação-e-segurança)
+
+---
+
 ## ⚖️ 1. O Fluxo de Termos de Serviço (TOS)
 
 Ao ser adicionada a uma guilda, se `REQUIRE_TOS` estiver ativo:
