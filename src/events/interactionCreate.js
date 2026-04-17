@@ -24,6 +24,7 @@ const { downloadYouTubeAudio, sanitizeFilenameForDiscord } = require('../handler
 const { executeGameCommand } = require('../handlers/gameHandler');
 const { handleSauceCommand } = require('../handlers/sauceHandler');
 const { getSteamGameInfo } = require('../handlers/steamHandler');
+const { convertCurrency } = require('../handlers/currencyHandler');
 const { generateResponse } = require('../handlers/llmHandler');
 module.exports = {
     name: 'interactionCreate',
@@ -545,6 +546,58 @@ module.exports = {
             } catch (error) {
                 console.error('Erro no comando steam_jogo:', error);
                 await interaction.editReply('❌ Erro ao processar a consulta da Steam.');
+            }
+        } else if (commandName === 'converter_moeda') {
+            const amount = interaction.options.getNumber('valor');
+            const from = interaction.options.getString('de');
+            const to = interaction.options.getString('para');
+            await interaction.deferReply();
+            
+            try {
+                const convInfo = await convertCurrency(amount, from, to);
+                if (convInfo.error) {
+                    return await interaction.editReply(`❌ ${convInfo.error}`);
+                }
+
+                const amountFormatted = Number(convInfo.amount).toLocaleString('pt-BR');
+                const resultFormatted = Number(convInfo.result).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const rateFormatted = Number(convInfo.rate).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                
+                const convEmbed = new EmbedBuilder()
+                    .setColor(0x2ECC71)
+                    .setTitle(`Conversão de Moedas: ${convInfo.name}`)
+                    .setDescription(`**${amountFormatted} ${convInfo.from}** equivale a **${resultFormatted} ${convInfo.to}**`)
+                    .addFields(
+                        { name: 'Cotação (' + convInfo.from + ')', value: `1 ${convInfo.from} = ${rateFormatted} ${convInfo.to}`, inline: true },
+                        { name: 'Última Atualização', value: convInfo.lastUpdate || 'Desconhecida', inline: true }
+                    )
+                    .setFooter({ text: 'Fonte: AwesomeAPI • Hikari' })
+                    .setTimestamp();
+                    
+                let hikariComment = "";
+                try {
+                    const commentPrompt = `Eu acabei de converter ${convInfo.amount} ${convInfo.from} para ${convInfo.to} via comando manual. O resultado foi ${resultFormatted}. Faça um comentário CURTO (máximo 15 palavras) e bem casual sobre isso, na sua personalidade. (Apenas o texto, sem JSON).`;
+                    const rawComment = await generateResponse(commentPrompt, interaction.channelId, { allowSearch: false, disableTools: true, guildId: interaction.guildId, isInternalComment: true });
+                    
+                    if (rawComment && !rawComment.includes('⚠️ SYSTEM ERROR')) {
+                        let cleanData = rawComment.replace(/\n-# .*$/gm, '').trim();
+                        const jsonMatch = cleanData.match(/\{[\s\S]*\}/);
+                        if (jsonMatch) {
+                            try {
+                                const parsed = JSON.parse(jsonMatch[0]);
+                                cleanData = parsed.response || parsed.content || parsed.text || parsed.reply || cleanData;
+                            } catch (e) {}
+                        }
+                        hikariComment = cleanData;
+                    }
+                } catch (e) {
+                    console.warn('[CurrencyCommand] Falha ao gerar comentário IA:', e.message);
+                }
+
+                await interaction.editReply({ content: hikariComment || null, embeds: [convEmbed] });
+            } catch (error) {
+                console.error('Erro no comando converter_moeda:', error);
+                await interaction.editReply('❌ Erro ao tentar converter essa moeda.');
             }
         }
     },

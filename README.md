@@ -26,8 +26,9 @@ Eu não sou apenas um bot de chat comum! Eu sou uma **Agente Autônoma** capaz d
 - **🧠 Cérebro Avançado**: Suporte a múltiplos modelos através de **Gemini**, **LM Studio (Local)** e **HuggingFace**. Minha personalidade é natural e adaptável!
 - **🌍 Pesquisa Inteligente**: Se eu não souber algo, eu pesquiso na internet em tempo real, leio os sites e te trago um resumo mastigadinho.
 - **🎵 DJ Particular**: Baixe e ouça suas músicas favoritas do YouTube diretamente no Discord.
-- **🎮 Cantinho dos Games**: Procuro torrents e magnets de jogos (Dodi/Fitgirl) para você não perder tempo.
+- **🎮 Cantinho dos Games**: Procuro torrents e magnets de jogos (Dodi/Fitgirl) e consulto nativamente a **Steam** para te dar preços e detalhes técnicos.
 - **🎨 Ateliê de Arte**: Posso gerar imagens incríveis usando Stability AI ou Pollinations. Basta pedir!
+- **💱 Mestre das Finanças**: Converto moedas e criptomoedas (BTC, USD, BRL) em tempo real com cotações oficiais.
 - **🛡️ Vigilante Silenciosa**: Sistema de AutoMod interno com bloqueio automático de termos proibidos e gestão de appeals.
 
 ---

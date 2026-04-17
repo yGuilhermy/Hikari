@@ -83,6 +83,15 @@ Identifica um anime através de um print/imagem.
 - **URL:** Link direto para a imagem.
 - **Advanced:** Usa a API Trace.moe para encontrar o episódio e o tempo exato da cena.
 
+### `/converter_moeda`
+
+Converte moedas fiduciárias e criptomoedas em tempo real.
+
+- **Valor:** Montante numérico a ser convertido.
+- **De:** Código de origem (Ex: USD, EUR, BTC).
+- **Para:** Código de destino (Ex: BRL).
+- **Advanced:** Usa a API de câmbio oficial para dar a cotação exata atual. Integrado na IA (você pode apenas perguntar via chat).
+
 ---
 
 ## 🎮 Jogos & Downloads

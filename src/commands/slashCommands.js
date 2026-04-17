@@ -292,6 +292,23 @@ const commands = [
                     .setDescription('O nome do jogo que você quer consultar.')
                     .setRequired(true))
     ),
+    setGlobalContext(
+        new SlashCommandBuilder()
+            .setName('converter_moeda')
+            .setDescription('Converte valores entre diferentes moedas e criptomoedas.')
+            .addNumberOption(option =>
+                option.setName('valor')
+                    .setDescription('O valor numérico para converter.')
+                    .setRequired(true))
+            .addStringOption(option =>
+                option.setName('de')
+                    .setDescription('Código da moeda de origem (Ex: USD, BTC, EUR).')
+                    .setRequired(true))
+            .addStringOption(option =>
+                option.setName('para')
+                    .setDescription('Código da moeda de destino (Ex: BRL).')
+                    .setRequired(true))
+    ),
 ].map(command => command.toJSON());
 async function registerCommands(client, rest) {
     try {

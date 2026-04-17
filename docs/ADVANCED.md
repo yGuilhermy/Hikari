@@ -56,6 +56,8 @@ A personalidade da Hikari não é apenas texto; é um conjunto de diretrizes de 
 
 - 💡 **Logs de Pensamento (Thought Trace):** Observe o console. A Hikari imprime o `"thought"` da IA antes de cada ação de ferramenta. Se ela estiver "alucinando", ajuste a descrição da ferramenta no JSON.
 - 💡 **Permissions:** Ao criar ferramentas que deletam mensagens ou gerenciam cargos, certifique-se de que o Bot tem essas permissões no Discord, caso contrário, a `discord.js` lançará um erro de `Missing Permissions`.
+- 💡 **Sanitização de JSON:** Sempre passe as saídas da IA por um filtro de `JSON.parse` se você estiver pedindo logs estruturados, pois modelos menores podem "vazar" chaves como `{"resposta": "..."}` no meio do texto.
+- 💡 **Comentários Internos (Internal Comments):** O bot usa chamadas recursivas (`isInternalComment: true`) para gerar falas naturais após o uso de ferramentas, garantindo que a IA sempre tenha uma "voz" humana após processar dados brutos.
 - 💡 **Isolamento de Erros:** Sempre use `try-catch` em volta de novas ferramentas. Uma ferramenta mal implementada pode derrubar todo o processo do bot se não for tratada.
 
 ---

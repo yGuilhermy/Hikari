@@ -167,5 +167,28 @@
         "required": ["game"]
       }
     }
+  },
+  {
+    "meta": {
+      "label": "💱 Conversor de Moedas",
+      "description": "Converte valores monetários usando cotações em tempo real.",
+      "disableable": true
+    },
+    "type": "function",
+    "function": {
+      "name": "convert_currency",
+      "description": "CRÍTICO: Use APENAS esta ferramenta quando o usuário perguntar o preço, valor ou cotação de moedas (Dólar, Euro, Bitcoin, etc) ou pedir conversões. NUNCA use search_web para ver valor de moeda. Se o usuário NÃO disser para qual moeda converter (ex: 'qual o valor do bitcoin?'), ASSUMA que o destino ('to') é BRL (Real). Você deve prover o valor numérico, a moeda de origem ('from') e a de destino ('to') nos formatos exatos ou abreviações (USD, BRL, EUR, BTC, etc).",
+      "textual_triggers": "Gatilhos: \"quanto é X dolares em reais\", \"converte 50 euros para real\", \"qual o preço do bitcoin\", \"valor do dolar\"",
+      "textual_args": "{ \"amount\": 1, \"from\": \"BTC\", \"to\": \"BRL\" }",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "amount": { "type": "number", "description": "Valor numérico a ser convertido" },
+          "from": { "type": "string", "description": "Código da moeda de origem (ex: USD, BRL, EUR, BTC)" },
+          "to": { "type": "string", "description": "Código da moeda de destino (ex: USD, BRL, EUR, BTC)" }
+        },
+        "required": ["amount", "from", "to"]
+      }
+    }
   }
 ]

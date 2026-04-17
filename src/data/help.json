@@ -41,6 +41,11 @@
         "content": "Consulta preço, informações e sinopse de um jogo diretamente na loja da Steam.\n\n**Uso:** `/steam_jogo nome:[nome do jogo]`"
       },
       {
+        "title": "💱 /converter_moeda",
+        "content": "Converte valores monetários usando cotações em tempo real (Fiduciárias e Cripto).\n\n**Uso:** `/converter_moeda valor:[valor] de:[moeda orig] para:[moeda dest]`"
+      },
+
+      {
         "title": "🛡️ /adm_automod",
         "content": "Ativa ou desativa o sistema de bloqueio automático por palavras-chave em um servidor específico, Restrito ao **Dono do Bot**.\n\n**Uso:** `/adm_automod id:[server_id] ativo:[true/false]`"
       },

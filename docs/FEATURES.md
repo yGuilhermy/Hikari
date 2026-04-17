@@ -58,6 +58,7 @@ Implementamos um sistema higiênico de download via `youtubeAudioHandler.js`.
 - 💡 **Resumo de Chat (`/chat_resumo`):** A IA lê as últimas N mensagens e cria um mapeamento sântico de quem falou o que e sobre quais tópicos. Excelente para gerenciar canais movimentados.
 - 💡 **Trace.moe Integration:** A função `/anime_origem` permite que você encontre animes apenas enviando um frame. Ela retorna o título, episódio e o timestamp aproximado.
 - 💡 **Busca de Jogos e Preços da Steam:** A Hikari não apenas busca links Magnéticos em bancos de dados FitGirl/DODI, mas também pode consultar nativamente a **Steam**! Basta perguntar naturalmente como "O Elden Ring está em promoção na Steam?" e ela retornará dados atualizados, preços e sinopse, tudo direto do chat.
+- 💡 **Conversor de Moedas e Cripto:** Converta qualquer valor entre moedas reais (BRL, USD, EUR) ou cripto (BTC, ETH) apenas perguntando "quanto tá o bitcoin hoje?". Ela usa APIs financeiras de tempo real para garantir precisão matemática.
 
 ---
 

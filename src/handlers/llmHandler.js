@@ -8,6 +8,7 @@ const { downloadYouTubeAudio, sanitizeFilenameForDiscord } = require('./youtubeA
 const { searchGames, getTorrentOrMagnet } = require('./gameHandler');
 const { generateImage } = require('./imageHandler');
 const { getSteamGameInfo } = require('./steamHandler');
+const { convertCurrency } = require('./currencyHandler');
 require('dotenv').config();
 const config = require('../config');
 const mcpToolsPath = path.join(__dirname, '../data/mcp_tools.json');
@@ -100,6 +101,7 @@ function buildToolsDefinition(guildId) {
         show_bot_menu:   'User: "quais seus comandos?"\nResponse: { "thought": "User quer ajuda.", "tool": "show_bot_menu", "args": { "context": "geral" } }',
         generate_image:  'User: "gera uma imagem de um gato spacial"\nResponse: { "thought": "User quer uma imagem gerada por IA.", "tool": "generate_image", "args": { "prompt": "a space cat floating in galaxy, cinematic, detailed fur, neon lights", "negative_prompt": "nsfw, nude, explicit, gore, violence, blood, adult content, 18+, pornographic, sexual, disturbing, hentai, r18" } }',
         check_steam:     'User: "Elden Ring ta em promo na steam?"\nResponse: { "thought": "User quer saber preço de Elden Ring.", "tool": "check_steam", "args": { "game": "Elden Ring" } }',
+        convert_currency:'User: "quanto ta 50 dolares em reais?"\nResponse: { "thought": "User quer converter 50 USD para BRL.", "tool": "convert_currency", "args": { "amount": 50, "from": "USD", "to": "BRL" } }',
     };
     for (const [name, example] of Object.entries(examplesMap)) {
         if (!disabled.includes(name)) exampleList += `\n${example}\n`;
@@ -1084,7 +1086,7 @@ async function processQueue() {
                     keys.tool = null;
                     if (toolData.tool) toolData.tool = null;
                 }
-                const userResponse = keys.response || keys.reply || keys.content || keys.answer || keys.text;
+                const userResponse = keys.response || keys.reply || keys.content || keys.answer || keys.text || keys.resposta || keys.mensagem;
                 if (userResponse && !keys.tool) {
                     processedResponse = userResponse;
                     if (modelFooter) processedResponse += modelFooter;
@@ -1280,7 +1282,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                         let hikariComment = `Ok, puxei as informações sobre **${steamInfo.name}** pra você! Está custando ${steamInfo.price}.`;
                         
                         try {
-                            const commentPrompt = `Eu acabei de consultar o jogo "${steamInfo.name}" na Steam. O preço atual é ${steamInfo.price} e o lançamento foi em ${steamInfo.releaseDate}. Faça um comentário CURTO (máximo 15 palavras) e bem casual sobre isso, na sua personalidade. (NÃO gere json nem responda pedindo, apenas diga a fala natural).`;
+                            const commentPrompt = `Eu acabei de consultar o jogo "${steamInfo.name}" na Steam. O preço atual é ${steamInfo.price} e o lançamento foi em ${steamInfo.releaseDate}. Faça um comentário CURTO (máximo 15 palavras) e bem casual sobre isso, colocando o valor na resposta, na sua personalidade de forma natural. (NÃO gere json nem responda pedindo, apenas diga a fala natural).`;
                             const rawComment = await generateResponse(commentPrompt, channelId, { allowSearch: false, disableTools: true, guildId, isInternalComment: true });
                             if (rawComment && !rawComment.includes('⚠️ SYSTEM ERROR')) {
                                 let cleanData = rawComment.replace(/\n-# .*$/gm, '').trim();
@@ -1288,7 +1290,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                                 if (jsonMatch) {
                                     try {
                                         const parsed = JSON.parse(jsonMatch[0]);
-                                        cleanData = parsed.response || parsed.content || parsed.text || parsed.reply || cleanData;
+                                        cleanData = parsed.response || parsed.content || parsed.text || parsed.reply || parsed.resposta || parsed.mensagem || (Object.keys(parsed).length === 1 ? Object.values(parsed)[0] : cleanData);
                                     } catch (e) {}
                                 }
                                 hikariComment = cleanData;
@@ -1304,6 +1306,58 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                         addToHistory(channelId, 'user', prompt);
                         addToHistory(channelId, 'assistant', `[Consulta Steam: ${steamInfo.name}] ${hikariComment}`);
                         savePromptToHistory(prompt, userTag, userId, `[TOOL: CHECK_STEAM - "${steamInfo.name}"]`, interaction);
+                        return;
+                    }
+                }
+                if (toolData.tool === 'convert_currency') {
+                    const { amount, from, to } = toolData.args;
+                    await unifiedReply(`💱 **(Tool Use)** Convertendo **${amount} ${from}** para **${to}**...\n*Pensamento: ${toolData.thought || 'Consultando câmbio'}*`);
+                    const convInfo = await convertCurrency(amount, from, to);
+                    
+                    if (convInfo.error) {
+                        processedResponse = convInfo.error;
+                    } else {
+                        const amountFormatted = Number(convInfo.amount).toLocaleString('pt-BR');
+                        const resultFormatted = Number(convInfo.result).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        const rateFormatted = Number(convInfo.rate).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                        const convEmbed = new EmbedBuilder()
+                            .setColor(0x2ECC71)
+                            .setTitle(`Conversão de Moedas: ${convInfo.name}`)
+                            .setDescription(`**${amountFormatted} ${convInfo.from}** equivale a **${resultFormatted} ${convInfo.to}**`)
+                            .addFields(
+                                { name: 'Cotação (' + convInfo.from + ')', value: `1 ${convInfo.from} = ${rateFormatted} ${convInfo.to}`, inline: true },
+                                { name: 'Última Atualização', value: convInfo.lastUpdate || 'Desconhecida', inline: true }
+                            )
+                            .setFooter({ text: 'Fonte: AwesomeAPI • Hikari' })
+                            .setTimestamp();
+                            
+                        let hikariComment = `Pronto! Deu **${resultFormatted} ${convInfo.to}** na cotação atual.`;
+                        
+                        try {
+                            const commentPrompt = `Eu acabei de converter ${convInfo.amount} ${convInfo.from} para ${convInfo.to}. O resultado foi ${resultFormatted}. Faça um comentário CURTO (máximo 15 palavras) e bem casual sobre isso, na sua personalidade. (NÃO gere json nem responda pedindo, apenas diga a fala natural).`;
+                            const rawComment = await generateResponse(commentPrompt, channelId, { allowSearch: false, disableTools: true, guildId, isInternalComment: true });
+                            if (rawComment && !rawComment.includes('⚠️ SYSTEM ERROR')) {
+                                let cleanData = rawComment.replace(/\n-# .*$/gm, '').trim();
+                                const jsonMatch = cleanData.match(/\{[\s\S]*\}/);
+                                if (jsonMatch) {
+                                    try {
+                                        const parsed = JSON.parse(jsonMatch[0]);
+                                        cleanData = parsed.response || parsed.content || parsed.text || parsed.reply || parsed.resposta || parsed.mensagem || (Object.keys(parsed).length === 1 ? Object.values(parsed)[0] : cleanData);
+                                    } catch (e) {}
+                                }
+                                hikariComment = cleanData;
+                            }
+                        } catch (e) {
+                            console.warn('Erro ao gerar comentario currency', e.message);
+                        }
+
+                        const payload = { content: hikariComment, embeds: [convEmbed], files: [] };
+                        if (type === 'mention') await replyMessage.edit(payload);
+                        else await interaction.editReply(payload);
+                        
+                        addToHistory(channelId, 'user', prompt);
+                        addToHistory(channelId, 'assistant', `[Converteu ${convInfo.amount} ${convInfo.from} para ${convInfo.to} -> ${resultFormatted}] ${hikariComment}`);
+                        savePromptToHistory(prompt, userTag, userId, `[TOOL: CONVERT_CURRENCY - "${amount} ${from} -> ${to}"]`, interaction);
                         return;
                     }
                 }
@@ -1355,7 +1409,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                                         if (jsonMatch) {
                                             try {
                                                 const parsed = JSON.parse(jsonMatch[0]);
-                                                cleanData = parsed.response || parsed.content || parsed.text || parsed.reply || cleanData;
+                                                cleanData = parsed.response || parsed.content || parsed.text || parsed.reply || parsed.resposta || parsed.mensagem || (Object.keys(parsed).length === 1 ? Object.values(parsed)[0] : cleanData);
                                             } catch (e) {}
                                         }
                                         hikariComment = cleanData;
