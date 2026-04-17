@@ -205,6 +205,40 @@ module.exports = {
                     .slice(0, 25);
                 return interaction.respond(choices);
             }
+            if (interaction.commandName === 'converter_moeda') {
+                const CURRENCIES = [
+                    { name: '🇧🇷 BRL — Real Brasileiro',            value: 'BRL' },
+                    { name: '🇺🇸 USD — Dólar Americano',           value: 'USD' },
+                    { name: '🇪🇺 EUR — Euro',                       value: 'EUR' },
+                    { name: '🇬🇧 GBP — Libra Esterlina',            value: 'GBP' },
+                    { name: '💹 BTC — Bitcoin',                     value: 'BTC' },
+                    { name: '💸 ETH — Ethereum',                    value: 'ETH' },
+                    { name: '💵 USDT — Tether',                    value: 'USDT' },
+                    { name: '🇯🇵 JPY — Iene Japonês',              value: 'JPY' },
+                    { name: '🇨🇦 CAD — Dólar Canadense',           value: 'CAD' },
+                    { name: '🇨🇭 CHF — Franco Suíço',              value: 'CHF' },
+                    { name: '🇦🇺 AUD — Dólar Australiano',         value: 'AUD' },
+                    { name: '🇨🇳 CNY — Yuan Chinês',               value: 'CNY' },
+                    { name: '🇰🇷 KRW — Won Sul-Coreano',           value: 'KRW' },
+                    { name: '🇲🇽 MXN — Peso Mexicano',             value: 'MXN' },
+                    { name: '🇦🇷 ARS — Peso Argentino',             value: 'ARS' },
+                    { name: '🇨🇱 CLP — Peso Chileno',               value: 'CLP' },
+                    { name: '🇨🇴 COP — Peso Colombiano',            value: 'COP' },
+                    { name: '🇺🇾 UAH — Hryvnia Ucraniana',          value: 'UAH' },
+                    { name: '🇷🇺 RUB — Rublo Russo',                value: 'RUB' },
+                    { name: '🇮🇳 INR — Rupia Indiana',              value: 'INR' },
+                    { name: '🇳🇿 NZD — Dólar Neozelandês',         value: 'NZD' },
+                    { name: '🇸🇬 SGD — Dólar de Singapura',       value: 'SGD' },
+                    { name: '🇸🇦 SAR — Riyal Saudita',              value: 'SAR' },
+                    { name: '🧩 SOL — Solana',                      value: 'SOL' },
+                    { name: '🧩 BNB — BNB (Binance)',                value: 'BNB' },
+                ];
+                const focused = interaction.options.getFocused().toUpperCase();
+                const filtered = CURRENCIES
+                    .filter(c => c.value.includes(focused) || c.name.toUpperCase().includes(focused))
+                    .slice(0, 25);
+                return interaction.respond(filtered);
+            }
             return;
         }
         const { commandName } = interaction;
@@ -503,7 +537,7 @@ module.exports = {
                 if (finalDesc.length > 3900) finalDesc = finalDesc.substring(0, 3900) + '...';
 
                 const steamEmbed = new EmbedBuilder()
-                    .setColor(0x1B2838)
+                    .setColor(0x9B59B6)
                     .setTitle(steamInfo.name)
                     .setURL(steamInfo.url)
                     .setDescription(finalDesc)

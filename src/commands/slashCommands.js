@@ -303,11 +303,13 @@ const commands = [
             .addStringOption(option =>
                 option.setName('de')
                     .setDescription('Código da moeda de origem (Ex: USD, BTC, EUR).')
-                    .setRequired(true))
+                    .setRequired(true)
+                    .setAutocomplete(true))
             .addStringOption(option =>
                 option.setName('para')
                     .setDescription('Código da moeda de destino (Ex: BRL).')
-                    .setRequired(true))
+                    .setRequired(true)
+                    .setAutocomplete(true))
     ),
 ].map(command => command.toJSON());
 async function registerCommands(client, rest) {
