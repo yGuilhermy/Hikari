@@ -5,7 +5,7 @@ function updateBotActivity(clientInstance, queueLength) {
         clientInstance.user.setActivity(`a fila de ${queueLength} pessoas`, { type: ActivityType.Watching });
         clientInstance.user.setStatus('dnd');
     } else {
-        clientInstance.user.setActivity('"Hikari" (光) em japonês significa "luz" | Stable v3.0 Beta', { type: ActivityType.Watching });
+        clientInstance.user.setActivity('"Hikari" (光) em japonês significa "luz" | Agora de Código Aberto', { type: ActivityType.Watching });
         clientInstance.user.setStatus('dnd');
     }
 }

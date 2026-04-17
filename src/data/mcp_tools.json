@@ -143,6 +143,29 @@
         "required": ["prompt", "negative_prompt"]
       }
     }
+  },
+  {
+    "meta": {
+      "label": "🎮 Consulta na Steam",
+      "description": "Busca informações, status e preço de um jogo na Steam",
+      "disableable": true
+    },
+    "type": "function",
+    "function": {
+      "name": "check_steam",
+      "description": "Use APENAS quando o usuário quiser saber o preço, se está em promoção, a sinopse, pontuação ou informações gerais de um jogo na Steam. Não use se o foco for apenas baixar o jogo pirata e ele já souber o que é.",
+      "textual_triggers": "Gatilhos: \"qual o preço de x\", \"x está em promoção?\", \"sobre o que é o jogo x na steam\", \"como tá o jogo x na loja\"",
+      "textual_args": "{ \"game\": \"Nome do jogo\" }",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "game": {
+            "type": "string",
+            "description": "Nome do jogo para pesquisar na Steam"
+          }
+        },
+        "required": ["game"]
+      }
+    }
   }
 ]
-

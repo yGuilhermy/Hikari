@@ -10,8 +10,9 @@ Este documento detalha todos os comandos slash (/) disponíveis na Hikari, suas 
 2. [🎨 Imagens & Arte](#-imagens--arte)
 3. [🎵 Multimídia & Utilidades](#-multimídia--utilidades)
 4. [🎮 Jogos & Downloads](#-jogos--downloads)
-5. [⚙️ Configuração & Administração](#-configuração--administração)
-6. [💡 Dicas de Especialista](#-dicas-de-especialista)
+5. [🏪 Consulta na Loja](#-consulta-na-loja)
+6. [⚙️ Configuração & Administração](#-configuração--administração)
+7. [💡 Dicas de Especialista](#-dicas-de-especialista)
 
 ---
 
@@ -92,6 +93,17 @@ Procura torrents/magnets de jogos.
 
 - **Nome:** Título do jogo.
 - **Advanced:** Pesquisa nas bases de dados da FitGirl e DODI Repacks.
+
+---
+
+## 🏪 Consulta na Loja
+
+### `/steam_jogo`
+
+Consulta informações oficiais, preço e status na loja da Steam.
+
+- **Nome:** Nome do jogo para pesquisar.
+- **Advanced:** Retorna preço regional, porcentagem de desconto, desenvolvedores e pontuação do Metacritic. A IA fará um pequeno comentário sobre o preço ou o jogo se os servidores estiverem online.
 
 ---
 

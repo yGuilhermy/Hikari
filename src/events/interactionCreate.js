@@ -23,6 +23,8 @@ const { generateImage } = require('../handlers/imageHandler');
 const { downloadYouTubeAudio, sanitizeFilenameForDiscord } = require('../handlers/youtubeAudioHandler');
 const { executeGameCommand } = require('../handlers/gameHandler');
 const { handleSauceCommand } = require('../handlers/sauceHandler');
+const { getSteamGameInfo } = require('../handlers/steamHandler');
+const { generateResponse } = require('../handlers/llmHandler');
 module.exports = {
     name: 'interactionCreate',
     once: false,
@@ -486,6 +488,64 @@ module.exports = {
             if (!config.isOwner(interaction.user.id)) return interaction.reply({ content: '❌ Restrito.', ephemeral: true });
             setAutoBlock(interaction.options.getString('id'), interaction.options.getBoolean('ativo'));
             await interaction.reply({ content: '🛡️ AutoMod atualizado.', ephemeral: true });
+        } else if (commandName === 'steam_jogo') {
+            const query = interaction.options.getString('nome');
+            await interaction.deferReply();
+            
+            try {
+                const steamInfo = await getSteamGameInfo(query);
+                if (steamInfo.error) {
+                    return await interaction.editReply(`❌ ${steamInfo.error}`);
+                }
+
+                let finalDesc = steamInfo.description || "Sem sinopse válida.";
+                if (finalDesc.length > 3900) finalDesc = finalDesc.substring(0, 3900) + '...';
+
+                const steamEmbed = new EmbedBuilder()
+                    .setColor(0x1B2838)
+                    .setTitle(steamInfo.name)
+                    .setURL(steamInfo.url)
+                    .setDescription(finalDesc)
+                    .addFields(
+                        { name: 'Preço', value: steamInfo.discount > 0 ? `~~${steamInfo.originalPrice}~~ **${steamInfo.price}** (-${steamInfo.discount}%)` : steamInfo.price, inline: true },
+                        { name: 'Lançamento', value: steamInfo.releaseDate, inline: true },
+                        { name: 'Desenvolvedor', value: steamInfo.developers, inline: true }
+                    )
+                    .setFooter({ text: 'Fonte: Loja da Steam • Hikari' })
+                    .setTimestamp();
+
+                if (steamInfo.headerImage) {
+                    steamEmbed.setImage(steamInfo.headerImage);
+                }
+                if (steamInfo.metacritic) {
+                    steamEmbed.addFields({ name: 'Metacritic', value: `${steamInfo.metacritic}/100 🌟`, inline: true });
+                }
+
+                let hikariComment = "";
+                try {
+                    const commentPrompt = `Eu acabei de consultar o jogo "${steamInfo.name}" na Steam via comando manual. O preço atual é ${steamInfo.price}. Faça um comentário CURTO (máximo 15 palavras) e bem casual sobre isso, na sua personalidade. (Apenas o texto, sem JSON).`;
+                    const rawComment = await generateResponse(commentPrompt, interaction.channelId, { allowSearch: false, disableTools: true, guildId: interaction.guildId, isInternalComment: true });
+                    
+                    if (rawComment && !rawComment.includes('⚠️ SYSTEM ERROR')) {
+                        let cleanData = rawComment.replace(/\n-# .*$/gm, '').trim();
+                        const jsonMatch = cleanData.match(/\{[\s\S]*\}/);
+                        if (jsonMatch) {
+                            try {
+                                const parsed = JSON.parse(jsonMatch[0]);
+                                cleanData = parsed.response || parsed.content || parsed.text || parsed.reply || cleanData;
+                            } catch (e) {}
+                        }
+                        hikariComment = cleanData;
+                    }
+                } catch (e) {
+                    console.warn('[SteamCommand] Falha ao gerar comentário IA:', e.message);
+                }
+
+                await interaction.editReply({ content: hikariComment || null, embeds: [steamEmbed] });
+            } catch (error) {
+                console.error('Erro no comando steam_jogo:', error);
+                await interaction.editReply('❌ Erro ao processar a consulta da Steam.');
+            }
         }
     },
 };

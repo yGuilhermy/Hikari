@@ -283,6 +283,15 @@ const commands = [
                     .setDescription('Reabilita todas as tools desabilitadas neste servidor.')
             )
     ),
+    setGlobalContext(
+        new SlashCommandBuilder()
+            .setName('steam_jogo')
+            .setDescription('Consulte o preço e informações de um jogo diretamente na Steam.')
+            .addStringOption(option =>
+                option.setName('nome')
+                    .setDescription('O nome do jogo que você quer consultar.')
+                    .setRequired(true))
+    ),
 ].map(command => command.toJSON());
 async function registerCommands(client, rest) {
     try {

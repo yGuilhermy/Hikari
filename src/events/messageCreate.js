@@ -45,8 +45,10 @@ module.exports = {
                     const authorName = msg.author.id === client.user.id ? 'Você (Hikari)' : `${msg.author.username} (${msg.author.id})`;
                     history.push(`${authorName}: ${resolveMentions(msg.content, client)}`);
                 }
+                const currentDate = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
                 const finalPrompt = `
 --- CONTEXTO DO CHAT ---
+Data atual: ${currentDate}
 ${history.join('\n')}
 --- FIM DO CONTEXTO ---
 --- MENSAGEM ATUAL ---
@@ -88,8 +90,10 @@ INSTRUÇÃO: Responda diretamente à mensagem atual considerando o contexto.`;
                             const authorName = msg.author.id === client.user.id ? 'Você (Hikari)' : `${msg.author.username} (${msg.author.id})`;
                             history.push(`${authorName}: ${resolveMentions(msg.content, client)}`);
                         });
+                        const currentDate = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
                         const finalPrompt = `
 --- CONTEXTO DO CHAT ---
+Data atual: ${currentDate}
 ${history.join('\n')}
 --- MENSAGEM ATUAL ---
 ${message.author.username}: "${currentUserPrompt}"

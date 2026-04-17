@@ -37,6 +37,10 @@
         "content": "Busca jogos em repositórios conhecidos (DODI/FitGirl) e retorna o link Magnet/Torrent.\n\n**Uso:** `/buscar_jogo nome:[título do jogo]`"
       },
       {
+        "title": "🏪 /steam_jogo",
+        "content": "Consulta preço, informações e sinopse de um jogo diretamente na loja da Steam.\n\n**Uso:** `/steam_jogo nome:[nome do jogo]`"
+      },
+      {
         "title": "🛡️ /adm_automod",
         "content": "Ativa ou desativa o sistema de bloqueio automático por palavras-chave em um servidor específico, Restrito ao **Dono do Bot**.\n\n**Uso:** `/adm_automod id:[server_id] ativo:[true/false]`"
       },

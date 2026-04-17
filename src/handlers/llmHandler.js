@@ -7,6 +7,7 @@ const { AttachmentBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuild
 const { downloadYouTubeAudio, sanitizeFilenameForDiscord } = require('./youtubeAudioHandler');
 const { searchGames, getTorrentOrMagnet } = require('./gameHandler');
 const { generateImage } = require('./imageHandler');
+const { getSteamGameInfo } = require('./steamHandler');
 require('dotenv').config();
 const config = require('../config');
 const mcpToolsPath = path.join(__dirname, '../data/mcp_tools.json');
@@ -98,6 +99,7 @@ function buildToolsDefinition(guildId) {
         search_web:      'User: "Pesquise sobre Hytale"\nResponse: { "thought": "User quer info externa (Web).", "tool": "search_web", "args": { "query": "Hytale game information news" } }',
         show_bot_menu:   'User: "quais seus comandos?"\nResponse: { "thought": "User quer ajuda.", "tool": "show_bot_menu", "args": { "context": "geral" } }',
         generate_image:  'User: "gera uma imagem de um gato spacial"\nResponse: { "thought": "User quer uma imagem gerada por IA.", "tool": "generate_image", "args": { "prompt": "a space cat floating in galaxy, cinematic, detailed fur, neon lights", "negative_prompt": "nsfw, nude, explicit, gore, violence, blood, adult content, 18+, pornographic, sexual, disturbing, hentai, r18" } }',
+        check_steam:     'User: "Elden Ring ta em promo na steam?"\nResponse: { "thought": "User quer saber preço de Elden Ring.", "tool": "check_steam", "args": { "game": "Elden Ring" } }',
     };
     for (const [name, example] of Object.entries(examplesMap)) {
         if (!disabled.includes(name)) exampleList += `\n${example}\n`;
@@ -1244,6 +1246,67 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                         processedResponse = `❌ Não encontrei nada relevante sobre "${query}" na busca rápida.`;
                     }
                 }
+                if (toolData.tool === 'check_steam') {
+                    const query = toolData.args.game;
+                    await unifiedReply(`🎮 **(Tool Use)** Buscando informaçoẽs sobre **"${query}"** na Steam...\n*Pensamento: ${toolData.thought || 'Consultando a Steam'}*`);
+                    const steamInfo = await getSteamGameInfo(query);
+                    
+                    if (steamInfo.error) {
+                        processedResponse = steamInfo.error;
+                    } else {
+                        let finalDesc = steamInfo.description || "Sem sinopse válida.";
+                        if (finalDesc.length > 3900) finalDesc = finalDesc.substring(0, 3900) + '...';
+                        
+                        const steamEmbed = new EmbedBuilder()
+                            .setColor(0x1B2838)
+                            .setTitle(steamInfo.name)
+                            .setURL(steamInfo.url)
+                            .setDescription(finalDesc)
+                            .addFields(
+                                { name: 'Preço', value: steamInfo.discount > 0 ? `~~${steamInfo.originalPrice}~~ **${steamInfo.price}** (-${steamInfo.discount}%)` : steamInfo.price, inline: true },
+                                { name: 'Lançamento', value: steamInfo.releaseDate, inline: true },
+                                { name: 'Desenvolvedor', value: steamInfo.developers, inline: true }
+                            )
+                            .setFooter({ text: 'Fonte: Loja da Steam • Hikari' })
+                            .setTimestamp();
+                            
+                        if (steamInfo.headerImage) {
+                            steamEmbed.setImage(steamInfo.headerImage);
+                        }
+                        if (steamInfo.metacritic) {
+                            steamEmbed.addFields({ name: 'Metacritic', value: `${steamInfo.metacritic}/100 🌟`, inline: true });
+                        }
+                        
+                        let hikariComment = `Ok, puxei as informações sobre **${steamInfo.name}** pra você! Está custando ${steamInfo.price}.`;
+                        
+                        try {
+                            const commentPrompt = `Eu acabei de consultar o jogo "${steamInfo.name}" na Steam. O preço atual é ${steamInfo.price} e o lançamento foi em ${steamInfo.releaseDate}. Faça um comentário CURTO (máximo 15 palavras) e bem casual sobre isso, na sua personalidade. (NÃO gere json nem responda pedindo, apenas diga a fala natural).`;
+                            const rawComment = await generateResponse(commentPrompt, channelId, { allowSearch: false, disableTools: true, guildId, isInternalComment: true });
+                            if (rawComment && !rawComment.includes('⚠️ SYSTEM ERROR')) {
+                                let cleanData = rawComment.replace(/\n-# .*$/gm, '').trim();
+                                const jsonMatch = cleanData.match(/\{[\s\S]*\}/);
+                                if (jsonMatch) {
+                                    try {
+                                        const parsed = JSON.parse(jsonMatch[0]);
+                                        cleanData = parsed.response || parsed.content || parsed.text || parsed.reply || cleanData;
+                                    } catch (e) {}
+                                }
+                                hikariComment = cleanData;
+                            }
+                        } catch (e) {
+                            console.warn('Erro ao gerar comentario steam', e.message);
+                        }
+
+                        const payload = { content: hikariComment, embeds: [steamEmbed], files: [] };
+                        if (type === 'mention') await replyMessage.edit(payload);
+                        else await interaction.editReply(payload);
+                        
+                        addToHistory(channelId, 'user', prompt);
+                        addToHistory(channelId, 'assistant', `[Consulta Steam: ${steamInfo.name}] ${hikariComment}`);
+                        savePromptToHistory(prompt, userTag, userId, `[TOOL: CHECK_STEAM - "${steamInfo.name}"]`, interaction);
+                        return;
+                    }
+                }
                 if (toolData.tool === 'generate_image') {
                     const imagePrompt = toolData.args.prompt || '';
                     let imageNegative = toolData.args.negative_prompt || '';
@@ -1287,7 +1350,15 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                                         isInternalComment: true
                                     });
                                     if (rawComment && !rawComment.includes('⚠️ SYSTEM ERROR')) {
-                                        hikariComment = rawComment.replace(/\n-# .*$/gm, '').trim();
+                                        let cleanData = rawComment.replace(/\n-# .*$/gm, '').trim();
+                                        const jsonMatch = cleanData.match(/\{[\s\S]*\}/);
+                                        if (jsonMatch) {
+                                            try {
+                                                const parsed = JSON.parse(jsonMatch[0]);
+                                                cleanData = parsed.response || parsed.content || parsed.text || parsed.reply || cleanData;
+                                            } catch (e) {}
+                                        }
+                                        hikariComment = cleanData;
                                         console.log(`[ImageHandler] Comentário gerado: "${hikariComment}"`);
                                     }
                                 } catch (commentErr) {
