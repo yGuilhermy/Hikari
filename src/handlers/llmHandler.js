@@ -1260,7 +1260,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                         if (finalDesc.length > 3900) finalDesc = finalDesc.substring(0, 3900) + '...';
                         
                         const steamEmbed = new EmbedBuilder()
-                            .setColor(0x1B2838)
+                            .setColor(0x9B59B6) // roxo
                             .setTitle(steamInfo.name)
                             .setURL(steamInfo.url)
                             .setDescription(finalDesc)
