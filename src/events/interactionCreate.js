@@ -56,6 +56,7 @@ module.exports = {
                         const embed = new EmbedBuilder()
                             .setColor(0x9B59B6)
                             .setTitle(`🤖 Comandos (${page + 1}/${selectedOption.commands.length})`)
+                            .setDescription('📖 [Guia Completo de Comandos](https://github.com/yGuilhermy/Hikari/blob/main/docs/COMMANDS.md)')
                             .addFields({ name: command.title, value: command.content })
                             .setFooter({ text: 'Use as setas para navegar • Hikari Help' })
                             .setTimestamp();
@@ -72,7 +73,7 @@ module.exports = {
                     const answerEmbed = new EmbedBuilder()
                         .setColor(0x9B59B6)
                         .setTitle(selectedOption.label)
-                        .setDescription(selectedOption.answer)
+                        .setDescription(selectedOption.answer + '\n\r\n📖 [Guia Completo de Comandos](https://github.com/yGuilhermy/Hikari/blob/main/docs/COMMANDS.md)')
                         .setFooter({ text: 'Hikari • Menu de Ajuda' })
                         .setTimestamp();
 
@@ -134,7 +135,7 @@ module.exports = {
                     const welcomeEmbed = new EmbedBuilder()
                         .setColor(0x9B59B6)
                         .setTitle('✨ Central de Ajuda — Hikari')
-                        .setDescription('Bem-vindo(a)! Selecione um tópico no menu abaixo.')
+                        .setDescription('Bem-vindo(a)! Selecione um tópico no menu abaixo.\n\n📖 [Guia Completo de Comandos](https://github.com/yGuilhermy/Hikari/blob/main/docs/COMMANDS.md)')
                         .addFields(helpData.map(item => ({ name: item.label, value: item.description || 'Sem descrição', inline: true })))
                         .setFooter({ text: 'Hikari • Menu de Ajuda' })
                         .setTimestamp();
@@ -149,6 +150,7 @@ module.exports = {
                     const embed = new EmbedBuilder()
                         .setColor(0x9B59B6)
                         .setTitle(`🤖 Comandos (${page + 1}/${geral.commands.length})`)
+                        .setDescription('📖 [Guia Completo de Comandos](https://github.com/yGuilhermy/Hikari/blob/main/docs/COMMANDS.md)')
                         .addFields({ name: command.title, value: command.content })
                         .setFooter({ text: 'Use as setas para navegar • Hikari Help' })
                         .setTimestamp();
@@ -365,7 +367,7 @@ module.exports = {
                 const welcomeEmbed = new EmbedBuilder()
                     .setColor(0x9B59B6)
                     .setTitle('✨ Central de Ajuda — Hikari')
-                    .setDescription('Bem-vindo(a)! Selecione um tópico no menu abaixo.')
+                    .setDescription('Bem-vindo(a)! Selecione um tópico no menu abaixo.\n\n📖 [Guia Completo de Comandos](https://github.com/yGuilhermy/Hikari/blob/main/docs/COMMANDS.md)')
                     .addFields(helpData.map(item => ({ name: item.label, value: item.description || 'Sem descrição', inline: true })))
                     .setFooter({ text: 'Hikari • Menu de Ajuda' })
                     .setTimestamp();

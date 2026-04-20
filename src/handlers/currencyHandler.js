@@ -40,7 +40,6 @@ async function convertCurrency(amount, from, to) {
         
     } catch (error) {
         try {
-             // Inversão local como fallback seguro, ex: se pedir BRL pra USD, e a API só tiver USD-BRL
              const fallbackRes = await axios.get(`https://economia.awesomeapi.com.br/json/last/${to}-${from}`, { timeout: 5000 });
              const pairKey = Object.keys(fallbackRes.data)[0];
              const rateData = fallbackRes.data[pairKey];

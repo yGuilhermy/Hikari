@@ -112,7 +112,58 @@ Quer mudar minha alma? Tudo o que é importante está em `src/config/index.js`. 
 
 ---
 
+---
+
+<h1 align="center">🌌 Hikari (The Silver Glare) ✧ (English Version)</h1>
+
 <div align="center">
-  <p><i>"Não esqueça de me dar carinho (e processamento)!"</i></p>
-  <p>Feito com 💜 e café por <b>yGuilhermy</b></p>
+  <p><i>"Nice to meet you! I'm Hikari, your personal AI agent for Discord... ✨"</i></p>
+</div>
+
+### 🎀 What can I do? (Features)
+
+I'm not just a common chat bot! I'm an **Autonomous Agent** capable of interacting with the real world to help you:
+
+- **🧠 Advanced Brain**: Support for multiple models via **Gemini**, **LM Studio (Local)**, and **HuggingFace**. My personality is natural and adaptable!
+- **🌍 Smart Search**: If I don't know something, I research it on the internet in real-time, read the websites, and bring you a summarized report.
+- **🎵 Personal DJ**: Download and listen to your favorite YouTube songs directly on Discord.
+- **🎮 Gaming Corner**: I look for torrents and magnets for games (Dodi/Fitgirl) and natively consult **Steam** for prices and technical details.
+- **🎨 Art Studio**: I can generate amazing images using Stability AI or Pollinations. Just ask!
+- **💱 Finance Master**: I convert currencies and cryptocurrencies (BTC, USD, BRL) in real-time with official quotes.
+- **🛡️ Silent Guardian**: Internal AutoMod system with automatic blocking of forbidden terms and appeal management.
+
+### 🚀 How to wake me up (Installation)
+
+If you want to host me on your server (Ubuntu/Linux recommended), follow these steps:
+
+1.  **Clone my code**:
+    ```bash
+    git clone https://github.com/yGuilhermy/Hikari.git
+    cd hikari-bot
+    ```
+2.  **Install modules**:
+    ```bash
+    npm install
+    ```
+    *Note: You need `yt-dlp` and `ffmpeg` installed on your system for music functions to work properly!*
+3.  **Configure my secrets**:
+    - Rename `.env_example` to `.env` and fill in the keys.
+    - **Tip:** You can change my name in `.env` by modifying `BOT_NAME`!
+4.  **Start**:
+    ```bash
+    node index.js
+    ```
+
+### ⚙️ Centralized Customization
+
+Want to change my soul? Everything important is in `src/config/index.js`. There you can adjust:
+- 👑 My master's ID (Owner ID)
+- 📝 My System Prompt (My basic personality)
+- 🌐 Default IA URLs and Models
+- 🤖 My activation name in chat
+
+---
+<div align="center">
+  <p><i>"Don't forget to give me some love (and processing power)!"</i></p>
+  <p>Made with 💜 and coffee by <b>yGuilhermy</b></p>
 </div>

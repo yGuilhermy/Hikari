@@ -3,7 +3,7 @@ const cheerio = require('cheerio');
 const fs = require('fs');
 const path = require('path');
 const { smartSearch } = require('./searchManager');
-const { AttachmentBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient } = require('discord.js');
+const { AttachmentBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { downloadYouTubeAudio, sanitizeFilenameForDiscord } = require('./youtubeAudioHandler');
 const { searchGames, getTorrentOrMagnet } = require('./gameHandler');
 const { generateImage } = require('./imageHandler');
@@ -1024,7 +1024,8 @@ async function processQueue() {
         }
     };
     try {
-        const autoBanTrigger = checkAutoBan(prompt, guildName, guildId, channelName, channelId, userId);
+        const triggerSource = options.searchPrompt || prompt;
+        const autoBanTrigger = checkAutoBan(triggerSource, guildName, guildId, channelName, channelId, userId);
         if (autoBanTrigger) {
             const isAutoBlockOn = typeof getAutoBlock === 'function' && getAutoBlock(guildId);
             if (isAutoBlockOn && guildId) {
@@ -1033,10 +1034,22 @@ async function processQueue() {
                     addBan(autoBanTrigger.type, autoBanTrigger.id, autoBanTrigger.reason);
                     console.warn(`[AUTO-BAN] ${autoBanTrigger.type} bloqueado. Gatilho: ${autoBanTrigger.keyword}`);
                     const banEmbed = new EmbedBuilder()
-                        .setColor(0x000000)
-                        .setTitle('🛑 BLOQUEIO AUTOMÁTICO - TOS VIOLATION')
-                        .setDescription(`Fui forçada a aplicar um bloqueio automático devido a uma violação dos meus Termos de Uso e Diretrizes.\n\n**Tipo de Bloqueio:** ${autoBanTrigger.type === 'user' ? 'Usuário' : autoBanTrigger.type === 'guild' ? 'Servidor' : 'Canal'}\n**Palavra-chave Detectada:** \`${autoBanTrigger.keyword}\`\n\nEste bloqueio foi feito antes de qualquer conteúdo ser gerado ou enviado às IAs. Caso acredite ser um falso positivo, você pode solicitar uma revisão manual. Ou contate o dev <@${config.ownerId}> ✨`)
-                        .setFooter({ text: 'Hikari Auto-Mod System' })
+                        .setColor(0xFF0000)
+                        .setTitle('⚠️ Detecção de Violação de Segurança')
+                        .setDescription(`Olá! Identificamos um termo ou comportamento que viola as minhas diretrizes de segurança e termos de uso. Por esse motivo, o processamento foi interrompido e um bloqueio foi aplicado.
+
+**Detalhes da Ocorrência:**
+- **Alvo:** ${autoBanTrigger.type === 'user' ? 'Seu perfil de usuário' : autoBanTrigger.type === 'guild' ? 'Este servidor' : 'Este canal'}
+- **Gatilho:** \`${autoBanTrigger.keyword}\`
+- **Status:** Bloqueio preventivo ativado.
+
+Caso acredite ser um falso positivo, utilize o botão de apelação abaixo para que meu criador possa revisar manualmente.
+
+---
+✨ **Dica:** Deseja uma versão da **IA Hikari** totalmente aberta, sem filtros ou bloqueios de segurança?
+Você pode hospedar sua própria versão privada facilmente!
+🚀 **Hospede sua própria Hikari:** [Clique aqui para ver o GitHub](https://github.com/yGuilhermy/Hikari)`)
+                        .setFooter({ text: 'Hikari Security & Moderation • by yGuilhermy' })
                         .setTimestamp();
                     const appealButton = new ButtonBuilder()
                         .setCustomId(`appeal_ban_${autoBanTrigger.type}_${autoBanTrigger.id}`)
@@ -1055,8 +1068,19 @@ async function processQueue() {
             const banEmbed = new EmbedBuilder()
                 .setColor(0xE74C3C)
                 .setTitle('🛑 Acesso Bloqueado!')
-                .setDescription(`Desculpe, mas seu acesso à **IA Hikari** foi suspenso.\n\n**Tipo de Bloqueio:** ${banInfo.type}\n**Motivo:** ${banInfo.reason || "Violação dos Termos de Uso."}\n\nCaso acredite que isso seja um erro, entre em contato com o desenvolvedor. <@${config.ownerId}> ✨`)
-                .setFooter({ text: 'Hikari Security System' })
+                .setDescription(`Desculpe, mas seu acesso à **IA Hikari** foi suspenso globalmente.
+
+**Detalhes do Bloqueio:**
+- **Tipo:** ${banInfo.typeName || banInfo.type}
+- **Motivo:** ${banInfo.reason || "Violação dos Termos de Uso."}
+
+Se você acredita que isso é um erro ou deseja solicitar um desbanimento, entre em contato com o desenvolvedor: <@${config.ownerId}> ✨
+
+---
+💡 **Quer usar a Hikari sem restrições?**
+Como o projeto é open-source, você pode hospedar sua própria versão e ter controle total!
+🚀 **Repositório:** [yGuilhermy/Hikari](https://github.com/yGuilhermy/Hikari)`)
+                .setFooter({ text: 'Hikari Security & Moderation • by yGuilhermy' })
                 .setTimestamp();
             return await unifiedReply(null, [], [], [banEmbed]);
         }
@@ -1260,7 +1284,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                         if (finalDesc.length > 3900) finalDesc = finalDesc.substring(0, 3900) + '...';
                         
                         const steamEmbed = new EmbedBuilder()
-                            .setColor(0x9B59B6) // roxo
+                            .setColor(0x9B59B6)
                             .setTitle(steamInfo.name)
                             .setURL(steamInfo.url)
                             .setDescription(finalDesc)

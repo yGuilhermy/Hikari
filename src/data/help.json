@@ -2,64 +2,31 @@
   {
     "id": "geral",
     "label": "🤖 Todos os Comandos",
-    "description": "Lista detalhada e explicativa de cada funcionalidade",
+    "description": "Explicação detalhada de cada funcionalidade por categoria",
     "commands": [
       {
-        "title": "🧠 /ia_chat",
-        "content": "O comando principal de interação. Você envia um texto e a Hikari processa usando o modelo de IA configurado.\n\n**Uso:** `/ia_chat prompt:[seu texto] visibility:[público/privado]`\n\n- **Visibilidade:** Você pode escolher se a resposta será visível para todos ou apenas para você (ephemeral)."
+        "title": "🧠 Inteligência Artificial (IA)",
+        "content": "**• /ia_chat:** Converse com o cérebro da Hikari. Suporta visibilidade `Privada` e citações.\n**• /ia_ferramentas:** (Admin) Ativa/Desativa o que a IA pode usar (Pesquisa, Imagens, etc).\n**• /ia_prompt:** (Dono) Sobrescreve o comportamento base do bot neste servidor.\n**• /ia_config:** (Dono) Ajusta Timeout, Temperatura e qual modelo de IA usar."
       },
       {
-        "title": "🎨 /ia_imagem",
-        "content": "Gera imagens artísticas baseadas em descrições textuais.\n\n**Uso:** `/ia_imagem prompt:[descrição] negative_prompt:[o que evitar]`\n\n- **Provedores:** Suporta Stable Diffusion XL, Stability AI e outros dependendo da configuração do dono."
+        "title": "🎨 Arte & Criatividade",
+        "content": "**• /ia_imagem:** Gera artes usando SDXL, FLUX ou Pollinations. Aceita prompts negativos e resoluções personalizadas.\n**• /anime_origem:** Envia um print e eu te digo o nome do anime, o episódio e o minuto exato da cena."
       },
       {
-        "title": "🎵 /baixar_musica",
-        "content": "Converte vídeos do YouTube em arquivos de áudio MP3 de alta qualidade e envia diretamente no chat usando yt-dlp.\n\n**Uso:** `/baixar_musica url:[link do youtube]`"
+        "title": "🎵 Utilidades & Multimídia",
+        "content": "**• /baixar_musica:** Converte vídeos do YouTube para MP3 de alta qualidade e envia o arquivo.\n**• /converter_moeda:** Cotação e conversão de moedas (USD, EUR, BRL) e Cripto (BTC, ETH) em tempo real.\n**• /chat_resumo:** Lê as últimas 10-100 mensagens e faz um resumo dos tópicos discutidos."
       },
       {
-        "title": "🎭 /chat_humor",
-        "content": "Ajusta a personalidade e o humor da Hikari especificamente para o canal atual.\n\n**Uso:** `/chat_humor instrucao:[texto] mood:[humor]`\n\n- Requer permissão de **Gerenciar Canais**."
+        "title": "🎮 Games & Loja",
+        "content": "**• /buscar_jogo:** Procura torrents/magnets nos bancos de dados da FitGirl e DODI Repacks.\n**• /steam_jogo:** Consulta preços oficiais, porcentagem de desconto, Metacritic e detalhes técnicos na Steam."
       },
       {
-        "title": "📜 /chat_resumo",
-        "content": "A Hikari lê as últimas mensagens do canal e gera um resumo inteligente dos tópicos discutidos.\n\n**Uso:** `/chat_resumo quantidade:[nº de mensagens]` (Máximo 100)"
+        "title": "🎭 Personalidade & Canal",
+        "content": "**• /chat_humor:** (Admin) Muda o humor (Brava, Feliz) e as regras de fala da Hikari neste canal.\n**• /chat_espontaneo:** (Dono) Configura a chance da Hikari se intrometer nas conversas sozinha."
       },
       {
-        "title": "🗣️ /chat_espontaneo",
-        "content": "Configura o modo onde a Hikari pode enviar mensagens por conta própria baseada na atividade ou tempo de inatividade.\n\n**Uso:** `/chat_espontaneo estado:[on/off] frequencia:[alta/media/baixa]`\n\n- Restrito ao **Dono do Bot**."
-      },
-      {
-        "title": "🔍 /anime_origem",
-        "content": "Descobre qual é o anime, o episódio e o minuto exato de uma cena a partir de uma imagem enviada usando API do trace.moe.\n\n**Uso:** `/anime_origem imagem:[anexo]`"
-      },
-      {
-        "title": "🎮 /buscar_jogo",
-        "content": "Busca jogos em repositórios conhecidos (DODI/FitGirl) e retorna o link Magnet/Torrent.\n\n**Uso:** `/buscar_jogo nome:[título do jogo]`"
-      },
-      {
-        "title": "🏪 /steam_jogo",
-        "content": "Consulta preço, informações e sinopse de um jogo diretamente na loja da Steam.\n\n**Uso:** `/steam_jogo nome:[nome do jogo]`"
-      },
-      {
-        "title": "💱 /converter_moeda",
-        "content": "Converte valores monetários usando cotações em tempo real (Fiduciárias e Cripto).\n\n**Uso:** `/converter_moeda valor:[valor] de:[moeda orig] para:[moeda dest]`"
-      },
-
-      {
-        "title": "🛡️ /adm_automod",
-        "content": "Ativa ou desativa o sistema de bloqueio automático por palavras-chave em um servidor específico, Restrito ao **Dono do Bot**.\n\n**Uso:** `/adm_automod id:[server_id] ativo:[true/false]`"
-      },
-      {
-        "title": "🔨 /adm_banir",
-        "content": "Bane um usuário, servidor ou canal de interagir com a Hikari globalmente, Restrito ao **Dono do Bot**.\n\n**Uso:** `/adm_banir tipo:[user/guild/channel] id:[id] motivo:[texto]`"
-      },
-      {
-        "title": "⚙️ /ia_config",
-        "content": "Ajusta parâmetros técnicos da IA (Temperatura, Tokens, etc).\n\n- Restrito ao **Dono do Bot**."
-      },
-      {
-        "title": "📝 /ia_prompt",
-        "content": "Sobrescreve o System Prompt (personalidade base) do servidor atual.\n\n- Restrito ao **Dono do Bot**."
+        "title": "🛡️ Administração & Segurança",
+        "content": "**• /adm_automod:** Ativa o filtro global de palavras proibidas no seu servidor.\n**• /adm_banir:** (Dono) Remove o acesso de usuários ou servidores da rede Hikari por violações.\n**• /adm_lista_bans:** Mostra o total de bloqueios ativos no sistema."
       }
     ]
   },
@@ -73,6 +40,6 @@
     "id": "sobre",
     "label": "✨ Sobre o Projeto",
     "description": "Informações e links do desenvolvimento",
-    "answer": "✨ **Hikari - Open Source Agent** ✨\n\nA Hikari é um projeto de bot multifuncional focado em IA e utilidades, agora totalmente de **Código Aberto**! Você pode baixar, modificar e hospedar sua própria versão.\n\n🚀 **GitHub:** [yGuilhermy/Hikari](https://github.com/yGuilhermy/Hikari)\n\n💙 **Criador:** Discord: <@593372065730396160>\nInstagram: [yGuilhermy](https://instagram.com/yguilhermy)\n**TikTok:** [@yguilhermy](https://tiktok.com/@yguilhermy)\n\nContribua com o projeto enviando issues ou sugerindo melhorias!"
+    "answer": "✨ **Hikari - Open Source Agent** ✨\n\nA Hikari é um projeto de bot multifuncional focado em IA e utilidades, agora totalmente de **Código Aberto**! Você pode baixar, modificar e hospedar sua própria versão.\n\n🚀 **GitHub:** [yGuilhermy/Hikari](https://github.com/yGuilhermy/Hikari)\n\n💙 **Criador:** <@593372065730396160>\n**Instagram:** [yGuilhermy](https://instagram.com/yguilhermy)\n**TikTok:** [@yguilhermy](https://tiktok.com/@yguilhermy)\n\nContribua com o projeto enviando issues ou sugerindo melhorias!"
   }
 ]
