@@ -15,6 +15,15 @@
     <img width="250" src="https://i.imgur.com/2NTL0Cj.png" alt="Hikari Banner" />
   </picture>
   <p><i>"Prazer em te conhecer! Eu sou a Hikari, sua agente de IA pessoal pro Discord... ✨"</i></p>
+
+  <p align="center">
+    <a href="README.md">
+      <img src="https://img.shields.io/badge/Português-BR-blue?style=for-the-badge" alt="Português">
+    </a>
+    <a href="docs/content_en/README.md">
+      <img src="https://img.shields.io/badge/English-US-red?style=for-the-badge" alt="English">
+    </a>
+  </p>
 </div>
 
 ---
@@ -67,13 +76,13 @@ Se você quer me hospedar no seu servidor (Ubuntu/Linux recomendado), siga estes
 
 Para guias detalhados, dicas de configuração e funcionamento técnico, consulte nossa documentação oficial:
 
-- [🚀 **Guia de Instalação**](./docs/GET_STARTED.md): Tudo para colocar a Hikari no ar.
-- [⚙️ **Configuração & Multi-Token**](./docs/CONFIGURATION.md): Como usar várias chaves e gerenciar donos.
-- [🛡️ **Segurança & AutoMod**](./docs/MODERATION.md): Entenda como funciona a proteção do bot.
-- [✨ **Lista de Funcionalidades**](./docs/FEATURES.md): O que e como pedir as coisas para a Hikari.
-- [🎮 **Guia de Comandos**](./docs/COMMANDS.md): Detalhes de todos os comandos Slash (/).
-- [🛠️ **Variáveis & APIs**](./docs/ENVIRONMENT.md): O que é cada campo do .env e onde pegar as keys.
-- [🛠️ **Sistema de Tools (MCP)**](./docs/ADVANCED.md): Documentação para desenvolvedores e ferramentas.
+- [🚀 **Guia de Instalação**](./docs/content_pt/GET_STARTED.md): Tudo para colocar a Hikari no ar.
+- [⚙️ **Configuração & Multi-Token**](./docs/content_pt/CONFIGURATION.md): Como usar várias chaves e gerenciar donos.
+- [🛡️ **Segurança & AutoMod**](./docs/content_pt/MODERATION.md): Entenda como funciona a proteção do bot.
+- [✨ **Lista de Funcionalidades**](./docs/content_pt/FEATURES.md): O que e como pedir as coisas para a Hikari.
+- [🎮 **Guia de Comandos**](./docs/content_pt/COMMANDS.md): Detalhes de todos os comandos Slash (/).
+- [🛠️ **Variáveis & APIs**](./docs/content_pt/ENVIRONMENT.md): O que é cada campo do .env e onde pegar as keys.
+- [🛠️ **Sistema de Tools (MCP)**](./docs/content_pt/ADVANCED.md): Documentação para desenvolvedores e ferramentas.
 
 ---
 
@@ -115,62 +124,4 @@ Quer mudar minha alma? Tudo o que é importante está em `src/config/index.js`. 
 <div align="center">
   <p><i>"Não se esqueça de me dar um pouco de amor (e poder de processamento)!"</i></p>
   <p>Feito com 💜 e café por <b>yGuilhermy</b></p>
-</div>
-
----
-
-<h1 align="center">🌌 Hikari (The Silver Glare) ✧ (English Version)</h1>
-
-<div align="center">
-  <p><i>"Nice to meet you! I'm Hikari, your personal AI agent for Discord... ✨"</i></p>
-</div>
-
-### 🎀 What can I do? (Features)
-
-I'm not just a common chat bot! I'm an **Autonomous Agent** capable of interacting with the real world to help you:
-
-- **🧠 Advanced Brain**: Support for multiple models via **Gemini**, **LM Studio (Local)**, and **HuggingFace**. My personality is natural and adaptable!
-- **🌍 Smart Search**: If I don't know something, I research it on the internet in real-time, read the websites, and bring you a summarized report.
-- **🎵 Personal DJ**: Download and listen to your favorite YouTube songs directly on Discord.
-- **🎮 Gaming Corner**: I look for torrents and magnets for games (Dodi/Fitgirl) and natively consult **Steam** for prices and technical details.
-- **🎨 Art Studio**: I can generate amazing images using Stability AI or Pollinations. Just ask!
-- **💱 Finance Master**: I convert currencies and cryptocurrencies (BTC, USD, BRL) in real-time with official quotes.
-- **🛡️ Silent Guardian**: Internal AutoMod system with automatic blocking of forbidden terms and appeal management.
-
-### 🚀 How to wake me up (Installation)
-
-If you want to host me on your server (Ubuntu/Linux recommended), follow these steps:
-
-1.  **Clone my code**:
-    ```bash
-    git clone https://github.com/yGuilhermy/Hikari.git
-    cd hikari-bot
-    ```
-2.  **Install modules**:
-    ```bash
-    npm install
-    ```
-    _Note: You need `yt-dlp` and `ffmpeg` installed on your system for music functions to work properly!_
-3.  **Configure my secrets**:
-    - Rename `.env_example` to `.env` and fill in the keys.
-    - **Tip:** You can change my name in `.env` by modifying `BOT_NAME`!
-4.  **Start**:
-    ```bash
-    node index.js
-    ```
-
-### ⚙️ Centralized Customization
-
-Want to change my soul? Everything important is in `src/config/index.js`. There you can adjust:
-
-- 👑 My master's ID (Owner ID)
-- 📝 My System Prompt (My basic personality) (Note: If you will use in english, change the system prompt to english)
-- 🌐 Default IA URLs and Models
-- 🤖 My activation name in chat
-
----
-
-<div align="center">
-  <p><i>"Don't forget to give me some love (and processing power)!"</i></p>
-  <p>Made with 💜 and coffee by <b>yGuilhermy</b></p>
 </div>
