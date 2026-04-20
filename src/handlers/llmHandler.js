@@ -1051,11 +1051,12 @@ Você pode hospedar sua própria versão privada facilmente!
 🚀 **Hospede sua própria Hikari:** [Clique aqui para ver o GitHub](https://github.com/yGuilhermy/Hikari)`)
                         .setFooter({ text: 'Hikari Security & Moderation • by yGuilhermy' })
                         .setTimestamp();
-                    const appealButton = new ButtonBuilder()
-                        .setCustomId(`appeal_ban_${autoBanTrigger.type}_${autoBanTrigger.id}`)
-                        .setLabel('Solicitar Apelação')
-                        .setStyle(ButtonStyle.Secondary);
-                    const banRow = new ActionRowBuilder().addComponents(appealButton);
+                    const githubButton = new ButtonBuilder()
+                        .setLabel('Página do Projeto')
+                        .setURL('https://github.com/yGuilhermy/Hikari')
+                        .setStyle(ButtonStyle.Link)
+                        .setEmoji('🚀');
+                    const banRow = new ActionRowBuilder().addComponents(appealButton, githubButton);
                     return await unifiedReply(null, [], [banRow], [banEmbed]);
                 }
             } else {
@@ -1174,7 +1175,8 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                                 .setTitle(`🚀 Download: ${bestGame.title}`)
                                 .setDescription(`> *${toolData.thought}*\n\n${torrentInfo.message}`)
                                 .setColor(torrentInfo.color)
-                                .addFields({ name: 'Magnet', value: `\`\`\`${bestGame.magnet}\`\`\`` });
+                                .addFields({ name: 'Magnet', value: `\`\`\`${bestGame.magnet}\`\`\`` })
+                                .setFooter({ text: 'Hikari Torrent Search • by yGuilhermy' });
                             const payload = { content: '', embeds: [gameEmbed], files: [attachment] };
                             if (type === 'mention') await replyMessage.edit(payload);
                             else await interaction.editReply(payload);
@@ -1208,7 +1210,7 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                                             .setColor(0x9B59B6)
                                             .setTitle(specificItem.label)
                                             .setDescription(specificItem.answer)
-                                            .setFooter({ text: 'Hikari • Menu de Ajuda' })
+                                            .setFooter({ text: 'Hikari • Menu de Ajuda • by yGuilhermy' })
                                             .setTimestamp();
                                     }
                                 }
@@ -1224,7 +1226,7 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                                                 inline: true,
                                             }))
                                         )
-                                        .setFooter({ text: 'Hikari • Menu de Ajuda' })
+                                        .setFooter({ text: 'Hikari • Menu de Ajuda • by yGuilhermy' })
                                         .setTimestamp();
                                 }
                                 await unifiedReply('', [], [row], [helpEmbed]);
@@ -1293,7 +1295,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                                 { name: 'Lançamento', value: steamInfo.releaseDate, inline: true },
                                 { name: 'Desenvolvedor', value: steamInfo.developers, inline: true }
                             )
-                            .setFooter({ text: 'Fonte: Loja da Steam • Hikari' })
+                            .setFooter({ text: 'Fonte: Loja da Steam • Hikari • by yGuilhermy' })
                             .setTimestamp();
                             
                         if (steamInfo.headerImage) {
@@ -1352,7 +1354,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                                 { name: 'Cotação (' + convInfo.from + ')', value: `1 ${convInfo.from} = ${rateFormatted} ${convInfo.to}`, inline: true },
                                 { name: 'Última Atualização', value: convInfo.lastUpdate || 'Desconhecida', inline: true }
                             )
-                            .setFooter({ text: 'Fonte: AwesomeAPI • Hikari' })
+                            .setFooter({ text: 'Fonte: AwesomeAPI • Hikari • by yGuilhermy' })
                             .setTimestamp();
                             
                         let hikariComment = `Pronto! Deu **${resultFormatted} ${convInfo.to}** na cotação atual.`;
@@ -1449,7 +1451,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                                         { name: '🌱 Seed',   value: `\`${imageData.actualSeed}\``, inline: true },
                                         { name: '📐 Resolução', value: `\`${width}x${height}\``, inline: true }
                                     )
-                                    .setFooter({ text: `Prompt: ${imagePrompt.substring(0, 100)}${imagePrompt.length > 100 ? '...' : ''}` })
+                                    .setFooter({ text: `Prompt: ${imagePrompt.substring(0, 100)}${imagePrompt.length > 100 ? '...' : ''} • by yGuilhermy` })
                                     .setTimestamp();
                                 const imageFiles = [];
                                 if (imageData.imageUrl) {

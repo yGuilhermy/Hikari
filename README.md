@@ -112,6 +112,11 @@ Quer mudar minha alma? Tudo o que é importante está em `src/config/index.js`. 
 
 ---
 
+<div align="center">
+  <p><i>"Não se esqueça de me dar um pouco de amor (e poder de processamento)!"</i></p>
+  <p>Feito com 💜 e café por <b>yGuilhermy</b></p>
+</div>
+
 ---
 
 <h1 align="center">🌌 Hikari (The Silver Glare) ✧ (English Version)</h1>
@@ -145,7 +150,7 @@ If you want to host me on your server (Ubuntu/Linux recommended), follow these s
     ```bash
     npm install
     ```
-    *Note: You need `yt-dlp` and `ffmpeg` installed on your system for music functions to work properly!*
+    _Note: You need `yt-dlp` and `ffmpeg` installed on your system for music functions to work properly!_
 3.  **Configure my secrets**:
     - Rename `.env_example` to `.env` and fill in the keys.
     - **Tip:** You can change my name in `.env` by modifying `BOT_NAME`!
@@ -157,12 +162,14 @@ If you want to host me on your server (Ubuntu/Linux recommended), follow these s
 ### ⚙️ Centralized Customization
 
 Want to change my soul? Everything important is in `src/config/index.js`. There you can adjust:
+
 - 👑 My master's ID (Owner ID)
-- 📝 My System Prompt (My basic personality)
+- 📝 My System Prompt (My basic personality) (Note: If you will use in english, change the system prompt to english)
 - 🌐 Default IA URLs and Models
 - 🤖 My activation name in chat
 
 ---
+
 <div align="center">
   <p><i>"Don't forget to give me some love (and processing power)!"</i></p>
   <p>Made with 💜 and coffee by <b>yGuilhermy</b></p>

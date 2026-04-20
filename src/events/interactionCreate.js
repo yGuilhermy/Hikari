@@ -58,7 +58,7 @@ module.exports = {
                             .setTitle(`🤖 Comandos (${page + 1}/${selectedOption.commands.length})`)
                             .setDescription('📖 [Guia Completo de Comandos](https://github.com/yGuilhermy/Hikari/blob/main/docs/COMMANDS.md)')
                             .addFields({ name: command.title, value: command.content })
-                            .setFooter({ text: 'Use as setas para navegar • Hikari Help' })
+                            .setFooter({ text: 'Use as setas para navegar • Hikari Help • by yGuilhermy' })
                             .setTimestamp();
 
                         const btnRow = new ActionRowBuilder().addComponents(
@@ -74,7 +74,7 @@ module.exports = {
                         .setColor(0x9B59B6)
                         .setTitle(selectedOption.label)
                         .setDescription(selectedOption.answer + '\n\r\n📖 [Guia Completo de Comandos](https://github.com/yGuilhermy/Hikari/blob/main/docs/COMMANDS.md)')
-                        .setFooter({ text: 'Hikari • Menu de Ajuda' })
+                        .setFooter({ text: 'Hikari • Menu de Ajuda • by yGuilhermy' })
                         .setTimestamp();
 
                     const backRow = new ActionRowBuilder().addComponents(
@@ -132,14 +132,20 @@ module.exports = {
                     const menuOptions = helpData.map(item => ({ label: item.label, description: item.description, value: item.id }));
                     const selectMenu = new StringSelectMenuBuilder().setCustomId('help_menu').setPlaceholder('Selecione um tópico de ajuda').addOptions(menuOptions);
                     const row = new ActionRowBuilder().addComponents(selectMenu);
+                    const githubButton = new ButtonBuilder()
+                        .setLabel('Pagina do Projeto')
+                        .setURL('https://github.com/yGuilhermy/Hikari')
+                        .setStyle(ButtonStyle.Link)
+                        .setEmoji('🚀');
+                    const linkRow = new ActionRowBuilder().addComponents(githubButton);
                     const welcomeEmbed = new EmbedBuilder()
                         .setColor(0x9B59B6)
                         .setTitle('✨ Central de Ajuda — Hikari')
                         .setDescription('Bem-vindo(a)! Selecione um tópico no menu abaixo.\n\n📖 [Guia Completo de Comandos](https://github.com/yGuilhermy/Hikari/blob/main/docs/COMMANDS.md)')
                         .addFields(helpData.map(item => ({ name: item.label, value: item.description || 'Sem descrição', inline: true })))
-                        .setFooter({ text: 'Hikari • Menu de Ajuda' })
+                        .setFooter({ text: 'Hikari • Menu de Ajuda • by yGuilhermy' })
                         .setTimestamp();
-                    return await interaction.update({ embeds: [welcomeEmbed], components: [row] });
+                    return await interaction.update({ embeds: [welcomeEmbed], components: [row, linkRow] });
                 }
 
                 if (cid.startsWith('help_page_')) {
@@ -152,7 +158,7 @@ module.exports = {
                         .setTitle(`🤖 Comandos (${page + 1}/${geral.commands.length})`)
                         .setDescription('📖 [Guia Completo de Comandos](https://github.com/yGuilhermy/Hikari/blob/main/docs/COMMANDS.md)')
                         .addFields({ name: command.title, value: command.content })
-                        .setFooter({ text: 'Use as setas para navegar • Hikari Help' })
+                        .setFooter({ text: 'Use as setas para navegar • Hikari Help • by yGuilhermy' })
                         .setTimestamp();
 
                     const btnRow = new ActionRowBuilder().addComponents(
@@ -183,7 +189,7 @@ module.exports = {
                     .setColor(0xE74C3C)
                     .setTitle('🛑 Acesso Bloqueado!')
                     .setDescription(`Desculpe, mas seu acesso à **Hikari** foi suspenso.\n\n**Tipo de Bloqueio:** ${banInfo.typeName || banInfo.type}\n**Motivo:** ${banInfo.reason || "Violação dos Termos de Uso."}\n\nCaso acredite que isso seja um erro, entre em contato com o desenvolvedor. <@${config.ownerId}> ✨`)
-                    .setFooter({ text: 'Hikari Security System' })
+                    .setFooter({ text: 'Hikari Security System • by yGuilhermy' })
                     .setTimestamp();
                 return interaction.reply({ embeds: [banEmbed], ephemeral: false });
             }
@@ -264,7 +270,7 @@ module.exports = {
                     .setTitle('✅ System Prompt Atualizado')
                     .setDescription('O system prompt deste servidor foi sobrescrito com sucesso.')
                     .addFields({ name: '📝 Novo Prompt (prévia)', value: `\`\`\`${preview}\`\`\`` })
-                    .setFooter({ text: `Servidor: ${interaction.guild?.name || guildId}` })
+                    .setFooter({ text: `Servidor: ${interaction.guild?.name || guildId} • by yGuilhermy` })
                     .setTimestamp();
                 await interaction.reply({ embeds: [embed], ephemeral: true });
             } else if (sub === 'reset') {
@@ -277,7 +283,7 @@ module.exports = {
                     .setColor(0xE74C3C)
                     .setTitle('🔄 System Prompt Resetado')
                     .setDescription('O system prompt customizado foi removido. A Hikari voltou a usar o prompt padrão do código neste servidor.')
-                    .setFooter({ text: `Servidor: ${interaction.guild?.name || guildId}` })
+                    .setFooter({ text: `Servidor: ${interaction.guild?.name || guildId} • by yGuilhermy` })
                     .setTimestamp();
                 await interaction.reply({ embeds: [embed], ephemeral: true });
             } else if (sub === 'view') {
@@ -287,7 +293,7 @@ module.exports = {
                         .setColor(0x3498DB)
                         .setTitle('🔍 System Prompt Atual')
                         .setDescription('Este servidor está usando o **prompt padrão do código**. Nenhum prompt customizado configurado.')
-                        .setFooter({ text: `Servidor: ${interaction.guild?.name || guildId}` })
+                        .setFooter({ text: `Servidor: ${interaction.guild?.name || guildId} • by yGuilhermy` })
                         .setTimestamp();
                     return interaction.reply({ embeds: [embed], ephemeral: true });
                 }
@@ -296,7 +302,7 @@ module.exports = {
                     .setColor(0x27AE60)
                     .setTitle('🔍 System Prompt Atual (Customizado)')
                     .setDescription(`\`\`\`${preview}\`\`\``)
-                    .setFooter({ text: `Servidor: ${interaction.guild?.name || guildId} • Caracteres: ${current.length}` })
+                    .setFooter({ text: `Servidor: ${interaction.guild?.name || guildId} • Caracteres: ${current.length} • by yGuilhermy` })
                     .setTimestamp();
                 await interaction.reply({ embeds: [embed], ephemeral: true });
             }
@@ -325,7 +331,7 @@ module.exports = {
                         { name: 'Novo Estado', value: enabled ? '✅ **ATIVA**' : '❌ **DESATIVADA**', inline: true }
                     )
                     .setDescription(tool.meta.description)
-                    .setFooter({ text: 'A mudança entra em vigor imediatamente.' })
+                    .setFooter({ text: 'A mudança entra em vigor imediatamente. • by yGuilhermy' })
                     .setTimestamp();
                 await interaction.reply({ embeds: [embed], ephemeral: true });
             } else if (sub === 'list') {
@@ -340,7 +346,7 @@ module.exports = {
                     .setTitle('🔧 Ferramentas MCP — Status do Servidor')
                     .setDescription(`**${interaction.guild?.name || guildId}**\n\n✅ = Ativa | ❌ = Desativada | 🔒 = Não configurável`)
                     .addFields(fields)
-                    .setFooter({ text: `${allTools.length - disabled.length}/${allTools.length} tools ativas` })
+                    .setFooter({ text: `${allTools.length - disabled.length}/${allTools.length} tools ativas • by yGuilhermy` })
                     .setTimestamp();
                 await interaction.reply({ embeds: [embed], ephemeral: false });
             } else if (sub === 'reset') {
@@ -352,7 +358,7 @@ module.exports = {
                     .setTitle('🔄 Tools Resetadas')
                     .setDescription(`Todas as **${disabled.length}** tools desabilitadas foram reativadas.`)
                     .addFields({ name: 'Tools reativadas', value: disabled.map(n => `\`${n}\``).join(', ') })
-                    .setFooter({ text: `Servidor: ${interaction.guild?.name || guildId}` })
+                    .setFooter({ text: `Servidor: ${interaction.guild?.name || guildId} • by yGuilhermy` })
                     .setTimestamp();
                 await interaction.reply({ embeds: [embed], ephemeral: false });
             }
@@ -364,14 +370,20 @@ module.exports = {
                 const menuOptions = helpData.map(item => ({ label: item.label, description: item.description || 'Clique para ver mais', value: item.id }));
                 const selectMenu = new StringSelectMenuBuilder().setCustomId('help_menu').setPlaceholder('Selecione um tópico de ajuda').addOptions(menuOptions);
                 const row = new ActionRowBuilder().addComponents(selectMenu);
+                const githubButton = new ButtonBuilder()
+                    .setLabel('Página do Projeto')
+                    .setURL('https://github.com/yGuilhermy/Hikari')
+                    .setStyle(ButtonStyle.Link)
+                    .setEmoji('🚀');
+                const linkRow = new ActionRowBuilder().addComponents(githubButton);
                 const welcomeEmbed = new EmbedBuilder()
                     .setColor(0x9B59B6)
                     .setTitle('✨ Central de Ajuda — Hikari')
                     .setDescription('Bem-vindo(a)! Selecione um tópico no menu abaixo.\n\n📖 [Guia Completo de Comandos](https://github.com/yGuilhermy/Hikari/blob/main/docs/COMMANDS.md)')
                     .addFields(helpData.map(item => ({ name: item.label, value: item.description || 'Sem descrição', inline: true })))
-                    .setFooter({ text: 'Hikari • Menu de Ajuda' })
+                    .setFooter({ text: 'Hikari • Menu de Ajuda • by yGuilhermy' })
                     .setTimestamp();
-                await interaction.reply({ embeds: [welcomeEmbed], components: [row], ephemeral: false });
+                await interaction.reply({ embeds: [welcomeEmbed], components: [row, linkRow], ephemeral: false });
             } catch (error) {
                 console.error('Erro no comando help:', error);
                 await interaction.reply({ content: 'Erro ao criar o menu de ajuda.', ephemeral: true });
@@ -394,7 +406,7 @@ module.exports = {
                             { name: '🌱 Seed', value: `\`${imageData.actualSeed}\``, inline: true },
                             { name: '📐 Resolução', value: `\`${width}x${height}\``, inline: true }
                         )
-                        .setFooter({ text: `Prompt: ${prompt.substring(0, 100)}` })
+                        .setFooter({ text: `Prompt: ${prompt.substring(0, 100)} • by yGuilhermy` })
                         .setTimestamp();
                     const files = [];
                     if (imageData.imageUrl) {
@@ -548,7 +560,7 @@ module.exports = {
                         { name: 'Lançamento', value: steamInfo.releaseDate, inline: true },
                         { name: 'Desenvolvedor', value: steamInfo.developers, inline: true }
                     )
-                    .setFooter({ text: 'Fonte: Loja da Steam • Hikari' })
+                    .setFooter({ text: 'Fonte: Loja da Steam • Hikari • by yGuilhermy' })
                     .setTimestamp();
 
                 if (steamInfo.headerImage) {
@@ -607,7 +619,7 @@ module.exports = {
                         { name: 'Cotação (' + convInfo.from + ')', value: `1 ${convInfo.from} = ${rateFormatted} ${convInfo.to}`, inline: true },
                         { name: 'Última Atualização', value: convInfo.lastUpdate || 'Desconhecida', inline: true }
                     )
-                    .setFooter({ text: 'Fonte: AwesomeAPI • Hikari' })
+                    .setFooter({ text: 'Fonte: AwesomeAPI • Hikari • by yGuilhermy' })
                     .setTimestamp();
                     
                 let hikariComment = "";

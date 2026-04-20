@@ -104,7 +104,8 @@ async function executeGameCommand(interaction) {
         const optionsEmbed = new EmbedBuilder()
             .setTitle(`🔎 Resultados para: "${gameName}"`)
             .setDescription('Selecione uma das opções no menu abaixo para receber o arquivo de download.')
-            .setColor('#5865F2');
+            .setColor('#5865F2')
+            .setFooter({ text: 'Hikari Torrent Search • by yGuilhermy' });
         finalResults.forEach((game, index) => {
             const date = new Date(game.uploadDate).toLocaleDateString('pt-BR');
             const safeTitle = game.title.length > 80 ? game.title.substring(0, 77) + '...' : game.title;
@@ -146,7 +147,8 @@ async function executeGameCommand(interaction) {
                 .setTitle(`🚀 Download Pronto: ${selectedGame.title}`)
                 .setDescription(result.message)
                 .setColor(result.color)
-                .addFields({ name: 'Backup Magnet', value: `\`\`\`${selectedGame.magnet}\`\`\`` });
+                .addFields({ name: 'Backup Magnet', value: `\`\`\`${selectedGame.magnet}\`\`\`` })
+                .setFooter({ text: 'Hikari Torrent Search • by yGuilhermy' });
             await i.editReply({ content: '', embeds: [successEmbed], files: [attachment] });
         });
         collector.on('end', collected => {

@@ -77,7 +77,7 @@ async function sendTermsOfService(interaction, requestData = null) {
         .setColor(0x9B59B6)
         .setTitle('⚖️ Termos de Uso e Responsabilidade — Hikari')
         .setDescription(legacyNotice + rulesText + "\n\n**Para continuar usando a Hikari neste servidor, um Administrador ou Gerente deve aceitar os termos abaixo.**")
-        .setFooter({ text: 'Lembre-se de usar o "/ajuda" para ver todos os comandos!' })
+        .setFooter({ text: 'Lembre-se de usar o "/ajuda" para ver todos os comandos! • by yGuilhermy' })
         .setTimestamp();
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -87,7 +87,11 @@ async function sendTermsOfService(interaction, requestData = null) {
         new ButtonBuilder()
             .setCustomId('tos_decline')
             .setLabel('Recusar e sair')
-            .setStyle(ButtonStyle.Danger)
+            .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+            .setLabel('Página do Projeto')
+            .setURL('https://github.com/yGuilhermy/Hikari')
+            .setStyle(ButtonStyle.Link)
     );
     try {
         if (interaction.deferred || interaction.replied) {
@@ -194,7 +198,7 @@ async function reportNewGuild(guild) {
                 logEmbed.addFields({ name: '🚨 Alerta de Termo', value: `O nome do servidor contém o termo proibido: \`${autoBanTrigger.keyword}\``, inline: false });
             }
             logEmbed.addFields({ name: 'Criado em', value: `<t:${Math.floor(guild.createdTimestamp / 1000)}:R>`, inline: true })
-                .setFooter({ text: `Total de Servidores: ${guild.client.guilds.cache.size}` })
+                .setFooter({ text: `Total de Servidores: ${guild.client.guilds.cache.size} • by yGuilhermy` })
                 .setTimestamp();
             
             const mngRow = new ActionRowBuilder().addComponents(
@@ -239,7 +243,7 @@ ${rulesText}
 **Como proceder?**
 Basta clicar no botão **"Aceitar Termos"** abaixo. Somente usuários com permissão de Administrador ou Gerenciar Servidor podem realizar esta ação.
 `)
-                .setFooter({ text: 'Ao aceitar, os dados de ativação serão salvos para fins de transparência.' })
+                .setFooter({ text: 'Ao aceitar, os dados de ativação serão salvos para fins de transparência. • by yGuilhermy' })
                 .setTimestamp();
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
@@ -249,7 +253,12 @@ Basta clicar no botão **"Aceitar Termos"** abaixo. Somente usuários com permis
                 new ButtonBuilder()
                     .setCustomId('tos_decline')
                     .setLabel('Recusar e Sair')
-                    .setStyle(ButtonStyle.Danger)
+                    .setStyle(ButtonStyle.Danger),
+                new ButtonBuilder()
+                    .setLabel('Pagina do Projeto')
+                    .setURL('https://github.com/yGuilhermy/Hikari')
+                    .setStyle(ButtonStyle.Link)
+                    .setEmoji('📂')
             );
             await targetChannel.send({ embeds: [welcomeEmbed], components: [row] });
         } catch (err) {
