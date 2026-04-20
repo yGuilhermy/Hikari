@@ -1,10 +1,7 @@
 const { ActivityType } = require('discord.js');
 function updateBotActivity(clientInstance, queueLength) {
     if (!clientInstance || !clientInstance.user) return;
-    if (queueLength > 0) {
-        clientInstance.user.setActivity(`a fila de ${queueLength} pessoas`, { type: ActivityType.Watching });
-        clientInstance.user.setStatus('dnd');
-    } else {
+    if (queueLength === 0) {
         clientInstance.user.setActivity('"Hikari" (光) em japonês significa "luz" | Agora de Código Aberto', { type: ActivityType.Watching });
         clientInstance.user.setStatus('dnd');
     }
