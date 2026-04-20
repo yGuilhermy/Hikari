@@ -1,38 +1,38 @@
-# 🚀 Guia de Instalação e Início Rápido (Get Started)
+# 🚀 Installation Guide and Quick Start (Get Started)
 
-Bem-vindo ao guia técnico de implantação da **Hikari**. Este documento detalha como preparar o ambiente, gerenciar dependências e realizar a primeira inicialização do sistema.
+Welcome to the technical deployment guide for **Hikari**. This document details how to prepare the environment, manage dependencies, and perform the initial system startup.
 
 ---
 
 ## 📂 Sumário
 
-1. [🖥️ 1. Requisitos do Sistema](#-1-requisitos-do-sistema)
-2. [📥 2. Instalação Passo a Passo](#-2-instalação-passo-a-passo)
-3. [🎮 3. Banco de Dados de Jogos (FitGirl & DODI)](#-3-banco-de-dados-de-jogos-fitgirl--dodi)
-4. [🚀 4. Execução](#-4-execução)
+1. [🖥️ 1. System Requirements](#-1-requisitos-do-sistema)
+2. [📥 2. Step-by-Step Installation](#-2-instalação-passo-a-passo)
+3. [🎮 3. Game Database (FitGirl & DODI)](#-3-banco-de-dados-de-jogos-fitgirl--dodi)
+4. [🚀 4. Execution](#-4-execução)
 
 ---
 
-## 🖥️ 1. Requisitos do Sistema
+## 🖥️ 1. System Requirements
 
-Para uma operação estável, a instância deve atender aos seguintes requisitos:
+For stable operation, the instance must meet the following requirements:
 
-### ⚙️ Hardware e SO
+### ⚙️ Hardware and OS
 
-- **SO:** Linux (Kernel 5.4+) recomendado para melhor performance com `ffmpeg`. Windows 10/11 também suportado.
-- **Node.js:** Versão **v22.x (LTS)**. O código utiliza sintaxes modernas e módulos CJS que performam melhor nesta versão.
-- **Memória:** Mínimo de 1GB RAM (processamento de fila de IA).
+- **OS:** Linux (Kernel 5.4+) recommended for better performance with `ffmpeg`. Windows 10/11 also supported.
+- **Node.js:** Version **v22.x (LTS)**. The code uses modern syntax and CJS modules that perform better in this version.
+- **Memory:** Minimum 1GB RAM (AI queue processing).
 
-### 📦 Dependências Externas (Obrigatório)
+### 📦 External Dependencies (Required)
 
-O bot depende de binários externos para processamento de mídia:
+The bot depends on external binaries for media processing:
 
-1.  **yt-dlp:** Deve estar no `PATH`. Usado para extração e download de streams do YouTube.
-2.  **ffmpeg:** Necessário para conversão de áudio e extração de metadados.
+1.  **yt-dlp:** Must be in `PATH`. Used for extraction and download of YouTube streams.
+2.  **ffmpeg:** Required for audio conversion and metadata extraction.
 
 ---
 
-## 📥 2. Instalação Passo a Passo
+## 📥 2. Step-by-Step Installation
 
 1.  **Clone o Repositório:**
 
@@ -47,45 +47,45 @@ O bot depende de binários externos para processamento de mídia:
     npm install
     ```
 
-    _Isso instalará pacotes críticos como `discord.js`, `axios` (requests), `cheerio` (scraping) e `@gradio/client`._
+    _This will install critical packages like `discord.js`, `axios` (requests), `cheerio` (scraping), and `@gradio/client`._
 
-3.  **Configuração de Ambiente de Dados:**
-    A Hikari exige que certas pastas existam para cache e persistência:
-    - `src/data/temp_images/` (Gerado automaticamente, mas garanta permissão de escrita).
-    - `src/data/x.json` (Banco global).
+3.  **Data Environment Configuration:**
+    Hikari requires certain folders to exist for caching and persistence:
+    - `src/data/temp_images/` (Generated automatically, but ensure write permission).
+    - `src/data/x.json` (Global database).
 
 ---
 
-## 🎮 3. Banco de Dados de Jogos (FitGirl & DODI)
+## 🎮 3. Game Database (FitGirl & DODI)
 
-A funcionalidade de busca de jogos (`/buscar_jogo`) não funciona por mágica; ela lê uma biblioteca local de metadados.
+The game search functionality (`/buscar_jogo`) doesn't work by magic; it reads a local metadata library.
 
-1.  Acesse o portal [Hydra Library](https://library.hydra.wiki/).
-2.  Baixe os arquivos **JSON** correspondentes aos repacks da **FitGirl** e **DODI**.
-3.  Renomeie e mova-os para:
+1.  Access the [Hydra Library](https://library.hydra.wiki/) portal.
+2.  Download the **JSON** files corresponding to the **FitGirl** and **DODI** repacks.
+3.  Rename and move them to:
     - `src/data/fitgirl.json`
     - `src/data/dodi.json`
 
 ---
 
-## 🚀 4. Execução
+## 🚀 4. Execution
 
-Uma vez configurado o arquivo `.env` (Veja o [Guia de Ambiente](./ENVIRONMENT.md)), inicie o processo:
+Once the `.env` file is configured (See the [Environment Guide](./ENVIRONMENT.md)), start the process:
 
 ```bash
-# Modo standard
+# Standard mode
 node index.js
 
-# Recomendado para produção (usa auto-restart em caso de falha)
+# Recommended for production (uses auto-restart in case of failure)
 npx pm2 start index.js --name hikari
 ```
 
-### 💡 Dicas de Especialista:
+### 💡 Expert Tips:
 
-- 💡 **Propagação Global:** No Discord v14+, comandos registrados via `rest.put` podem levar até 5 minutos para aparecer. Re-logar no cliente Discord força a atualização do cache UI.
-- 💡 **Permissões de Escrita:** Certifique-se de que o usuário que roda o script tem permissão total na pasta `src/data`, caso contrário, os filtros de busca e bancos de dados falharão silenciosamente.
-- 💡 **Proxy/VPN:** Se sua hospedagem for em Oracle Cloud ou AWS, você pode precisar de um agente de user-agent rotativo ou proxy para o comando `/baixar_musica` evitar bloqueios do YouTube.
+- 💡 **Global Propagation:** In Discord v14+, commands registered via `rest.put` may take up to 5 minutes to appear. Re-logging into the Discord client forces the UI cache update.
+- 💡 **Write Permissions:** Ensure that the user running the script has full permission in the `src/data` folder, otherwise, the search filters and databases will fail silently.
+- 💡 **Proxy/VPN:** If your hosting is on Oracle Cloud or AWS, you may need a rotating user-agent or proxy for the `/baixar_musica` command to avoid YouTube blocks.
 
 ---
 
-[🏠 Voltar ao Menu Principal](../README.md)
+[🏠 Back to Main Menu](../README.md)
