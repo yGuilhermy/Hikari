@@ -4,12 +4,12 @@ Welcome to the technical deployment guide for **Hikari**. This document details 
 
 ---
 
-## 📂 Sumário
+## 📂 Summary
 
-1. [🖥️ 1. System Requirements](#-1-requisitos-do-sistema)
-2. [📥 2. Step-by-Step Installation](#-2-instalação-passo-a-passo)
-3. [🎮 3. Game Database (FitGirl & DODI)](#-3-banco-de-dados-de-jogos-fitgirl--dodi)
-4. [🚀 4. Execution](#-4-execução)
+1. [🖥️ 1. System Requirements](#-1-system-requirements)
+2. [📥 2. Step-by-Step Installation](#-2-step-by-step-installation)
+3. [🎮 3. Game Database (FitGirl & DODI)](#-3-game-database-fitgirl--dodi)
+4. [🚀 4. Execution](#-4-execution)
 
 ---
 
