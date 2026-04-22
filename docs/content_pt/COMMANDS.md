@@ -142,6 +142,13 @@ Gerencia quais ferramentas (MCP) a IA pode usar no servidor.
 - **Toggle:** Ativa ou desativa ferramentas como `web_search`, `image_gen`, etc.
 - **List:** Mostra o status de todas as ferramentas.
 
+### `/ia_mention_todos` (Admin)
+
+Configura se a Hikari deve responder a marcações de `@everyone` e `@here` no servidor.
+
+- **Ativo:** Sim para responder, Não para ignorar.
+- **Advanced:** Útil para evitar que a IA se intrometa em avisos globais do servidor, ou para permitir que ela interaja quando o servidor todo for chamado.
+
 ### `/adm_banir` / `/adm_desbanir` (Dono)
 
 Sistema de banimento global da rede Hikari.

@@ -142,6 +142,13 @@ Manages which tools (MCP) the AI can use on the server.
 - **Toggle:** Enables or disables tools like `web_search`, `image_gen`, etc.
 - **List:** Shows the status of all tools.
 
+### `/ia_mention_todos` (Admin)
+
+Configures whether Hikari should respond to `@everyone` and `@here` mentions on the server.
+
+- **Active:** Yes to respond, No to ignore.
+- **Advanced:** Useful for preventing the AI from intruding on global server announcements, or for allowing it to interact when the whole server is called.
+
 ### `/adm_banir` / `/adm_desbanir` (Owner)
 
 Hikari network global ban system.

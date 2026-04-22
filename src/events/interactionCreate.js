@@ -17,7 +17,8 @@ const {
     updateProviderSetting,
     getProviderSettings,
     setChannelPersona,
-    setChannelChatter
+    setChannelChatter,
+    setServerEveryoneMention
 } = require('../handlers/llmHandler');
 const { generateImage } = require('../handlers/imageHandler');
 const { downloadYouTubeAudio, sanitizeFilenameForDiscord } = require('../handlers/youtubeAudioHandler');
@@ -362,6 +363,17 @@ module.exports = {
                     .setTimestamp();
                 await interaction.reply({ embeds: [embed], ephemeral: false });
             }
+        } else if (commandName === 'ia_mention_todos') {
+            const hasPermission = !interaction.guild || (interaction.member && interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) || config.isOwner(interaction.user.id);
+            if (!hasPermission) return interaction.reply({ content: '❌ Acesso restrito (Requer gerenciar servidor).', ephemeral: true });
+            
+            const ativo = interaction.options.getBoolean('ativo');
+            setServerEveryoneMention(interaction.guildId, ativo);
+            
+            await interaction.reply({ 
+                content: `🔔 **Marcações Everyone/Here**: Hikari ${ativo ? '✅ **AGORA VAI**' : '❌ **NÃO VAI MAIS**'} responder a marcações de @everyone e @here neste servidor.`, 
+                ephemeral: false 
+            });
         } else if (commandName === 'ajuda') {
             try {
                 const helpDataPath = path.join(__dirname, '../data/help.json');

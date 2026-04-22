@@ -173,6 +173,40 @@ function resetServerPrompt(guildId) {
     saveServerPrompts();
 }
 loadServerPrompts();
+
+const serverSettingsPath = path.join(__dirname, '../data/server_settings.json');
+let serverSettings = {};
+
+function loadServerSettings() {
+    if (fs.existsSync(serverSettingsPath)) {
+        try {
+            serverSettings = JSON.parse(fs.readFileSync(serverSettingsPath, 'utf8'));
+        } catch (error) {
+            console.error('Erro ao carregar server_settings.json:', error);
+            serverSettings = {};
+        }
+    }
+}
+
+function saveServerSettings() {
+    try {
+        fs.writeFileSync(serverSettingsPath, JSON.stringify(serverSettings, null, 2));
+    } catch (error) {
+        console.error('Erro ao salvar server_settings.json:', error);
+    }
+}
+
+function getServerSettings(guildId) {
+    return serverSettings[guildId] || {};
+}
+
+function setServerEveryoneMention(guildId, active) {
+    if (!serverSettings[guildId]) serverSettings[guildId] = {};
+    serverSettings[guildId].respondToEveryone = active;
+    saveServerSettings();
+}
+
+loadServerSettings();
 function getChannelSettings(channelId) {
     return channelSettings[channelId] || {};
 }
@@ -1579,4 +1613,6 @@ module.exports = {
     getDisabledTools,
     setServerToolEnabled,
     resetServerTools,
+    getServerSettings,
+    setServerEveryoneMention,
 };

@@ -285,6 +285,16 @@ const commands = [
     ),
     setGlobalContext(
         new SlashCommandBuilder()
+            .setName('ia_mention_todos')
+            .setDescription('Configura se a Hikari deve responder a marcações de @everyone e @here no servidor. (Admin)')
+            .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+            .addBooleanOption(option =>
+                option.setName('ativo')
+                    .setDescription('Sim para responder a @everyone/@here, Não para ignorar.')
+                    .setRequired(true))
+    ),
+    setGlobalContext(
+        new SlashCommandBuilder()
             .setName('steam_jogo')
             .setDescription('Consulte o preço e informações de um jogo diretamente na Steam.')
             .addStringOption(option =>
