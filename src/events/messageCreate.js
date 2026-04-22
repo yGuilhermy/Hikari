@@ -15,7 +15,7 @@ module.exports = {
         if (banInfo) return;
         const serverSettings = getServerSettings(message.guildId);
         const respondToEveryone = serverSettings.respondToEveryone || false;
-        const isMention = message.mentions.has(client.user) || (respondToEveryone && message.mentions.everyone);
+        const isMention = message.mentions.has(client.user, { ignoreEveryone: true }) || (respondToEveryone && message.mentions.everyone);
         const botName = config.botName || 'Hikari';
         const nameRegex = new RegExp(`\\b${botName}\\b`, 'i');
         const hasHikariName = nameRegex.test(message.content);
