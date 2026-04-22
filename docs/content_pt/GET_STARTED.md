@@ -34,6 +34,15 @@ O bot depende de binários externos para processamento de mídia:
 
 ## 📥 2. Instalação Passo a Passo
 
+### ⚡ Método Rápido (Recomendado)
+Para automatizar a verificação de ambiente e instalação de dependências (incluindo binários externos), utilize os scripts na raiz do projeto:
+
+- **Windows:** Clique no arquivo `setup.bat`.
+- **Linux:** `chmod +x setup.sh && ./setup.sh`.
+
+---
+
+### 🛠️ Método Manual
 1.  **Clone o Repositório:**
 
     ```bash

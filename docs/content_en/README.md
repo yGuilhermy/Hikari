@@ -35,7 +35,16 @@ I'm not just a common chat bot! I'm an **Autonomous Agent** capable of interacti
 
 ### 🚀 How to wake me up (Installation)
 
-If you want to host me on your server (Ubuntu/Linux recommended), follow these steps:
+#### ⚡ Fast Setup (Recommended)
+For an automatic installation of all dependencies (Node.js, npm libraries, yt-dlp, and ffmpeg), use our setup scripts:
+
+- **Windows:** Double-click the `setup.bat` file.
+- **Linux:** Run `chmod +x setup.sh && ./setup.sh`.
+
+---
+
+#### 🛠️ Manual Method
+If you prefer to do everything yourself (Ubuntu/Linux recommended):
 
 1.  **Clone my code**:
 

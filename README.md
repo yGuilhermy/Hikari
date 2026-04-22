@@ -44,13 +44,22 @@ Eu não sou apenas um bot de chat comum! Eu sou uma **Agente Autônoma** capaz d
 
 ### 🚀 Como me acordar (Instalação)
 
-Se você quer me hospedar no seu servidor (Ubuntu/Linux recomendado), siga estes passos:
+#### ⚡ Método Rápido (Recomendado)
+Para uma instalação automática de todas as dependências (Node.js, bibliotecas npm, yt-dlp e ffmpeg), use nossos scripts de setup:
+
+- **Windows:** Clique duas vezes no arquivo `setup.bat`.
+- **Linux:** Execute `chmod +x setup.sh && ./setup.sh`.
+
+---
+
+#### 🛠️ Método Manual
+Se você prefere fazer tudo na mão (Ubuntu/Linux recomendado):
 
 1.  **Clone meu código**:
 
     ```bash
-    git clone https://github.com/seu-perfil/hikari-bot.git
-    cd hikari-bot
+    git clone https://github.com/yGuilhermy/Hikari.git
+    cd Hikari
     ```
 
 2.  **Instale os módulos**:

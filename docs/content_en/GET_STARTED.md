@@ -34,14 +34,23 @@ The bot depends on external binaries for media processing:
 
 ## 📥 2. Step-by-Step Installation
 
-1.  **Clone o Repositório:**
+### ⚡ Fast Setup (Recommended)
+To automate environment checking and dependency installation (including external binaries), use the scripts in the project root:
+
+- **Windows:** Double-click the `setup.bat` file.
+- **Linux:** `chmod +x setup.sh && ./setup.sh`.
+
+---
+
+### 🛠️ Manual Method
+1.  **Clone the Repository:**
 
     ```bash
     git clone https://github.com/yGuilhermy/Hikari.git
     cd Hikari
     ```
 
-2.  **Instalação de Módulos (NPM):**
+2.  **Install Modules (NPM):**
 
     ```bash
     npm install
