@@ -286,7 +286,7 @@ const commands = [
     setGlobalContext(
         new SlashCommandBuilder()
             .setName('ia_mention_todos')
-            .setDescription('Configura se a Hikari deve responder a marcações de @everyone e @here no servidor. (Admin)')
+            .setDescription('Configura se a Hikari deve responder a marcações de @everyone e @here no servidor. (Server-Admin)')
             .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
             .addBooleanOption(option =>
                 option.setName('ativo')

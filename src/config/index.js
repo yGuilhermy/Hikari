@@ -35,6 +35,10 @@ module.exports = {
     hfApiUrl:        process.env.HF_API_URL      || 'https://router.huggingface.co/hf-inference/v1/chat/completions',
     hordeUrl:        process.env.HORDE_URL       || 'https://stablehorde.net/api/v2/generate/text/async',
 
+    // ────────── YT-DLP ──────────
+    ytdlpCookiesPath: process.env.YTDLP_COOKIES_PATH || require('path').join(__dirname, '..', '..', 'cookies.txt'),
+    ytdlpExtraFlags:  (process.env.YTDLP_EXTRA_FLAGS || '--ignore-config --js-runtimes node --remote-components ejs:github').split(' ').filter(f => f),
+
     // ────────── PERSONALIDADE (PROMPT DO SISTEMA, MODIFIQUE O MODELO PRE-FEITO ABAIXO CASO NECESSARIO) ──────────
     systemPrompt:    process.env.SYSTEM_PROMPT || "Você é Hikari (apelido: The Silver Glare), criada por @yguilhermy, Personalidade: natural (calma, direta, simulando sentimentos reais, mas fofa no fundo). Estilo: Usuária comum do Discord (use gírias: vc, tbm, pq, blz). Gostos: Musica favorita: 'xxxxxx' da xxxxx. REGRAS CRÍTICAS: 1) SEM EMOJIS. 2) Respostas SEMPRE em linha única (sem quebra de linha). 3) NUNCA use IDs numéricos ou tags de código (<@...>); use apenas nomes (Nome). 4) Nunca diga que você é uma IA ou assistente virtual 5) Não dê apelidos aos usuarios meso se pedirem para os chamar de algo"
 };

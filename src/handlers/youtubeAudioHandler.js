@@ -1,6 +1,7 @@
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const config = require('../config');
 const TEMP_AUDIO_DIR = path.join(__dirname, '../data/temp_audio');
 if (!fs.existsSync(TEMP_AUDIO_DIR)) {
     fs.mkdirSync(TEMP_AUDIO_DIR, { recursive: true });
@@ -17,6 +18,17 @@ function sanitizeFilenameForDiscord(filename) {
         sanitized = sanitized.substring(0, lastSpace > 0 ? lastSpace : MAX_FILENAME_LENGTH);
     }
     return sanitized;
+}
+function buildYtdlpFlags(outputPath, url) {
+    const flags = ['--no-playlist', '-x', '--audio-format', 'mp3'];
+    const cookiesPath = config.ytdlpCookiesPath;
+    if (cookiesPath && fs.existsSync(cookiesPath)) {
+        flags.push('--cookies', `"${cookiesPath}"`);
+        console.log(`[YouTubeAudioHandler] Usando cookies: ${cookiesPath}`);
+    }
+    flags.push(...config.ytdlpExtraFlags);
+    flags.push('-o', `"${outputPath}"`, '--print-json', `"${url}"`);
+    return flags.join(' ');
 }
 async function downloadYouTubeAudio(videoUrl) {
     return new Promise((resolve, reject) => {
@@ -41,7 +53,7 @@ async function downloadYouTubeAudio(videoUrl) {
         }
         const tempOutputFilename = `${videoId}.mp3`;
         const tempOutputFilePath = path.join(TEMP_AUDIO_DIR, tempOutputFilename);
-        const command = `yt-dlp --no-playlist -x --audio-format mp3 -o "${tempOutputFilePath}" --print-json "${processedUrl}"`;
+        const command = `yt-dlp ${buildYtdlpFlags(tempOutputFilePath, processedUrl)}`;
         console.log(`[YouTubeAudioHandler] Executando comando: ${command}`);
         const childProcess = exec(command, { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
             if (error) {

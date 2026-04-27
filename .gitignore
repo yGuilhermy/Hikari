@@ -25,3 +25,6 @@ historico.txt
 # OS
 .DS_Store
 Thumbs.db
+
+# Cookies
+cookies.txt
