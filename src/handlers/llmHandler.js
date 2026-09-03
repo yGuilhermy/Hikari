@@ -208,7 +208,7 @@ function buildToolsDefinition(guildId, userId = null) {
     for (const [name, example] of Object.entries(examplesMap)) {
         if (!disabled.includes(name)) exampleList += `\n${example}\n`;
     }
-    return `\n--- FERRAMENTAS DISPONÍVEIS ---\nVocê tem acesso às seguintes ferramentas para executar ações reais.\nUse-as quando o usuário pedir para baixar algo ou buscar um jogo.\n${toolList}\n--- INSTRUÇÃO DE PENSAMENTO E DECISÃO ---\nAntes de responder, ANALISE:\n1. O usuário quer apenas conversar ou uma informação que você já sabe? -> Responda apenas com texto (Sem JSON).\n2. O usuário quer uma AÇÃO ESPECÍFICA (Download, Busca Web)? -> Responda com JSON.\n\nFORMATO PARA USO DE FERRAMENTA (JSON):\n{\n  "thought": "Pensamento ultra-curto (1 a 3 palavras para economizar tokens, ex: 'baixar audio')",\n  "tool": "nome_da_ferramenta",\n  "args": { ...argumentos... }\n}\n\nEXEMPLOS:${exampleList}\nUser: "Como você está?"\nResponse: Estou bem, e você?\n\n---------------------------------------\n`;
+    return `\n--- FERRAMENTAS DISPONÍVEIS ---\nVocê tem acesso às seguintes ferramentas para executar ações reais.\nUse-as quando o usuário pedir para baixar algo, buscar um jogo ou citar um comando MCP.\n${toolList}\n--- INSTRUÇÃO DE PENSAMENTO E DECISÃO ---\nAntes de responder, ANALISE:\n1. O usuário quer apenas conversar ou uma informação que você já sabe? -> Responda apenas com texto (Sem JSON).\n2. O usuário quer uma AÇÃO ESPECÍFICA (Download, Busca Web) ou disse 'mcp de [ferramenta]'? -> Responda com JSON da ferramenta imediatamente.\n\nFORMATO PARA USO DE FERRAMENTA (JSON):\n{\n  "thought": "Pensamento ultra-curto (1 a 3 palavras para economizar tokens, ex: 'baixar audio')",\n  "tool": "nome_da_ferramenta",\n  "args": { ...argumentos... }\n}\n\nEXEMPLOS:${exampleList}\nUser: "Como você está?"\nResponse: Estou bem, e você?\n\n---------------------------------------\n`;
 }
 loadServerTools();
 const providerSettings = {
@@ -375,6 +375,78 @@ function addToHistory(channelId, role, content) {
 }
 function getHistory(channelId) {
     return conversationHistory[channelId] || [];
+}
+function clearHistory(channelId) {
+    if (channelId && conversationHistory[channelId]) {
+        delete conversationHistory[channelId];
+        console.log(`[HISTORY] Histórico do canal ${channelId} resetado por comando.`);
+    }
+}
+function extractMcpTargetAndArgs(userText, channelId, fullPrompt) {
+    if (!userText || !/\bmcp\b/i.test(userText)) return null;
+    const cleanText = userText.trim();
+    const mcpMatch = cleanText.match(/\bmcp\s+(?:de\s+)?([a-z_]+)(?:[\s:]+(?:para|pra|sobre|de)?[\s:]*(.*))?$/i)
+        || cleanText.match(/\bmcp[:\s]+([a-z_]+)(?:[\s:]+(?:para|pra|sobre|de)?[\s:]*(.*))?$/i);
+    if (!mcpMatch) return null;
+    const rawToolKey = mcpMatch[1].toLowerCase();
+    let explicitArg = (mcpMatch[2] || '').trim();
+    explicitArg = explicitArg.replace(/^(?:para|pra|sobre|de|for|about|:)[\s:]+/i, '').trim();
+    explicitArg = explicitArg.replace(/^['"](.*)['"]$/, '$1').trim();
+    function getFallbackQuery() {
+        if (explicitArg) return explicitArg;
+        const history = conversationHistory[channelId] || [];
+        for (let i = history.length - 1; i >= 0; i--) {
+            const item = history[i];
+            if (item.role === 'user' && !/\bmcp\b/i.test(item.content)) {
+                const clean = item.content.replace(/---.*?---/gs, '').replace(/[-# ]+ctx.*$/si, '').trim();
+                if (clean.length > 0) return clean;
+            }
+        }
+        if (fullPrompt) {
+            const lines = fullPrompt.split('\n');
+            for (let i = lines.length - 1; i >= 0; i--) {
+                const line = lines[i].trim();
+                if (line.includes(': "') && !/\bmcp\b/i.test(line) && !line.startsWith('Hikari:')) {
+                    const m = line.match(/:\s*"([^"]+)"/);
+                    if (m && m[1]) return m[1].trim();
+                }
+            }
+        }
+        return '';
+    }
+    const query = explicitArg || getFallbackQuery();
+    const urlInQuery = query.match(/https?:\/\/\S+/i)?.[0] || userText.match(/https?:\/\/\S+/i)?.[0] || '';
+    if (['pesquisa', 'pesquisar', 'busca', 'buscar', 'web', 'google', 'search', 'search_web'].includes(rawToolKey)) {
+        return { tool: 'search_web', args: { query: query || 'notícias' } };
+    }
+    if (['musica', 'música', 'music', 'audio', 'áudio', 'som', 'faixa', 'song', 'deezer', 'spotify', 'search_and_download_music', 'download_audio'].includes(rawToolKey)) {
+        if (urlInQuery) {
+            return { tool: 'download_audio', args: { url: urlInQuery } };
+        }
+        return { tool: 'search_and_download_music', args: { query: query || 'musica' } };
+    }
+    if (['video', 'vídeo', 'clipe', 'clip', 'reel', 'shorts', 'tiktok', 'download_video'].includes(rawToolKey)) {
+        return { tool: 'download_video', args: { url: urlInQuery || query } };
+    }
+    if (['imagem', 'foto', 'arte', 'desenho', 'ilustracao', 'ilustração', 'wallpaper', 'avatar', 'pfp', 'image', 'generate_image'].includes(rawToolKey)) {
+        return { tool: 'generate_image', args: { prompt: query || 'uma arte detalhada', negative_prompt: 'nsfw, nude, explicit, gore, violence, blood, adult content, 18+, pornographic' } };
+    }
+    if (['jogo', 'game', 'torrent', 'crack', 'repack', 'search_game'].includes(rawToolKey)) {
+        return { tool: 'search_game', args: { game_name: query || 'game', direct: true } };
+    }
+    if (['steam', 'check_steam'].includes(rawToolKey)) {
+        return { tool: 'check_steam', args: { game: query || 'game' } };
+    }
+    if (['moeda', 'cotacao', 'cotação', 'cambio', 'câmbio', 'conversao', 'conversão', 'convert_currency'].includes(rawToolKey)) {
+        return { tool: 'convert_currency', args: { query: query } };
+    }
+    if (['voz', 'call', 'conectar', 'entrar', 'join_voice_call'].includes(rawToolKey)) {
+        return { tool: 'join_voice_call', args: {} };
+    }
+    if (['sair', 'desconectar', 'desconectar_voz', 'leave_voice_call'].includes(rawToolKey)) {
+        return { tool: 'leave_voice_call', args: {} };
+    }
+    return null;
 }
 function setDiscordClient(client) {
     discordClient = client;
@@ -1306,7 +1378,7 @@ VOCÊ DEVE ADERIR A ESSA NOVA PERSONA ACIMA DE TUDO.\n`;
                 } else if (provider.func === tryLocal && config.lmStudioApiKey) {
                     effectiveSystemPrompt += "\n[SYSTEM NOTICE]: You operate in STRICT TOOL MODE. You MUST ALWAYS call a tool.\n- If the user wants an action (search, download, help), use the specific tool.\n- For EVERYTHING ELSE (chat, math, questions), use the 'generate_reply' tool.\n- DO NOT output plain text. ALWAYS output a tool call.";
                 } else if (provider.func === tryGemini) {
-                    effectiveSystemPrompt += "\n[REGRAS DE FERRAMENTAS (TOOLS)]:\nVocê possui ferramentas poderosas. REGRA CRÍTICA DE OURO: Se o usuário pedir uma AÇÃO que pode ser feita por uma ferramenta, você DEVE chamar a ferramenta imediatamente. NUNCA responda com texto prometendo fazer a ação (ex: PROIBIDO dizer 'blz vou baixar', 'vou procurar', 'ok, buscando' quando houver uma ferramenta aplicável — isso é falso atendimento. Aja ou recuse, nunca prometa).\n- Pediu para BAIXAR MÚSICA POR NOME/ARTISTA (sem URL)? → OBRIGATÓRIO chamar search_and_download_music com o nome. NUNCA diga que vai baixar sem chamar.\n- Pediu para GERAR/CRIAR/DESENHAR uma imagem? → OBRIGATÓRIO chamar generate_image. Crie um prompt detalhado e criativo mesmo se o pedido for vago.\n- Pediu para BAIXAR áudio/vídeo e deu um link URL? → Chame download_audio ou download_video.\n- Pediu para entrar na call, canal de voz ou conversar por voz? → OBRIGATÓRIO chamar join_voice_call.\n- Pediu para sair da call, canal de voz ou desconectar da voz? → OBRIGATÓRIO chamar leave_voice_call.\n- Dúvidas, perguntas sobre fatos, notícias, curiosidades ou qualquer assunto que exija conhecimento atual ou histórico? → Chame search_web imediatamente. Você NUNCA deve responder que não sabe, não pode ou não consegue ajudar; busque na internet se não tiver certeza absoluta do fato.\n- Pediu jogo/torrent ou para baixar/crackear qualquer jogo de PC? → Chame search_game obrigatoriamente.\n- Pediu preço na Steam? → Chame check_steam.\n- Pediu conversão de moeda/cotação? → Chame convert_currency.\n- Conversa casual sem ação (oi, piada, pergunta simples, pergunta sobre você)? → Responda com texto puro direto, NUNCA chame ferramenta.\n\n[ANTI-LOOP DE CONTEXTO]: O histórico da conversa pode conter chamadas de ferramenta anteriores (como downloads de música). Isso NÃO significa que você deve chamar essas ferramentas novamente. Analise APENAS a mensagem mais recente do usuário para decidir qual ação tomar.\n\n[FORMATO DA RESPOSTA]:\n- Para texto: escreva APENAS a fala final pro usuário. Sem análise interna, sem mencionar ferramentas.\n- NUNCA escreva 'tool_code', 'print()', 'default_api.' ou código na resposta.\n- NUNCA encapsule em JSON como {\"response\": \"...\"}. Texto puro sempre.\n- NUNCA exponha qual ferramenta vai usar ou seu raciocínio de decisão.\n- NUNCA repita literalmente o que o usuário acabou de dizer nem o que você disse na mensagem anterior.";
+                    effectiveSystemPrompt += "\n[REGRAS DE FERRAMENTAS (TOOLS)]:\nVocê possui ferramentas poderosas. REGRA CRÍTICA DE OURO: Se o usuário pedir uma AÇÃO que pode ser feita por uma ferramenta, você DEVE chamar a ferramenta imediatamente. NUNCA responda com texto prometendo fazer a ação (ex: PROIBIDO dizer 'blz vou baixar', 'vou procurar', 'ok, buscando' quando houver uma ferramenta aplicável — isso é falso atendimento. Aja ou recuse, nunca prometa).\n- COMANDO UNIVERSAL MCP: Se o usuário citar 'mcp de [ferramenta]' ou 'mcp [ferramenta]' (ex: 'mcp de pesquisa para xxx', 'mcp de musica para xxx', 'mcp de imagem para xxx', 'mcp de jogo para xxx', ou apenas 'mcp de pesquisa' usando o contexto anterior), você DEVE OBRIGATORIAMENTE acionar a ferramenta correspondente em JSON sem hesitar. Se o usuário não fornecer argumento explícito, use o assunto da mensagem anterior como argumento.\n- Pediu para BAIXAR MÚSICA POR NOME/ARTISTA (sem URL)? → OBRIGATÓRIO chamar search_and_download_music com o nome. NUNCA diga que vai baixar sem chamar.\n- Pediu para GERAR/CRIAR/DESENHAR uma imagem? → OBRIGATÓRIO chamar generate_image. Crie um prompt detalhado e criativo mesmo se o pedido for vago.\n- Pediu para BAIXAR áudio/vídeo e deu um link URL? → Chame download_audio ou download_video.\n- Pediu para entrar na call, canal de voz ou conversar por voz? → OBRIGATÓRIO chamar join_voice_call.\n- Pediu para sair da call, canal de voz ou desconectar da voz? → OBRIGATÓRIO chamar leave_voice_call.\n- Dúvidas, perguntas sobre fatos, notícias, curiosidades ou qualquer assunto que exija conhecimento atual ou histórico? → Chame search_web imediatamente. Você NUNCA deve responder que não sabe, não pode ou não consegue ajudar; busque na internet se não tiver certeza absoluta do fato.\n- Pediu jogo/torrent ou para baixar/crackear qualquer jogo de PC? → Chame search_game obrigatoriamente.\n- Pediu preço na Steam? → Chame check_steam.\n- Pediu conversão de moeda/cotação? → Chame convert_currency.\n- Conversa casual sem ação (oi, piada, pergunta simples, pergunta sobre você)? → Responda com texto puro direto, NUNCA chame ferramenta.\n\n[ANTI-LOOP DE CONTEXTO]: O histórico da conversa pode conter chamadas de ferramenta anteriores (como downloads de música). Isso NÃO significa que você deve chamar essas ferramentas novamente. Analise APENAS a mensagem mais recente do usuário para decidir qual ação tomar.\n\n[FORMATO DA RESPOSTA]:\n- Para texto: escreva APENAS a fala final pro usuário. Sem análise interna, sem mencionar ferramentas.\n- NUNCA escreva 'tool_code', 'print()', 'default_api.' ou código na resposta.\n- NUNCA encapsule em JSON como {\"response\": \"...\"}. Texto puro sempre.\n- NUNCA exponha qual ferramenta vai usar ou seu raciocínio de decisão.\n- NUNCA repita literalmente o que o usuário acabou de dizer nem o que você disse na mensagem anterior.";
                 } else {
                     effectiveSystemPrompt += buildToolsDefinition(guildId, options.userId || null);
                 }
@@ -1660,7 +1732,17 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                 }
             ];
             const PROMISE_PATTERNS = /\b(vou baixar|vou procurar|vou buscar|irei baixar|irei procurar|aguarde enquanto|deixa eu baixar|ok,? vou|blz,? vou|tá,? vou|tô baixando|to baixando|estou baixando|estou buscando|vou te mandar|já te mando|te mando já|vou pesquisar|vou verificar|vou tentar baixar)\b/i;
-            if (!rawHasJson && PROMISE_PATTERNS.test(lowerRaw)) {
+            const explicitMcp = extractMcpTargetAndArgs(options.searchPrompt || prompt, channelId, prompt);
+            if (explicitMcp) {
+                if (interaction && typeof interaction.react === 'function') {
+                    interaction.react('✅').catch(() => {});
+                }
+                if (!isToolDisabled(options?.guildId || guildId, explicitMcp.tool)) {
+                    console.log(`[MCP UNIVERSAL] Comando MCP explícito detectado: ${explicitMcp.tool}`, explicitMcp.args);
+                    rawResponse = JSON.stringify({ thought: 'comando-universal-mcp', tool: explicitMcp.tool, args: explicitMcp.args });
+                    processedResponse = rawResponse;
+                }
+            } else if (!rawHasJson && PROMISE_PATTERNS.test(lowerRaw)) {
                 const matched = ACTION_TOOLS.find(t => t.test());
                 if (matched && !isToolDisabled(options?.guildId || guildId, matched.tool)) {
                     console.log(`[FALLBACK DET.] Falso atendimento interceptado. Chamando: ${matched.tool}`);
@@ -2714,4 +2796,5 @@ module.exports = {
     setServerEveryoneMention,
     setServerUpdateChannel,
     setServerLastChannel,
+    clearHistory,
 };

@@ -14,7 +14,7 @@ const defaultValues = {
     appealChannelId: '1483987324869017662',
     requireTos: false,
     saveHistory: true,
-    keepMusicEmbed: true, // teste
+    keepMusicEmbed: true,
     defaultAutoMod: true,
     automodMode: 'both',
     sendEnvironmentInfo: true,
@@ -47,6 +47,7 @@ const envMap = {
     PREFIX: 'prefix',
     BOT_NAME: 'botName',
     OWNER_ID: 'ownerIds',
+    OWNER_IDS: 'ownerIds',
     AUTOMOD_WHITELIST: 'automodWhitelist',
     APPEAL_CHANNEL_ID: 'appealChannelId',
     REQUIRE_TOS: 'requireTos',
@@ -153,11 +154,13 @@ if (!resolvedConfig.hordeImageApiKey) {
 const config = {
     ...resolvedConfig,
     isOwner: function(id) {
-        return this.ownerIds.includes(id);
+        if (!id) return false;
+        return this.ownerIds.includes(String(id));
     },
     ownerId: resolvedConfig.ownerIds[0] || '',
     isAutomodWhitelisted: function(id) {
-        return this.automodWhitelist.includes(id);
+        if (!id) return false;
+        return this.automodWhitelist.includes(String(id));
     },
     getStabilityKey: function() {
         if (!this.stabilityApiKeys.length) return '';

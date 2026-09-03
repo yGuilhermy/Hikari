@@ -8,6 +8,17 @@ module.exports = {
     once: false,
     async execute(message, client) {
         if (message.author.bot) return;
+        const cleanRawContent = message.content.trim().toLowerCase();
+        if (cleanRawContent === 'mcp del' || cleanRawContent === 'mcp del.' || cleanRawContent === 'hikari mcp del' || cleanRawContent.replace(/<@!?\d+>/g, '').trim() === 'mcp del') {
+            try {
+                await message.react('🫡');
+            } catch (_) {}
+            const { clearHistory } = require('../handlers/llmHandler');
+            if (typeof clearHistory === 'function') {
+                clearHistory(message.channelId);
+            }
+            return;
+        }
         const banInfo = checkBan(message.author.id, message.guildId, message.channelId);
         if (banInfo) {
             const isMentionForBan = message.mentions.has(client.user, { ignoreEveryone: true });
@@ -92,7 +103,16 @@ module.exports = {
                     if (!messageMap.has(msg.id)) messageMap.set(msg.id, msg);
                 });
                 const sortedMessages = [...messageMap.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-                for (const msg of sortedMessages) {
+                let lastDelIndex = -1;
+                for (let i = sortedMessages.length - 1; i >= 0; i--) {
+                    const c = sortedMessages[i].content.trim().toLowerCase();
+                    if (c === 'mcp del' || c === 'mcp del.' || c === 'hikari mcp del' || c.replace(/<@!?\d+>/g, '').trim() === 'mcp del') {
+                        lastDelIndex = i;
+                        break;
+                    }
+                }
+                const filteredMessages = lastDelIndex !== -1 ? sortedMessages.slice(lastDelIndex + 1) : sortedMessages;
+                for (const msg of filteredMessages) {
                     const isBot = msg.author.id === client.user.id;
                     const authorName = isBot ? 'Hikari' : msg.author.username;
                     let content = resolveMentions(msg.content, client);
@@ -150,7 +170,17 @@ module.exports = {
                         const currentUserPrompt = resolveMentions(message.content, client);
                         const history = [];
                         const recentMessages = await message.channel.messages.fetch({ limit: 5, before: message.id });
-                        [...recentMessages.values()].reverse().forEach(msg => {
+                        const sortedRecent = [...recentMessages.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+                        let lastDelIndex = -1;
+                        for (let i = sortedRecent.length - 1; i >= 0; i--) {
+                            const c = sortedRecent[i].content.trim().toLowerCase();
+                            if (c === 'mcp del' || c === 'mcp del.' || c === 'hikari mcp del' || c.replace(/<@!?\d+>/g, '').trim() === 'mcp del') {
+                                lastDelIndex = i;
+                                break;
+                            }
+                        }
+                        const filteredRecent = lastDelIndex !== -1 ? sortedRecent.slice(lastDelIndex + 1) : sortedRecent;
+                        filteredRecent.forEach(msg => {
                             const isBot = msg.author.id === client.user.id;
                             const authorName = isBot ? 'Hikari' : msg.author.username;
                             let content = resolveMentions(msg.content, client);
