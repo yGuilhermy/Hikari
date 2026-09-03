@@ -66,15 +66,19 @@ async function handleCreatorAdminCommand(interaction, client) {
 
     if (sub === 'banir') {
         const tipo = interaction.options.getString('tipo');
-        const id = interaction.options.getString('id');
+        const rawId = interaction.options.getString('id');
         const motivo = interaction.options.getString('motivo') || 'Violação dos termos.';
-        addBan(tipo, id, motivo);
+        const cleanId = (rawId || '').replace(/\D/g, '');
+        const success = addBan(tipo, cleanId, motivo);
+        if (!success) {
+            return interaction.reply({ content: '❌ Tipo ou ID inválido. Tipos válidos: `user`, `guild`, `channel`. O ID precisa conter números válidos.', ephemeral: true });
+        }
         const embed = new EmbedBuilder()
             .setColor(0xE11D48)
             .setTitle('🔒 Restrição Aplicada')
             .addFields(
                 { name: 'Tipo', value: tipo, inline: true },
-                { name: 'ID', value: `\`${id}\``, inline: true },
+                { name: 'ID', value: `\`${cleanId}\``, inline: true },
                 { name: 'Motivo', value: motivo }
             )
             .setTimestamp();
@@ -83,14 +87,18 @@ async function handleCreatorAdminCommand(interaction, client) {
 
     if (sub === 'desbanir') {
         const tipo = interaction.options.getString('tipo');
-        const id = interaction.options.getString('id');
-        removeBan(tipo, id);
+        const rawId = interaction.options.getString('id');
+        const cleanId = (rawId || '').replace(/\D/g, '');
+        const success = removeBan(tipo, cleanId);
+        if (!success) {
+            return interaction.reply({ content: `⚠️ O alvo \`${cleanId || rawId}\` (${tipo}) não foi encontrado na base de banimentos ou já estava desbanido.`, ephemeral: true });
+        }
         const embed = new EmbedBuilder()
             .setColor(0x10B981)
             .setTitle('🔓 Restrição Revogada')
             .addFields(
                 { name: 'Tipo', value: tipo, inline: true },
-                { name: 'ID', value: `\`${id}\``, inline: true }
+                { name: 'ID', value: `\`${cleanId}\``, inline: true }
             )
             .setTimestamp();
         return interaction.reply({ embeds: [embed], ephemeral: false });
@@ -356,24 +364,31 @@ async function handleCreatorAdminInteraction(interaction, client) {
     }
 
     if (customId === 'crtcfg_modal_ban') {
-        const acao = (interaction.fields.getTextInputValue('acao') || '').toLowerCase();
-        const tipo = (interaction.fields.getTextInputValue('tipo') || '').toLowerCase();
-        const id = interaction.fields.getTextInputValue('id');
+        const acao = (interaction.fields.getTextInputValue('acao') || '').toLowerCase().trim();
+        const tipo = (interaction.fields.getTextInputValue('tipo') || '').toLowerCase().trim();
+        const rawId = interaction.fields.getTextInputValue('id');
         const motivo = interaction.fields.getTextInputValue('motivo') || 'Violação.';
+        const cleanId = (rawId || '').replace(/\D/g, '');
 
         if (acao === 'banir') {
-            addBan(tipo, id, motivo);
+            const success = addBan(tipo, cleanId, motivo);
+            if (!success) {
+                return interaction.reply({ content: '❌ Erro ao banir. Verifique se o Tipo (USER, GUILD, CHANNEL) e o ID numérico estão corretos.', ephemeral: true });
+            }
             const embed = new EmbedBuilder()
                 .setColor(0xE11D48)
                 .setTitle('🛑 Bloqueio Aplicado')
-                .setDescription(`O alvo \`${id}\` (${tipo}) foi banido globalmente.`);
+                .setDescription(`O alvo \`${cleanId}\` (${tipo}) foi banido globalmente.`);
             return interaction.reply({ embeds: [embed], ephemeral: true });
         } else if (acao === 'desbanir') {
-            removeBan(tipo, id);
+            const success = removeBan(tipo, cleanId);
+            if (!success) {
+                return interaction.reply({ content: `⚠️ O alvo \`${cleanId || rawId}\` (${tipo}) não foi localizado na lista de banimentos ativos.`, ephemeral: true });
+            }
             const embed = new EmbedBuilder()
                 .setColor(0x10B981)
                 .setTitle('🔓 Bloqueio Revogado')
-                .setDescription(`O alvo \`${id}\` (${tipo}) foi desbanido.`);
+                .setDescription(`O alvo \`${cleanId}\` (${tipo}) foi desbanido.`);
             return interaction.reply({ embeds: [embed], ephemeral: true });
         } else {
             return interaction.reply({ content: '❌ Ação inválida. Digite BANIR ou DESBANIR.', ephemeral: true });

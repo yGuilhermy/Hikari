@@ -50,7 +50,7 @@ async function buildBanListPayload(client, category, page = 0) {
     const pageSize = 5;
     const total = entries.length;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
-    const currentPage = Math.min(page, totalPages - 1);
+    const currentPage = Math.max(0, Math.min(page, totalPages - 1));
 
     embed.setTitle(`🚫 ${icon} Bloqueios: ${title} (${currentPage + 1}/${totalPages})`)
          .setDescription(`Mostrando bloqueios ativos para a categoria **${title}**.`);

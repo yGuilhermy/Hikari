@@ -1530,7 +1530,7 @@ Você pode hospedar sua própria versão privada facilmente!
                         .setStyle(ButtonStyle.Link)
                         .setEmoji('🚀');
                     const appealButton = new ButtonBuilder()
-                        .setCustomId(`appeal_ban_user_${userId}`)
+                        .setCustomId(`appeal_ban_${autoBanTrigger.type}_${autoBanTrigger.id}`)
                         .setLabel('⚖️ Solicitar Apelação')
                         .setStyle(ButtonStyle.Secondary);
                     const banRow = new ActionRowBuilder().addComponents(appealButton, githubButton);
@@ -1564,7 +1564,7 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                 .setFooter({ text: 'Hikari Security & Moderation • by yGuilhermy' })
                 .setTimestamp();
             const appealButton = new ButtonBuilder()
-                .setCustomId(`appeal_ban_user_${userId}`)
+                .setCustomId(`appeal_ban_${banInfo.type}_${banInfo.id || userId}`)
                 .setLabel('⚖️ Solicitar Apelação')
                 .setStyle(ButtonStyle.Secondary);
             const githubButton = new ButtonBuilder()

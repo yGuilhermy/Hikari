@@ -197,6 +197,12 @@ module.exports = {
         }
         if (interaction.isButton()) {
             const cid = interaction.customId;
+            if (!cid.startsWith('appeal_ban_') && !cid.startsWith('unban_') && !cid.startsWith('keepban_') && !cid.startsWith('adm_') && !cid.startsWith('banlist_') && !cid.startsWith('crtcfg_') && !cid.startsWith('cfgpanel_') && !cid.startsWith('srvcfg_') && !cid.startsWith('help_')) {
+                const banInfo = checkBan(interaction.user.id, interaction.guildId, interaction.channelId);
+                if (banInfo) {
+                    return interaction.reply({ content: '🛑 **ACESSO NEGADO:** Você ou este servidor/canal está banido da Hikari.', ephemeral: true });
+                }
+            }
             if (cid.startsWith('radio_')) {
                 if (cid.startsWith('radio_ambiguous_cancel_')) {
                     return await handleAmbiguousSelect(interaction, client);
@@ -290,6 +296,7 @@ module.exports = {
                     .setTitle('🔓 Desbanido com Sucesso')
                     .setDescription(`O alvo com ID \`${targetId}\` (${apiType}) foi desbanido do sistema.`);
                 const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId(`banlist_view_${category}_0`).setLabel('⬅️ Voltar à Lista').setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder().setCustomId('banlist_home').setLabel('🏠 Início').setStyle(ButtonStyle.Primary)
                 );
                 return await interaction.update({ embeds: [embed], components: [row] });
@@ -367,10 +374,20 @@ module.exports = {
                 const banEmbed = new EmbedBuilder()
                     .setColor(0xE11D48)
                     .setTitle('🛑 ACESSO NEGADO — VOCÊ ESTÁ BANIDO!')
-                    .setDescription(`Sua tentativa de execução foi abortada. O acesso à **IA Hikari** está permanentemente bloqueado para você.\n\n**DETALHES DO SEU BANIMENTO:**\n- **Tipo:** ${banInfo.typeName || banInfo.type}\n- **Motivo do Banimento:** ${banInfo.reason || "Violação severa dos Termos de Uso da IA Hikari."}\n- **Status Atual:** 🔴 TOTALMENTE RESTRITO / SUSPENSO.\n\nVocê perdeu todos os privilégios de utilização dos nossos serviços. Não adianta insistir.\n\nSe você acredita que isso é um erro ou deseja solicitar um desbanimento, entre em contato com o desenvolvedor: <@${config.ownerId}> [\[Abrir Perfil\](https://discord.com/users/${config.ownerId})] ✨`)
+                    .setDescription(`Sua tentativa de execução foi abortada. O acesso à **IA Hikari** está permanentemente bloqueado para você.\n\n**DETALHES DO SEU BANIMENTO:**\n- **Tipo:** ${banInfo.typeName || banInfo.type}\n- **Motivo do Banimento:** ${banInfo.reason || "Violação severa dos Termos de Uso da IA Hikari."}\n- **Status Atual:** 🔴 TOTALMENTE RESTRITO / SUSPENSO.\n\nVocê perdeu todos os privilégios de utilização dos nossos serviços. Não adianta insistir.\n\nSe você acredita que isso é um erro ou deseja solicitar um desbanimento, clique no botão de apelação abaixo ou entre em contato com o desenvolvedor: <@${config.ownerId}> [\[Abrir Perfil\](https://discord.com/users/${config.ownerId})] ✨`)
                     .setFooter({ text: 'Hikari Security & Moderation • by yGuilhermy' })
                     .setTimestamp();
-                return interaction.reply({ embeds: [banEmbed], ephemeral: false });
+                const appealButton = new ButtonBuilder()
+                    .setCustomId(`appeal_ban_${banInfo.type}_${banInfo.id || interaction.user.id}`)
+                    .setLabel('⚖️ Solicitar Apelação')
+                    .setStyle(ButtonStyle.Secondary);
+                const githubButton = new ButtonBuilder()
+                    .setLabel('Página do Projeto')
+                    .setURL('https://github.com/yGuilhermy/Hikari')
+                    .setStyle(ButtonStyle.Link)
+                    .setEmoji('🚀');
+                const banRow = new ActionRowBuilder().addComponents(appealButton, githubButton);
+                return interaction.reply({ embeds: [banEmbed], components: [banRow], ephemeral: true });
             }
         }
         if (interaction.isAutocomplete()) {

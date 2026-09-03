@@ -8,17 +8,6 @@ module.exports = {
     once: false,
     async execute(message, client) {
         if (message.author.bot) return;
-        const cleanRawContent = message.content.trim().toLowerCase();
-        if (cleanRawContent === 'mcp del' || cleanRawContent === 'mcp del.' || cleanRawContent === 'hikari mcp del' || cleanRawContent.replace(/<@!?\d+>/g, '').trim() === 'mcp del') {
-            try {
-                await message.react('🫡');
-            } catch (_) {}
-            const { clearHistory } = require('../handlers/llmHandler');
-            if (typeof clearHistory === 'function') {
-                clearHistory(message.channelId);
-            }
-            return;
-        }
         const banInfo = checkBan(message.author.id, message.guildId, message.channelId);
         if (banInfo) {
             const isMentionForBan = message.mentions.has(client.user, { ignoreEveryone: true });
@@ -30,7 +19,7 @@ module.exports = {
                 .setFooter({ text: 'Hikari Security & Moderation • by yGuilhermy' })
                 .setTimestamp();
             const appealButton = new ButtonBuilder()
-                .setCustomId(`appeal_ban_user_${message.author.id}`)
+                .setCustomId(`appeal_ban_${banInfo.type}_${banInfo.id || message.author.id}`)
                 .setLabel('⚖️ Solicitar Apelação')
                 .setStyle(ButtonStyle.Secondary);
             const githubButton = new ButtonBuilder()
@@ -40,6 +29,17 @@ module.exports = {
                 .setEmoji('🚀');
             const banRow = new ActionRowBuilder().addComponents(appealButton, githubButton);
             return message.reply({ embeds: [banEmbed], components: [banRow] }).catch(() => {});
+        }
+        const cleanRawContent = message.content.trim().toLowerCase();
+        if (cleanRawContent === 'mcp del' || cleanRawContent === 'mcp del.' || cleanRawContent === 'hikari mcp del' || cleanRawContent.replace(/<@!?\d+>/g, '').trim() === 'mcp del') {
+            try {
+                await message.react('🫡');
+            } catch (_) {}
+            const { clearHistory } = require('../handlers/llmHandler');
+            if (typeof clearHistory === 'function') {
+                clearHistory(message.channelId);
+            }
+            return;
         }
         if (message.guildId) {
             const { isServerAccepted, sendTermsOfService } = require('../handlers/tosHandler');

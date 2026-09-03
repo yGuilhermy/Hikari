@@ -81,7 +81,7 @@ async function joinVoiceCall(member, textChannel, replyFn = null) {
     const voiceChannel = member.voice.channel;
     const guildId = voiceChannel.guild.id;
 
-    const banInfo = checkBan(member.id, guildId, textChannel?.id);
+    const banInfo = checkBan(member.id, guildId, voiceChannel.id) || checkBan(member.id, guildId, textChannel?.id);
     if (banInfo) {
         console.log(`[VOICE] 🛑 Tentativa de conectar na voz negada (Banido: ${banInfo.typeName} - ${member.id})`);
         await sendOrReply(`🛑 **Acesso Negado**: Você (${banInfo.typeName.toLowerCase()}) está banido da rede Hikari e não pode utilizar os serviços de voz.`, textChannel, replyFn);
@@ -204,7 +204,7 @@ function setupVoiceReceiver(stateData, client) {
     const receiver = connection.receiver;
 
     receiver.speaking.on('start', (userId) => {
-        const banInfo = checkBan(userId, guildId, stateData.textChannelId);
+        const banInfo = checkBan(userId, guildId, stateData.voiceChannelId) || checkBan(userId, guildId, stateData.textChannelId);
         if (banInfo) {
             console.log(`[VOICE] 🛑 Entrada de voz ignorada do usuário banido ${userId}.`);
             return;
