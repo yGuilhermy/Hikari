@@ -16,6 +16,7 @@ const { resolveInput } = require('./radioProviders');
 const { leaveRadioCall, radioAmbiguousSessions, scheduleAmbiguousAutoSelect } = require('./radioManager');
 const { setLoopMode, toggleShuffle, prevTrack, skipToTrack } = require('./radioDatabase');
 const { prefetchNextTrack } = require('./radioPrefetcher');
+const { checkBan } = require('../handlers/banHandler');
 
 function isUserInRadioChannel(interaction, session) {
     if (!session) return false;
@@ -28,6 +29,12 @@ async function handleRadioButton(interaction, client) {
     try {
         const cid = interaction.customId;
         const guildId = interaction.guildId;
+
+        const banInfo = checkBan(interaction.user.id, guildId, interaction.channelId);
+        if (banInfo) {
+            return await interaction.reply({ content: '🛑 **ACESSO NEGADO:** Você ou este servidor/canal está com restrição ativa.', flags: MessageFlags.Ephemeral });
+        }
+
         const session = getSession(guildId);
 
         if (cid.startsWith('radio_ambiguous_cancel_')) {
@@ -168,6 +175,13 @@ async function handleRadioModal(interaction, client) {
     if (interaction.customId !== 'radio_add_modal' && interaction.customId !== 'radio_remove_modal') return false;
 
     const guildId = interaction.guildId;
+
+    const banInfo = checkBan(interaction.user.id, guildId, interaction.channelId);
+    if (banInfo) {
+        await interaction.reply({ content: '🛑 **ACESSO NEGADO:** Você ou este servidor/canal está com restrição ativa.', flags: MessageFlags.Ephemeral });
+        return true;
+    }
+
     const session = getSession(guildId);
 
     if (!session) {
@@ -304,6 +318,12 @@ async function handleRadioModal(interaction, client) {
 async function handleAmbiguousSelect(interaction, client) {
     const cid = interaction.customId;
     if (!cid.startsWith('radio_ambiguous_select_') && !cid.startsWith('radio_ambiguous_cancel_')) return false;
+
+    const banInfo = checkBan(interaction.user.id, interaction.guildId, interaction.channelId);
+    if (banInfo) {
+        await interaction.reply({ content: '🛑 **ACESSO NEGADO:** Você ou este servidor/canal está com restrição ativa.', flags: MessageFlags.Ephemeral });
+        return true;
+    }
 
     const parts = cid.split('_');
     const guildId = parts[3];

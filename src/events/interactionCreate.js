@@ -245,9 +245,9 @@ module.exports = {
                 const action = parts[2];
                 const guildId = parts[3];
                 if (action === 'leave') {
-                    const targetGuild = client.guilds.cache.get(guildId);
+                    const targetGuild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
                     if (targetGuild) {
-                        await targetGuild.leave();
+                        await targetGuild.leave().catch(() => {});
                         await interaction.update({ content: `✅ Saí do servidor \`${targetGuild.name}\` com sucesso.`, embeds: [], components: [] });
                     } else {
                         await interaction.reply({ content: '❌ Servidor não encontrado ou já saí.', ephemeral: true });
@@ -264,7 +264,13 @@ module.exports = {
                     await interaction.update({ content: '✅ Alerta ignorado.', components: [] });
                 } else {
                     addBan(type, targetId, "Banido remotamente pelo log de violações do sistema Hikari.");
-                    await interaction.update({ content: `✅ Alvo \`${targetId}\` (${type}) banido com sucesso.`, components: [] });
+                    if (type === 'guild') {
+                        const targetGuild = client.guilds.cache.get(targetId) || await client.guilds.fetch(targetId).catch(() => null);
+                        if (targetGuild) {
+                            await targetGuild.leave().catch(() => {});
+                        }
+                    }
+                    await interaction.update({ content: `✅ Alvo \`${targetId}\` (${type}) banido com sucesso.${type === 'guild' ? ' O bot saiu do servidor.' : ''}`, components: [] });
                 }
                 return;
             } else if (cid === 'banlist_home') {

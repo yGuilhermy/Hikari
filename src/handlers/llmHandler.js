@@ -2476,15 +2476,15 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                     }
                 }
                 if (toolData.tool === 'ia_automod') {
-                    if (config.isAutomodWhitelisted(userId)) {
-                        console.warn('[IA_AUTOMOD] Usuario na whitelist. Execucao de banimento ignorada/bypass.');
+                    if (config.isOwner(userId) || config.isAutomodWhitelisted(userId)) {
+                        console.warn('[IA_AUTOMOD] Usuario na whitelist ou criador. Execucao de banimento ignorada/bypass.');
                     } else {
                         const _mode = getAutoBlockMode(guildId);
                         const _automodActive = _mode !== 'off';
                         if (!_automodActive || (_mode !== 'mcp' && _mode !== 'both')) {
                             console.warn('[IA_AUTOMOD] Tool acionada mas modo/automod não permite. Ignorado.');
                         } else {
-                            const { reason, severity } = toolData.args;
+                            const { reason, severity } = toolData.args || {};
                             const alreadyBanned = checkBan(userId, null, null);
                             if (!alreadyBanned) {
                                 addBan('user', userId, reason || 'Violação dos Termos detectada pela IA Hikari.');
@@ -2506,6 +2506,31 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                                     .setStyle(ButtonStyle.Secondary);
                                 const banRow = new ActionRowBuilder().addComponents(appealButton, githubButton);
                                 savePromptToHistory(prompt, userTag, userId, `[IA_AUTOMOD BAN - Severidade: ${severity}]`, interaction);
+                                const webhookUrl = config.avisosWebhookUrl;
+                                if (webhookUrl) {
+                                    const alertEmbed = {
+                                        title: '🤖 Banimento Aplicado Pela IA (AI AutoMod)',
+                                        color: 0xE11D48,
+                                        description: `A IA executou a ferramenta \`ia_automod\` e baniu o usuário **${userTag}**.`,
+                                        fields: [
+                                            { name: '👤 Usuário', value: `${userTag} (\`${userId}\`)`, inline: true },
+                                            { name: '🏘️ Servidor', value: `${guildName} (\`${guildId}\`)`, inline: true },
+                                            { name: '📍 Canal', value: `#${channelName} (\`${channelId}\`)`, inline: true },
+                                            { name: '⚡ Severidade', value: `\`${severity || 'N/A'}\``, inline: true },
+                                            { name: '📋 Motivo da IA', value: reason || 'Violação dos Termos.', inline: false },
+                                            { name: '💬 Prompt do Usuário', value: `\`\`\`${(prompt || 'N/A').substring(0, 800)}\`\`\`` }
+                                        ],
+                                        footer: { text: 'Hikari AI Security System' },
+                                        timestamp: new Date().toISOString()
+                                    };
+                                    const alertComponents = [{
+                                        type: 1,
+                                        components: [
+                                            { type: 2, style: 3, custom_id: `unban_user_${userId}_${userId}`, label: 'Desbanir Usuário' }
+                                        ]
+                                    }];
+                                    axios.post(webhookUrl, { embeds: [alertEmbed], components: alertComponents }).catch(() => {});
+                                }
                                 return await unifiedReply(null, [], [banRow], [banEmbed]);
                             }
                         }

@@ -381,6 +381,13 @@ async function handleVoiceStateUpdate(oldState, newState) {
     const voiceChannel = oldState.guild.channels.cache.get(stateData.voiceChannelId);
     if (!voiceChannel) return;
 
+    const banInfo = checkBan(null, guildId, stateData.voiceChannelId);
+    if (banInfo) {
+        console.log(`[VOICE] 🛑 Servidor ou canal de voz com restrição ativa (${guildId}). Desconectando.`);
+        await leaveVoiceCall(guildId);
+        return;
+    }
+
     const humanMembers = voiceChannel.members.filter(m => !m.user.bot);
     if (humanMembers.size === 0) {
         console.log(`[VOICE] 🚪 Todos os usuários saíram da call no servidor ${guildId}. Desconectando por inatividade.`);

@@ -328,7 +328,7 @@ async function reportNewGuild(guild) {
                 .setFooter({ text: `Total de Servidores: ${guild.client.guilds.cache.size} • by yGuilhermy` })
                 .setTimestamp();
             
-            const mngRow = new ActionRowBuilder().addComponents(
+            const buttons = [
                 new ButtonBuilder()
                     .setCustomId(`adm_manageguild_confirm_${guild.id}`)
                     .setLabel('Confirmar (Ignorar)')
@@ -336,8 +336,13 @@ async function reportNewGuild(guild) {
                 new ButtonBuilder()
                     .setCustomId(`adm_manageguild_leave_${guild.id}`)
                     .setLabel('Remover Bot do Servidor')
+                    .setStyle(ButtonStyle.Danger),
+                new ButtonBuilder()
+                    .setCustomId(`adm_remoteban_guild_${guild.id}`)
+                    .setLabel('Banir Servidor')
                     .setStyle(ButtonStyle.Danger)
-            );
+            ];
+            const mngRow = new ActionRowBuilder().addComponents(buttons);
             
             await webhook.send({ embeds: [logEmbed], components: [mngRow] });
         } catch (err) {
