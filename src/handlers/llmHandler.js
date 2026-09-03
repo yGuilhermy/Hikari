@@ -18,7 +18,7 @@ const {
 const { searchGames, getTorrentOrMagnet, createPaginationComponents, normalizeString } = require('./gameHandler');
 const { generateImage } = require('./imageHandler');
 const { getSteamGameInfo } = require('./steamHandler');
-const { convertCurrency } = require('./currencyHandler');
+const { convertCurrency, formatCurrencyNumber, parseCurrencyQuery } = require('./currencyHandler');
 const { handleMusicSearchAndDownload } = require('./deezerMusicHandler');
 require('dotenv').config();
 const config = require('../config');
@@ -2315,7 +2315,17 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                     }
                 }
                 if (toolData.tool === 'convert_currency') {
-                    const { amount, from, to } = toolData.args;
+                    let { amount, from, to } = toolData.args || {};
+                    if (!from || !to || toolData.args?.query) {
+                        const parsed = parseCurrencyQuery(toolData.args?.query || `${amount || ''} ${from || ''} ${to || ''}`);
+                        if (!amount) amount = parsed.amount;
+                        if (!from) from = parsed.from;
+                        if (!to) to = parsed.to;
+                    }
+                    from = from || 'USD';
+                    to = to || 'BRL';
+                    amount = amount || 1;
+
                     const currencyEmbed = new EmbedBuilder()
                         .setColor(0x7C3AED)
                         .setTitle('💱 Executando Ação')
@@ -2327,25 +2337,36 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                     if (convInfo.error) {
                         processedResponse = convInfo.error;
                     } else {
-                        const amountFormatted = Number(convInfo.amount).toLocaleString('pt-BR');
-                        const resultFormatted = Number(convInfo.result).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                        const rateFormatted = Number(convInfo.rate).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                        const amountFormatted = formatCurrencyNumber(convInfo.amount);
+                        const resultFormatted = formatCurrencyNumber(convInfo.result);
+                        const rateFormatted = formatCurrencyNumber(convInfo.rate);
                         const convEmbed = new EmbedBuilder()
                             .setColor(0x10B981)
-                            .setTitle(`Conversão de Moedas: ${convInfo.name}`)
+                            .setTitle(`Conversão de Moedas: ${convInfo.name || `${convInfo.from}/${convInfo.to}`}`)
                             .setDescription(`**${amountFormatted} ${convInfo.from}** equivale a **${resultFormatted} ${convInfo.to}**`)
                             .addFields(
                                 { name: 'Cotação (' + convInfo.from + ')', value: `1 ${convInfo.from} = ${rateFormatted} ${convInfo.to}`, inline: true },
                                 { name: 'Última Atualização', value: convInfo.lastUpdate || 'Desconhecida', inline: true }
-                            )
-                            .setFooter({ text: 'Fonte: AwesomeAPI • Hikari • by yGuilhermy' })
+                            );
+
+                        if (convInfo.pctChange) {
+                            convEmbed.addFields({ name: '📊 Variação (24h)', value: `${Number(convInfo.pctChange) >= 0 ? '📈 +' : '📉 '}${convInfo.pctChange}%`, inline: true });
+                        }
+                        if (convInfo.high && convInfo.low) {
+                            convEmbed.addFields({ name: '📈 Máx / Mín (24h)', value: `${formatCurrencyNumber(convInfo.high)} / ${formatCurrencyNumber(convInfo.low)}`, inline: true });
+                        }
+
+                        convEmbed.setFooter({ text: 'Fonte: Câmbio Oficial (AwesomeAPI / ER-API) • Hikari • by yGuilhermy' })
                             .setTimestamp();
                             
                         let hikariComment = `Pronto! Deu **${resultFormatted} ${convInfo.to}** na cotação atual.`;
                         
                         try {
                             const commentPrompt = `Eu acabei de converter ${convInfo.amount} ${convInfo.from} para ${convInfo.to}. O resultado foi ${resultFormatted}. Faça um comentário CURTO (máximo 15 palavras) e bem casual sobre isso, na sua personalidade. (NÃO gere json nem responda pedindo, apenas diga a fala natural).`;
-                            const rawComment = await generateResponse(commentPrompt, channelId, { allowSearch: false, disableTools: true, guildId, isInternalComment: true });
+                            const rawComment = await Promise.race([
+                                generateResponse(commentPrompt, channelId, { allowSearch: false, disableTools: true, guildId, isInternalComment: true }),
+                                new Promise(resolve => setTimeout(() => resolve(null), 3000))
+                            ]);
                             if (rawComment && !rawComment.includes('⚠️ SYSTEM ERROR')) {
                                 let cleanData = rawComment.replace(/\n-# .*$/gm, '').trim();
                                 const jsonMatch = cleanData.match(/\{[\s\S]*\}/);

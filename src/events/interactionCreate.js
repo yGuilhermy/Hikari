@@ -43,7 +43,7 @@ const {
 const { executeGameCommand } = require('../handlers/gameHandler');
 const { handleSauceCommand } = require('../handlers/sauceHandler');
 const { getSteamGameInfo } = require('../handlers/steamHandler');
-const { convertCurrency } = require('../handlers/currencyHandler');
+const { convertCurrency, formatCurrencyNumber } = require('../handlers/currencyHandler');
 const { generateResponse } = require('../handlers/llmHandler');
 const { handleConfigCommand, handleConfigButton, handleConfigModal, handleConfigSelect } = require('../handlers/configPanelHandler');
 const { handleMusicSearchAndDownload, clearSession } = require('../handlers/deezerMusicHandler');
@@ -829,25 +829,36 @@ module.exports = {
                     return await interaction.editReply({ embeds: [errEmbed] });
                 }
 
-                const amountFormatted = Number(convInfo.amount).toLocaleString('pt-BR');
-                const resultFormatted = Number(convInfo.result).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                const rateFormatted = Number(convInfo.rate).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                const amountFormatted = formatCurrencyNumber(convInfo.amount);
+                const resultFormatted = formatCurrencyNumber(convInfo.result);
+                const rateFormatted = formatCurrencyNumber(convInfo.rate);
                 
                 const convEmbed = new EmbedBuilder()
                     .setColor(0x10B981)
-                    .setTitle(`Conversão de Moedas: ${convInfo.name}`)
+                    .setTitle(`Conversão de Moedas: ${convInfo.name || `${convInfo.from}/${convInfo.to}`}`)
                     .setDescription(`**${amountFormatted} ${convInfo.from}** equivale a **${resultFormatted} ${convInfo.to}**`)
                     .addFields(
                         { name: 'Cotação (' + convInfo.from + ')', value: `1 ${convInfo.from} = ${rateFormatted} ${convInfo.to}`, inline: true },
                         { name: 'Última Atualização', value: convInfo.lastUpdate || 'Desconhecida', inline: true }
-                    )
-                    .setFooter({ text: 'Fonte: AwesomeAPI • Hikari • by yGuilhermy' })
+                    );
+
+                if (convInfo.pctChange) {
+                    convEmbed.addFields({ name: '📊 Variação (24h)', value: `${Number(convInfo.pctChange) >= 0 ? '📈 +' : '📉 '}${convInfo.pctChange}%`, inline: true });
+                }
+                if (convInfo.high && convInfo.low) {
+                    convEmbed.addFields({ name: '📈 Máx / Mín (24h)', value: `${formatCurrencyNumber(convInfo.high)} / ${formatCurrencyNumber(convInfo.low)}`, inline: true });
+                }
+
+                convEmbed.setFooter({ text: 'Fonte: Câmbio Oficial (AwesomeAPI / ER-API) • Hikari • by yGuilhermy' })
                     .setTimestamp();
                     
                 let hikariComment = "";
                 try {
                     const commentPrompt = `Eu acabei de converter ${convInfo.amount} ${convInfo.from} para ${convInfo.to} via comando manual. O resultado foi ${resultFormatted}. Faça um comentário CURTO (máximo 15 palavras) e bem casual sobre isso, na sua personalidade. (Apenas o texto, sem JSON).`;
-                    const rawComment = await generateResponse(commentPrompt, interaction.channelId, { allowSearch: false, disableTools: true, guildId: interaction.guildId, isInternalComment: true });
+                    const rawComment = await Promise.race([
+                        generateResponse(commentPrompt, interaction.channelId, { allowSearch: false, disableTools: true, guildId: interaction.guildId, isInternalComment: true }),
+                        new Promise(resolve => setTimeout(() => resolve(null), 3000))
+                    ]);
                     if (rawComment && !rawComment.includes('⚠️ SYSTEM ERROR')) {
                         let cleanData = rawComment.replace(/\n-# .*$/gm, '').trim();
                         const jsonMatch = cleanData.match(/\{[\s\S]*\}/);
