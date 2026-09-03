@@ -3,7 +3,9 @@ const { EmbedBuilder } = require('discord.js');
 const { generateResponse } = require('./llmHandler');
 async function getAnimeSource(imageUrl) {
     try {
-        const response = await axios.get(`https://api.trace.moe/search?anilistInfo&url=${encodeURIComponent(imageUrl)}`);
+        const response = await axios.get(`https://api.trace.moe/search?anilistInfo&url=${encodeURIComponent(imageUrl)}`, {
+            timeout: 15000
+        });
         if (!response.data || !response.data.result || response.data.result.length === 0) {
             return [];
         }
@@ -16,8 +18,27 @@ async function getAnimeSource(imageUrl) {
             anilist: match.anilist
         }));
     } catch (error) {
-        console.error('Erro na API trace.moe:', error);
-        throw new Error('Falha ao consultar trace.moe');
+        const apiError = error.response?.data?.error || error.message;
+        console.error('[Sauce] Erro na API trace.moe:', apiError);
+        let userMessage = 'Tive um erro ao consultar o trace.moe.';
+        if (error.response?.status === 400) {
+            if (typeof apiError === 'string' && apiError.includes('Failed to fetch image')) {
+                userMessage = 'Não consegui acessar a imagem através desse link. Certifique-se de que o link aponta diretamente para uma imagem (.png, .jpg, .webp) e não para uma página web, ou anexe a imagem diretamente no Discord.';
+            } else if (typeof apiError === 'string' && apiError.includes('Failed to process image')) {
+                userMessage = 'A imagem enviada não pôde ser processada (formato inválido ou corrompido). Envie uma imagem válida (.png, .jpg, .webp).';
+            } else {
+                userMessage = `A API recusou a imagem fornecida: ${apiError}`;
+            }
+        } else if (error.response?.status === 429) {
+            userMessage = 'O limite de consultas no trace.moe foi atingido temporariamente. Tente novamente em alguns minutos.';
+        } else if (error.response?.status >= 500) {
+            userMessage = 'O serviço trace.moe está instável no momento. Tente novamente mais tarde.';
+        } else if (error.code === 'ECONNABORTED') {
+            userMessage = 'Tempo limite esgotado ao tentar consultar o trace.moe. Tente novamente.';
+        }
+        const customErr = new Error(userMessage);
+        customErr.isUserFacing = true;
+        throw customErr;
     }
 }
 function formatTime(seconds) {
@@ -53,10 +74,18 @@ async function fetchAnilistMetadata(anilistId) {
 }
 async function handleSauceCommand(interaction) {
     await interaction.deferReply();
-    const imageUrl = interaction.options.getAttachment('imagem')?.url || interaction.options.getString('url');
+    const attachment = interaction.options.getAttachment('imagem');
+    const urlString = interaction.options.getString('url');
+    if (attachment && attachment.contentType && !attachment.contentType.startsWith('image/')) {
+        return interaction.editReply('O arquivo enviado precisa ser uma imagem válida (PNG, JPG, WebP).');
+    }
+    const imageUrl = attachment?.url || urlString?.trim();
     console.log(`[LOG] Slash: /sauce | Usuário: ${interaction.user.tag} (${interaction.user.id}) | Local: {${interaction.guild?.name || 'DM'} - ${interaction.guildId || 'N/A'}} | Imagem/URL: ${imageUrl}`);
     if (!imageUrl) {
         return interaction.editReply('Você precisa me mandar uma imagem ou um link para eu descobrir o anime!');
+    }
+    if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+        return interaction.editReply('Por favor, forneça um link válido começando com http:// ou https://, ou anexe uma imagem.');
     }
     try {
         const results = await getAnimeSource(imageUrl);
@@ -162,8 +191,9 @@ MÁXIMO 2 LINHAS + A NOTA.
             await interaction.editReply({ content: null, embeds: [embed] });
         }
     } catch (error) {
-        console.error('Erro no handleSauceCommand:', error);
-        await interaction.editReply('Tive um erro interno ao processar sua imagem.');
+        console.error('[Sauce] Erro no handleSauceCommand:', error.isUserFacing ? error.message : (error.message || error));
+        const replyText = error.isUserFacing ? error.message : 'Tive um erro interno ao processar sua imagem.';
+        await interaction.editReply(replyText);
     }
 }
 module.exports = { handleSauceCommand };
