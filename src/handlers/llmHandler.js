@@ -24,7 +24,6 @@ require('dotenv').config();
 const config = require('../config');
 const geminiCooldowns = {};
 const mcpToolsPath = path.join(__dirname, '../data/mcp_tools.json');
-const TERMS_FILE = path.join(__dirname, '../data/accepted_servers.json');
 let ALL_MCP_TOOLS = [];
 function loadMcpTools() {
     try {
@@ -1579,7 +1578,7 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
             await unifiedReply('🧠 **Processando...**');
         }
         const startTime = Date.now();
-        console.log(`[LOG] Prompt IA: "${prompt.substring(0, 500)}${prompt.length > 500 ? '...' : ''}" | Usuário: ${userTag} (${userId})`);
+        console.log(`[HISTORICO] Prompt IA (${guildName} #${channelName} | ${userTag} [${userId}]):\n${prompt}`);
         let rawResponse;
         let isBlocked = false;
         let attemptsLeft = getErrorRetries();
@@ -2222,7 +2221,7 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                             await leaveVoiceCall(interaction.guildId, interaction.channel);
                         }
                     }
-                    console.log(`[MCP CHAT] Resposta gerada via Tool: ${processedResponse.substring(0, 50)}...`);
+                    console.log(`[AI/LLM] Resposta gerada via Tool: generate_reply (${duration})`);
                 }
                 if (toolData.tool === 'search_web') {
                     const query = toolData.args.query;
@@ -2727,7 +2726,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
             const cleanResponseForHistory = processedResponse.replace(/\n-# .*$/, '');
             addToHistory(channelId, 'assistant', cleanResponseForHistory);
             await unifiedReply(processedResponse);
-            console.log(`[LOG] Resposta IA: "${processedResponse.substring(0, 500)}${processedResponse.length > 500 ? '...' : ''}" | Duração: ${duration}`);
+            console.log(`[HISTORICO] Resposta IA (${duration}):\n${processedResponse}`);
             savePromptToHistory(prompt, userTag, userId, processedResponse, interaction);
 
         }

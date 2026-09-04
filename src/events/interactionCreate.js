@@ -52,29 +52,7 @@ const { startRadioMode } = require('../music/radioManager');
 const { handleServerAdminCommand, handleServerAdminInteraction, handleIaFerramentasCommand } = require('../handlers/serverAdminHandler');
 const { handleCreatorAdminCommand, handleCreatorAdminInteraction } = require('../handlers/creatorAdminHandler');
 const { buildBanListPayload, buildBanDetailPayload } = require('../handlers/banListHandler');
-
-function getHelpRegrasPages(regrasAnswer) {
-    if (!regrasAnswer) return [];
-    const sections = regrasAnswer.split(/(?=###\s+)/g).filter(s => s.trim().length > 0);
-    if (sections.length >= 2) {
-        const categorySections = sections.filter(s => s.startsWith('###'));
-        if (categorySections.length > 0) {
-            return categorySections.map((sec, idx) => {
-                const lines = sec.trim().split('\n');
-                const firstLine = lines[0].replace(/^###\s+/, '').trim();
-                const body = lines.slice(1).join('\n').trim();
-                return {
-                    title: `⚖️ Regras & Termos (${idx + 1}/${categorySections.length}) • ${firstLine}`,
-                    content: `### ${firstLine}\n\n${body}`
-                };
-            });
-        }
-    }
-    return [{
-        title: '⚖️ Regras & Termos (1/1)',
-        content: regrasAnswer
-    }];
-}
+const { logger } = require('../utils/logger');
 
 module.exports = {
     name: 'interactionCreate',
@@ -361,7 +339,8 @@ module.exports = {
             if (cid.startsWith('crtcfg_')) {
                 return await handleCreatorAdminInteraction(interaction, client);
             }
-            await handleTosInteraction(interaction);
+            const handledTos = await handleTosInteraction(interaction);
+            if (handledTos) return;
             await handleBanInteraction(interaction, client);
             return;
         }
@@ -373,8 +352,11 @@ module.exports = {
                 await checkAndInitializeUpdateChannel(interaction.guild, interaction.channel);
             }
             const sub = interaction.options.getSubcommand(false);
-            const cmdLog = `[LOG] Slash: /${interaction.commandName}${sub ? ' ' + sub : ''} | Usuário: ${interaction.user.tag} (${interaction.user.id}) | Local: {${interaction.guild?.name || 'DM'} - ${interaction.guildId || 'N/A'}}`;
-            console.log(cmdLog);
+            logger.command(
+                `${interaction.commandName}${sub ? ' ' + sub : ''}`,
+                `${interaction.user.tag} (${interaction.user.id})`,
+                `${interaction.guild?.name || 'DM'} [${interaction.guildId || 'N/A'}]`
+            );
             const banInfo = checkBan(interaction.user.id, interaction.guildId, interaction.channelId);
             if (banInfo && interaction.commandName !== 'ajuda') {
                 const banEmbed = new EmbedBuilder()
@@ -487,16 +469,20 @@ module.exports = {
         } else if (commandName === 'config_criador') {
             return await handleCreatorAdminCommand(interaction, client);
         } else if (commandName === 'aceitar_tos') {
-            const hasPermission = !interaction.guild || (interaction.member && (
-                interaction.member.permissions.has(PermissionFlagsBits.Administrator) ||
-                interaction.member.permissions.has(PermissionFlagsBits.ManageGuild) ||
-                interaction.member.permissions.has(PermissionFlagsBits.ManageChannels)
-            )) || config.isOwner(interaction.user.id);
+            const memberPerms = interaction.memberPermissions || interaction.member?.permissions;
+            const hasPermission = !interaction.guild ||
+                config.isOwner(interaction.user.id) ||
+                (interaction.guild && interaction.user.id === interaction.guild.ownerId) ||
+                (memberPerms && (
+                    memberPerms.has(PermissionFlagsBits.Administrator) ||
+                    memberPerms.has(PermissionFlagsBits.ManageGuild) ||
+                    memberPerms.has(PermissionFlagsBits.ManageChannels)
+                ));
             if (!hasPermission) {
                 const errEmbed = new EmbedBuilder()
                     .setColor(0xE11D48)
                     .setTitle('❌ Acesso Negado')
-                    .setDescription('Apenas administradores do servidor podem aceitar os Termos de Uso.');
+                    .setDescription('Apenas o dono do servidor ou administradores podem aceitar os Termos de Uso.');
                 return interaction.reply({ embeds: [errEmbed], ephemeral: true });
             }
             const { isServerAccepted, sendTermsOfService } = require('../handlers/tosHandler');

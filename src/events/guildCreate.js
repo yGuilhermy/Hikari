@@ -1,5 +1,6 @@
 const { reportNewGuild } = require('../handlers/tosHandler');
 const { setAutoBlock, checkBan } = require('../handlers/banHandler');
+const { logger } = require('../utils/logger');
 const config = require('../config');
 
 module.exports = {
@@ -9,7 +10,7 @@ module.exports = {
         if (!guild || !guild.id) return;
         const banInfo = checkBan(guild.ownerId, guild.id, null);
         if (banInfo) {
-            console.log(`[EVENT] Servidor ${guild.name} (${guild.id}) ou proprietário (${guild.ownerId}) está banido. Saindo.`);
+            logger.security(`Servidor banido ${guild.name} (${guild.id}) tentou adicionar o bot. Iniciando saída imediata.`);
             try {
                 const targetChannel = guild.systemChannel || guild.channels.cache.find(c => c.isTextBased() && c.permissionsFor(guild.client.user)?.has('SendMessages'));
                 if (targetChannel) {
@@ -17,11 +18,11 @@ module.exports = {
                 }
                 await guild.leave();
             } catch (e) {
-                console.error('[guildCreate] Erro ao sair do servidor banido:', e.message);
+                logger.error('SECURITY', 'Erro ao sair do servidor banido no guildCreate', e);
             }
             return;
         }
-        console.log(`[EVENT] Hikari foi adicionada ao servidor: ${guild.name} (${guild.id})`);
+        logger.discord(`Hikari adicionada a um novo servidor: ${guild.name} (ID: ${guild.id}) • Membros: ${guild.memberCount}`);
         const defaultMode = config.defaultAutoMod !== false ? (config.automodMode || 'both') : 'off';
         setAutoBlock(guild.id, defaultMode);
         await reportNewGuild(guild);

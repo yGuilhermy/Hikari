@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const axios = require('axios');
 const config = require('../config');
 
 const TEMP_AUDIO_DIR = path.join(__dirname, '../data/temp_audio');
@@ -202,6 +203,86 @@ function extractVideoId(url, platform) {
     }
 }
 
+async function downloadTikTokMedia(url, isAudioOnly, targetFilePath) {
+    let metadata = { title: 'TikTok Video' };
+
+    try {
+        const form = new URLSearchParams({ url, hd: '1' });
+        const res = await axios.post('https://www.tikwm.com/api/', form, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            },
+            timeout: 12000
+        });
+
+        if (res.data?.code === 0 && res.data?.data) {
+            const data = res.data.data;
+            metadata.title = data.title || data.desc || 'TikTok Video';
+            const mediaUrl = (isAudioOnly && data.music) ? data.music : (data.play || data.wmplay);
+
+            if (mediaUrl) {
+                const downloadRes = await axios.get(mediaUrl, {
+                    responseType: 'arraybuffer',
+                    headers: { 'User-Agent': 'Mozilla/5.0' },
+                    timeout: 30000
+                });
+
+                if (isAudioOnly && !mediaUrl.includes('audio_mpeg') && !mediaUrl.endsWith('.mp3')) {
+                    const tempRawPath = targetFilePath + '.tmp';
+                    fs.writeFileSync(tempRawPath, Buffer.from(downloadRes.data));
+                    await new Promise((resolve, reject) => {
+                        exec(`ffmpeg -y -i "${tempRawPath}" -vn -ab 192k -ar 44100 "${targetFilePath}"`, (err) => {
+                            try { fs.unlinkSync(tempRawPath); } catch (e) {}
+                            if (err) return reject(err);
+                            resolve();
+                        });
+                    });
+                } else {
+                    fs.writeFileSync(targetFilePath, Buffer.from(downloadRes.data));
+                }
+
+                return { success: true, metadata };
+            }
+        }
+    } catch (e) {}
+
+    try {
+        const res = await axios.post('https://api.tikmate.app/api/lookup', new URLSearchParams({ url }), {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            timeout: 12000
+        });
+
+        if (res.data?.success && res.data?.token && res.data?.id) {
+            metadata.title = res.data.desc || 'TikTok Video';
+            const downloadUrl = `https://tikmate.app/download/${res.data.token}/${res.data.id}.mp4`;
+            const downloadRes = await axios.get(downloadUrl, {
+                responseType: 'arraybuffer',
+                headers: { 'User-Agent': 'Mozilla/5.0' },
+                timeout: 35000
+            });
+
+            if (isAudioOnly) {
+                const tempRawPath = targetFilePath + '.tmp.mp4';
+                fs.writeFileSync(tempRawPath, Buffer.from(downloadRes.data));
+                await new Promise((resolve, reject) => {
+                    exec(`ffmpeg -y -i "${tempRawPath}" -vn -ab 192k -ar 44100 "${targetFilePath}"`, (err) => {
+                        try { fs.unlinkSync(tempRawPath); } catch (e) {}
+                        if (err) return reject(err);
+                        resolve();
+                    });
+                });
+            } else {
+                fs.writeFileSync(targetFilePath, Buffer.from(downloadRes.data));
+            }
+
+            return { success: true, metadata };
+        }
+    } catch (e) {}
+
+    throw new Error('TIKTOK_FALLBACK_FAILED: Não foi possível obter o vídeo pelos provedores alternativos.');
+}
+
 async function downloadAudio(videoUrl, context = null) {
     return new Promise((resolve, reject) => {
         const platform = detectPlatform(videoUrl);
@@ -215,41 +296,18 @@ async function downloadAudio(videoUrl, context = null) {
             logMediaAction('Download Áudio', platform, videoUrl, context, 'Erro', `Detalhe: ${err.message}`);
             return reject(err);
         }
-        let processedUrl = videoUrl;
-        if (platform === 'youtube_music') {
-            const match = videoUrl.match(YOUTUBE_MUSIC_REGEX);
-            if (match && match[1]) {
-                processedUrl = `https://www.youtube.com/watch?v=${match[1]}`;
-            }
-        }
+
         const videoId = extractVideoId(videoUrl, platform);
         const tempOutputFilename = `${videoId}.mp3`;
         const tempOutputFilePath = path.join(TEMP_AUDIO_DIR, tempOutputFilename);
-        const command = `yt-dlp ${buildYtdlpAudioFlags(tempOutputFilePath, processedUrl)}`;
-        logMediaAction('Download Áudio', platform, videoUrl, context, 'Iniciado');
-        exec(command, { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`[MediaHandler] FALHA NO YT-DLP (Áudio):\nSTDOUT: ${stdout}\nSTDERR: ${stderr}\nERROR: ${error.message}`);
-                let errObj = error;
-                if (stderr.includes("Private video") || stdout.includes("Private video")) {
-                    errObj = new Error("VIDEO_PRIVATE: Este vídeo é privado ou não está disponível.");
-                } else if (stderr.includes("age-restricted") || stdout.includes("age-restricted")) {
-                    errObj = new Error("VIDEO_AGE_RESTRICTED: Este vídeo é restrito por idade.");
-                } else if (stderr.includes("no appropriate format") || stdout.includes("no appropriate format")) {
-                    errObj = new Error("FORMAT_UNAVAILABLE: Não foi encontrado um formato de áudio adequado.");
-                } else {
-                    errObj = new Error(`lib do ytdlp desatualizada, peça o <@${config.ownerId}> para atualizar na host`);
-                }
-                logMediaAction('Download Áudio', platform, videoUrl, context, 'Erro', `Detalhe: ${errObj.message}`);
-                return reject(errObj);
-            }
-            const videoMetadata = parseMetadata(stdout, videoId);
-            const sanitizedTitle = sanitizeFilenameForDiscord(videoMetadata.title);
+
+        const resolveAudioFile = (metadata) => {
+            const sanitizedTitle = sanitizeFilenameForDiscord(metadata.title || `Media_${videoId}`);
             const finalFilePath = path.join(TEMP_AUDIO_DIR, `${sanitizedTitle}.mp3`);
             const renameAndResolve = (src, dest) => {
                 const sizeMB = (fs.statSync(src).size / (1024 * 1024)).toFixed(1);
-                logMediaAction('Download Áudio', platform, videoUrl, context, 'Sucesso', `Título: "${videoMetadata.title}" | Tamanho: ${sizeMB} MB`);
-                resolve({ filePath: dest, metadata: videoMetadata });
+                logMediaAction('Download Áudio', platform, videoUrl, context, 'Sucesso', `Título: "${metadata.title}" | Tamanho: ${sizeMB} MB`);
+                resolve({ filePath: dest, metadata });
             };
             if (fs.existsSync(tempOutputFilePath)) {
                 fs.rename(tempOutputFilePath, finalFilePath, (renameErr) => {
@@ -264,7 +322,51 @@ async function downloadAudio(videoUrl, context = null) {
                 logMediaAction('Download Áudio', platform, videoUrl, context, 'Erro', `Detalhe: ${err.message}`);
                 reject(err);
             }
-        });
+        };
+
+        const runYtdlp = () => {
+            let processedUrl = videoUrl;
+            if (platform === 'youtube_music') {
+                const match = videoUrl.match(YOUTUBE_MUSIC_REGEX);
+                if (match && match[1]) {
+                    processedUrl = `https://www.youtube.com/watch?v=${match[1]}`;
+                }
+            }
+            const command = `yt-dlp ${buildYtdlpAudioFlags(tempOutputFilePath, processedUrl)}`;
+            logMediaAction('Download Áudio', platform, videoUrl, context, 'Iniciado');
+            exec(command, { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+                if (error) {
+                    console.error(`[MediaHandler] FALHA NO YT-DLP (Áudio):\nSTDOUT: ${stdout}\nSTDERR: ${stderr}\nERROR: ${error.message}`);
+                    let errObj = error;
+                    if (stderr.includes("Private video") || stdout.includes("Private video")) {
+                        errObj = new Error("VIDEO_PRIVATE: Este vídeo é privado ou não está disponível.");
+                    } else if (stderr.includes("age-restricted") || stdout.includes("age-restricted")) {
+                        errObj = new Error("VIDEO_AGE_RESTRICTED: Este vídeo é restrito por idade.");
+                    } else if (stderr.includes("no appropriate format") || stdout.includes("no appropriate format")) {
+                        errObj = new Error("FORMAT_UNAVAILABLE: Não foi encontrado um formato de áudio adequado.");
+                    } else {
+                        errObj = new Error(`lib do ytdlp desatualizada, peça o <@${config.ownerId}> para atualizar na host`);
+                    }
+                    logMediaAction('Download Áudio', platform, videoUrl, context, 'Erro', `Detalhe: ${errObj.message}`);
+                    return reject(errObj);
+                }
+                const videoMetadata = parseMetadata(stdout, videoId);
+                resolveAudioFile(videoMetadata);
+            });
+        };
+
+        if (platform === 'tiktok') {
+            logMediaAction('Download Áudio', platform, videoUrl, context, 'Iniciado (Fallback Nativo)');
+            downloadTikTokMedia(videoUrl, true, tempOutputFilePath)
+                .then((res) => {
+                    resolveAudioFile(res.metadata);
+                })
+                .catch(() => {
+                    runYtdlp();
+                });
+        } else {
+            runYtdlp();
+        }
     });
 }
 
@@ -286,28 +388,13 @@ async function downloadVideo(videoUrl, context = null) {
             logMediaAction('Download Vídeo', platform, videoUrl, context, 'Erro', `Detalhe: ${err.message}`);
             return reject(err);
         }
-        let processedUrl = videoUrl;
+
         const videoId = extractVideoId(videoUrl, platform);
         const tempOutputFilename = `${videoId}.mp4`;
         const tempOutputFilePath = path.join(TEMP_VIDEO_DIR, tempOutputFilename);
-        const command = `yt-dlp ${buildYtdlpVideoFlags(tempOutputFilePath, processedUrl)}`;
-        logMediaAction('Download Vídeo', platform, videoUrl, context, 'Iniciado');
-        exec(command, { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`[MediaHandler] FALHA NO YT-DLP (Vídeo):\nSTDOUT: ${stdout}\nSTDERR: ${stderr}\nERROR: ${error.message}`);
-                let errObj = error;
-                if (stderr.includes("Private video") || stdout.includes("Private video")) {
-                    errObj = new Error("VIDEO_PRIVATE: Este vídeo é privado ou não está disponível.");
-                } else if (stderr.includes("age-restricted") || stdout.includes("age-restricted")) {
-                    errObj = new Error("VIDEO_AGE_RESTRICTED: Este vídeo é restrito por idade.");
-                } else {
-                    errObj = new Error(`lib do ytdlp desatualizada, peça o <@${config.ownerId}> para atualizar na host`);
-                }
-                logMediaAction('Download Vídeo', platform, videoUrl, context, 'Erro', `Detalhe: ${errObj.message}`);
-                return reject(errObj);
-            }
-            const videoMetadata = parseMetadata(stdout, videoId);
-            const sanitizedTitle = sanitizeFilenameForDiscord(videoMetadata.title);
+
+        const resolveVideoFile = (videoMetadata) => {
+            const sanitizedTitle = sanitizeFilenameForDiscord(videoMetadata.title || `Media_${videoId}`);
             const possiblePaths = [
                 tempOutputFilePath,
                 tempOutputFilePath.replace('.mp4', '.webm'),
@@ -331,7 +418,42 @@ async function downloadVideo(videoUrl, context = null) {
                 logMediaAction('Download Vídeo', platform, videoUrl, context, 'Erro', `Detalhe: ${err.message}`);
                 reject(err);
             }
-        });
+        };
+
+        const runYtdlp = () => {
+            const command = `yt-dlp ${buildYtdlpVideoFlags(tempOutputFilePath, videoUrl)}`;
+            logMediaAction('Download Vídeo', platform, videoUrl, context, 'Iniciado');
+            exec(command, { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+                if (error) {
+                    console.error(`[MediaHandler] FALHA NO YT-DLP (Vídeo):\nSTDOUT: ${stdout}\nSTDERR: ${stderr}\nERROR: ${error.message}`);
+                    let errObj = error;
+                    if (stderr.includes("Private video") || stdout.includes("Private video")) {
+                        errObj = new Error("VIDEO_PRIVATE: Este vídeo é privado ou não está disponível.");
+                    } else if (stderr.includes("age-restricted") || stdout.includes("age-restricted")) {
+                        errObj = new Error("VIDEO_AGE_RESTRICTED: Este vídeo é restrito por idade.");
+                    } else {
+                        errObj = new Error(`lib do ytdlp desatualizada, peça o <@${config.ownerId}> para atualizar na host`);
+                    }
+                    logMediaAction('Download Vídeo', platform, videoUrl, context, 'Erro', `Detalhe: ${errObj.message}`);
+                    return reject(errObj);
+                }
+                const videoMetadata = parseMetadata(stdout, videoId);
+                resolveVideoFile(videoMetadata);
+            });
+        };
+
+        if (platform === 'tiktok') {
+            logMediaAction('Download Vídeo', platform, videoUrl, context, 'Iniciado (Fallback Nativo)');
+            downloadTikTokMedia(videoUrl, false, tempOutputFilePath)
+                .then((res) => {
+                    resolveVideoFile(res.metadata);
+                })
+                .catch(() => {
+                    runYtdlp();
+                });
+        } else {
+            runYtdlp();
+        }
     });
 }
 
