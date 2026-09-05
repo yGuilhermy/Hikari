@@ -10,8 +10,8 @@ const BYTES_PER_SAMPLE = 2;
 const BYTES_PER_SECOND = SAMPLE_RATE * CHANNELS * BYTES_PER_SAMPLE;
 
 const DEFAULT_MIN_INITIAL_SEC = 1;
-const DEFAULT_MAX_BUFFER_SEC = 20;
-const DEFAULT_RESUME_BUFFER_SEC = 10;
+const DEFAULT_MAX_BUFFER_SEC = 8;
+const DEFAULT_RESUME_BUFFER_SEC = 4;
 
 class YouTubeBufferStream extends Readable {
     constructor(url, options = {}) {
@@ -23,6 +23,7 @@ class YouTubeBufferStream extends Readable {
         this.isFinishedDownloading = false;
         this.isBuffering = false;
         this.destroyedStream = false;
+        this.isReady = false;
 
         this.minInitialBytes = (options.minBufferSec || DEFAULT_MIN_INITIAL_SEC) * BYTES_PER_SECOND;
         this.maxBufferBytes = (options.maxBufferSec || DEFAULT_MAX_BUFFER_SEC) * BYTES_PER_SECOND;
@@ -46,7 +47,6 @@ class YouTubeBufferStream extends Readable {
             '--no-warnings',
             '--no-update',
             '--buffer-size', '16k',
-            '--concurrent-fragments', '4',
             ...cookieFlags,
             ...extraFlags,
             '-o', '-',
@@ -75,6 +75,7 @@ class YouTubeBufferStream extends Readable {
             this.bufferedBytes += chunk.length;
 
             if (this._resolveReady && this.bufferedBytes >= this.minInitialBytes) {
+                this.isReady = true;
                 const resolve = this._resolveReady;
                 this._resolveReady = null;
                 resolve();
@@ -93,6 +94,7 @@ class YouTubeBufferStream extends Readable {
         this.ffmpegProcess.stdout.on('end', () => {
             this.isFinishedDownloading = true;
             if (this._resolveReady) {
+                this.isReady = true;
                 const resolve = this._resolveReady;
                 this._resolveReady = null;
                 resolve();
@@ -110,6 +112,18 @@ class YouTubeBufferStream extends Readable {
 
         this.ytdlpProcess.on('error', handleError);
         this.ffmpegProcess.on('error', handleError);
+
+        this.ytdlpProcess.on('exit', (code) => {
+            if (code !== 0 && !this.destroyedStream && !this.isFinishedDownloading && this.bufferedBytes === 0) {
+                handleError(new Error(`yt-dlp encerrou com codigo de erro: ${code}`));
+            }
+        });
+
+        this.ffmpegProcess.on('exit', (code) => {
+            if (code !== 0 && !this.destroyedStream && !this.isFinishedDownloading && this.bufferedBytes === 0) {
+                handleError(new Error(`ffmpeg encerrou com codigo de erro: ${code}`));
+            }
+        });
 
         this.ytdlpProcess.stdin?.on('error', () => {});
         this.ffmpegProcess.stdin?.on('error', () => {});
@@ -152,23 +166,32 @@ class YouTubeBufferStream extends Readable {
         } catch (_) {}
 
         if (this.ytdlpProcess) {
+            try { this.ytdlpProcess.kill('SIGTERM'); } catch (_) {}
             try { this.ytdlpProcess.kill('SIGKILL'); } catch (_) {}
         }
         if (this.ffmpegProcess) {
+            try { this.ffmpegProcess.kill('SIGTERM'); } catch (_) {}
             try { this.ffmpegProcess.kill('SIGKILL'); } catch (_) {}
         }
 
         if (callback) callback(err);
     }
 
-    waitUntilReady(timeoutMs = 30000) {
+    waitUntilReady(timeoutMs = 25000) {
+        if (this.isReady || this.bufferedBytes >= this.minInitialBytes) {
+            return Promise.resolve();
+        }
+        if (this.destroyedStream) {
+            return Promise.reject(new Error('Stream destruido prematuramente'));
+        }
+
         return new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
                 if (this._rejectReady) {
                     const rejectFn = this._rejectReady;
                     this._rejectReady = null;
                     this._resolveReady = null;
-                    rejectFn(new Error('Timeout de 30s aguardando stream do YouTube'));
+                    rejectFn(new Error('Timeout aguardando stream do YouTube'));
                 }
             }, timeoutMs);
 

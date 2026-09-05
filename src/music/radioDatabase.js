@@ -42,18 +42,34 @@ function saveGuildSavedSettings(guildId, patch) {
     _saveGuildSettings();
 }
 
-function _save() {
-    try {
-        const obj = {};
-        sessions.forEach((v, k) => { obj[k] = v; });
-        fs.writeFileSync(SESSION_FILE, JSON.stringify(obj, null, 2));
-    } catch (_) {}
+function _save() {}
+
+function _generateShuffleOrder(session) {
+    if (!session || !Array.isArray(session.playlist) || session.playlist.length === 0) {
+        session.shuffleOrder = [];
+        session.shufflePos = 0;
+        return;
+    }
+    const total = session.playlist.length;
+    const current = (session.currentIndex >= 0 && session.currentIndex < total) ? session.currentIndex : 0;
+    const remaining = [];
+    for (let i = 0; i < total; i++) {
+        if (i !== current) remaining.push(i);
+    }
+    for (let i = remaining.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+    }
+    session.shuffleOrder = [current, ...remaining];
+    session.shufflePos = 0;
 }
 
 function _syncLegacyFields(session) {
     if (!session) return;
     if (!Array.isArray(session.playlist)) session.playlist = [];
     if (typeof session.currentIndex !== 'number') session.currentIndex = -1;
+    if (!Array.isArray(session.shuffleOrder)) session.shuffleOrder = [];
+    if (typeof session.shufflePos !== 'number') session.shufflePos = 0;
     if (!session.voiceMode || session.voiceListening === false) {
         session.voiceMode = session.voiceListening === false ? 'OFF' : 'IA';
     }
@@ -81,6 +97,8 @@ function createSession(guildId, voiceChannelId, textChannelId) {
         status: 'STOPPED',
         loopMode: 'OFF',
         shuffle: false,
+        shuffleOrder: [],
+        shufflePos: 0,
         voiceMode: saved.voiceMode || 'DIRECT',
         voiceListening: saved.voiceMode ? (saved.voiceMode !== 'OFF') : true,
         streamMode: saved.streamMode || 'HYBRID',
@@ -129,6 +147,12 @@ function addTrackToQueue(guildId, track) {
     if (!s) return null;
     if (!Array.isArray(s.playlist)) s.playlist = [];
     s.playlist.push(track);
+    const newIdx = s.playlist.length - 1;
+    if (s.shuffle && Array.isArray(s.shuffleOrder)) {
+        const unplayedRange = Math.max(0, s.shuffleOrder.length - s.shufflePos - 1);
+        const insertOffset = Math.floor(Math.random() * (unplayedRange + 1));
+        s.shuffleOrder.splice(s.shufflePos + 1 + insertOffset, 0, newIdx);
+    }
     _syncLegacyFields(s);
     _save();
     return s.playlist.length;
@@ -141,17 +165,50 @@ function skipToTrack(guildId, position) {
     if (targetIdx < 0 || targetIdx >= s.playlist.length) return null;
     s.currentIndex = targetIdx;
     s.status = 'PLAYING';
+    if (s.shuffle) {
+        _generateShuffleOrder(s);
+    }
     _syncLegacyFields(s);
     _save();
     return s;
 }
 
+function peekNextTrack(guildId) {
+    const s = sessions.get(guildId);
+    if (!s || !Array.isArray(s.playlist) || s.playlist.length === 0) return null;
+
+    if (s.loopMode === 'TRACK' && s.currentIndex >= 0 && s.currentIndex < s.playlist.length) {
+        return s.playlist[s.currentIndex];
+    }
+
+    if (s.shuffle && s.playlist.length > 1) {
+        if (!Array.isArray(s.shuffleOrder) || s.shuffleOrder.length !== s.playlist.length) {
+            _generateShuffleOrder(s);
+        }
+        const nextPos = s.shufflePos + 1;
+        if (nextPos < s.shuffleOrder.length) {
+            const idx = s.shuffleOrder[nextPos];
+            return s.playlist[idx] || null;
+        } else if (s.loopMode === 'QUEUE') {
+            const idx = s.shuffleOrder[0];
+            return s.playlist[idx] || null;
+        } else {
+            return null;
+        }
+    }
+
+    const nextIdx = s.currentIndex + 1;
+    if (nextIdx < s.playlist.length) {
+        return s.playlist[nextIdx];
+    } else if (s.loopMode === 'QUEUE') {
+        return s.playlist[0] || null;
+    }
+    return null;
+}
+
 function nextTrack(guildId) {
     const s = sessions.get(guildId);
-    if (!s || !Array.isArray(s.playlist) || s.playlist.length === 0) {
-        if (s) { s.status = 'STOPPED'; s.currentIndex = -1; _syncLegacyFields(s); }
-        return null;
-    }
+    if (!s || !Array.isArray(s.playlist) || s.playlist.length === 0) return null;
 
     if (s.loopMode === 'TRACK' && s.currentIndex >= 0 && s.currentIndex < s.playlist.length) {
         s.status = 'PLAYING';
@@ -161,10 +218,25 @@ function nextTrack(guildId) {
     }
 
     if (s.shuffle && s.playlist.length > 1) {
-        let randIdx = Math.floor(Math.random() * s.playlist.length);
-        if (randIdx === s.currentIndex) randIdx = (randIdx + 1) % s.playlist.length;
-        s.currentIndex = randIdx;
-        s.status = 'PLAYING';
+        if (!Array.isArray(s.shuffleOrder) || s.shuffleOrder.length !== s.playlist.length) {
+            _generateShuffleOrder(s);
+        }
+        const nextPos = s.shufflePos + 1;
+        if (nextPos < s.shuffleOrder.length) {
+            s.shufflePos = nextPos;
+            s.currentIndex = s.shuffleOrder[s.shufflePos];
+            s.status = 'PLAYING';
+        } else if (s.loopMode === 'QUEUE') {
+            _generateShuffleOrder(s);
+            s.shufflePos = 0;
+            s.currentIndex = s.shuffleOrder[0];
+            s.status = 'PLAYING';
+        } else {
+            s.status = 'STOPPED';
+            _syncLegacyFields(s);
+            _save();
+            return null;
+        }
     } else {
         const nextIdx = s.currentIndex + 1;
         if (nextIdx < s.playlist.length) {
@@ -190,14 +262,22 @@ function prevTrack(guildId) {
     const s = sessions.get(guildId);
     if (!s || !Array.isArray(s.playlist) || s.playlist.length === 0) return null;
 
-    if (s.currentIndex > 0) {
-        s.currentIndex--;
-        s.status = 'PLAYING';
-    } else if (s.currentIndex === 0) {
-        s.status = 'PLAYING';
+    if (s.shuffle && s.playlist.length > 1) {
+        if (Array.isArray(s.shuffleOrder) && s.shufflePos > 0) {
+            s.shufflePos--;
+            s.currentIndex = s.shuffleOrder[s.shufflePos];
+            s.status = 'PLAYING';
+        } else {
+            s.status = 'PLAYING';
+        }
     } else {
-        s.currentIndex = 0;
-        s.status = 'PLAYING';
+        if (s.currentIndex > 0) {
+            s.currentIndex--;
+            s.status = 'PLAYING';
+        } else {
+            s.currentIndex = 0;
+            s.status = 'PLAYING';
+        }
     }
 
     _syncLegacyFields(s);
@@ -219,6 +299,12 @@ function toggleShuffle(guildId) {
     const s = sessions.get(guildId);
     if (!s) return null;
     s.shuffle = !s.shuffle;
+    if (s.shuffle) {
+        _generateShuffleOrder(s);
+    } else {
+        s.shuffleOrder = [];
+        s.shufflePos = 0;
+    }
     _save();
     return s.shuffle;
 }
@@ -258,6 +344,8 @@ function stopRadio(guildId) {
     s.playlist = [];
     s.currentIndex = -1;
     s.currentTrack = null;
+    s.shuffleOrder = [];
+    s.shufflePos = 0;
     _syncLegacyFields(s);
     _save();
     return s;
@@ -272,10 +360,23 @@ function removeTrackFromPlaylist(guildId, position) {
     const removedTrack = s.playlist.splice(idx, 1)[0];
     const isCurrent = (idx === s.currentIndex);
 
+    if (s.shuffle && Array.isArray(s.shuffleOrder)) {
+        const orderIdx = s.shuffleOrder.indexOf(idx);
+        if (orderIdx !== -1) {
+            s.shuffleOrder.splice(orderIdx, 1);
+            if (orderIdx < s.shufflePos) {
+                s.shufflePos = Math.max(0, s.shufflePos - 1);
+            }
+        }
+        s.shuffleOrder = s.shuffleOrder.map(i => i > idx ? i - 1 : i);
+    }
+
     if (s.playlist.length === 0) {
         s.currentIndex = -1;
         s.currentTrack = null;
         s.status = 'STOPPED';
+        s.shuffleOrder = [];
+        s.shufflePos = 0;
     } else if (idx < s.currentIndex) {
         s.currentIndex -= 1;
     } else if (idx === s.currentIndex) {
@@ -311,6 +412,7 @@ module.exports = {
     hasActiveSession,
     addTrackToQueue,
     skipToTrack,
+    peekNextTrack,
     nextTrack,
     prevTrack,
     setLoopMode,

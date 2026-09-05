@@ -11,65 +11,23 @@ const { getSession, updateSession, nextTrack } = require('./radioDatabase');
 const { downloadTrackToDisk } = require('./radioProviders');
 const { buildRadioEmbed } = require('./radioEmbed');
 const { createYouTubeProgressiveStream } = require('./youtubeBufferStream');
+const { prefetchNextTrack, getPrewarmedStream, cleanupPrewarmedStream } = require('./radioPrefetcher');
 
 const players = new Map();
 const activeStreams = new Map();
 const transitioningGuilds = new Set();
-const CHIME_PATH = path.join(__dirname, 'data', 'chime.opus');
+const embedUpdateLocksMap = new Map();
+const embedPendingUpdates = new Map();
 
 function getPlayer(guildId) {
     return players.get(guildId) || null;
 }
 
-function createChimeBuffer() {
-    const silenceOpus = Buffer.from([0xf8, 0xff, 0xfe]);
-    return silenceOpus;
-}
-
-async function playChime(guildId) {
-    try {
-        const conn = getVoiceConnection(guildId);
-        if (!conn) return;
-        let player = players.get(guildId);
-        if (!player) {
-            player = createAudioPlayer();
-            players.set(guildId, player);
-            conn.subscribe(player);
-        }
-        const silenceFrame = Buffer.from([0xf8, 0xff, 0xfe]);
-        const { Readable } = require('stream');
-        const s = new Readable({ read() { this.push(silenceFrame); this.push(null); } });
-        const resource = createAudioResource(s, { inputType: StreamType.Opus });
-        player.play(resource);
-    } catch (_) {}
-}
-
-const { prefetchNextTrack } = require('./radioPrefetcher');
-
-async function playTrack(guildId, track, textChannel, client) {
-    const conn = getVoiceConnection(guildId);
-    if (!conn) return;
-
-    transitioningGuilds.add(guildId);
-
-    const existingStream = activeStreams.get(guildId);
-    if (existingStream) {
-        try { existingStream.destroy(); } catch (_) {}
-        activeStreams.delete(guildId);
-    }
-
+function getOrCreatePlayer(guildId, conn, textChannel, client) {
     let player = players.get(guildId);
-    if (player) {
-        try { player.stop(true); } catch (_) {}
-    }
-
-    updateSession(guildId, { status: 'BUFFERING', currentTrack: track });
-    await updateEmbed(guildId, textChannel, client);
-
     if (!player) {
         player = createAudioPlayer();
         players.set(guildId, player);
-        conn.subscribe(player);
 
         player.on(AudioPlayerStatus.Idle, () => {
             if (transitioningGuilds.has(guildId)) return;
@@ -84,18 +42,85 @@ async function playTrack(guildId, track, textChannel, client) {
         });
     }
 
+    if (conn && conn.state?.status !== 'destroyed') {
+        try {
+            conn.subscribe(player);
+        } catch (_) {}
+    }
+
+    return player;
+}
+
+async function playChime(guildId) {
     try {
-        if (track.source === 'youtube') {
-            const progressiveStream = createYouTubeProgressiveStream(track.link);
-            activeStreams.set(guildId, progressiveStream);
+        const conn = getVoiceConnection(guildId);
+        if (!conn) return;
+        const player = getOrCreatePlayer(guildId, conn);
+        const silenceFrame = Buffer.from([0xf8, 0xff, 0xfe]);
+        const { Readable } = require('stream');
+        const s = new Readable({ read() { this.push(silenceFrame); this.push(null); } });
+        const resource = createAudioResource(s, { inputType: StreamType.Opus });
+        player.play(resource);
+    } catch (_) {}
+}
 
-            await progressiveStream.waitUntilReady();
+async function playTrack(guildId, track, textChannel, client) {
+    const conn = getVoiceConnection(guildId);
+    if (!conn) return;
 
-            const resource = createAudioResource(progressiveStream, { inputType: StreamType.Raw });
+    transitioningGuilds.add(guildId);
+
+    const existingStream = activeStreams.get(guildId);
+    if (existingStream) {
+        try { existingStream.destroy(); } catch (_) {}
+        activeStreams.delete(guildId);
+    }
+
+    const player = getOrCreatePlayer(guildId, conn, textChannel, client);
+    try { player.stop(true); } catch (_) {}
+
+    updateSession(guildId, { status: 'BUFFERING', currentTrack: track });
+    await updateEmbed(guildId, textChannel, client);
+
+    try {
+        let played = false;
+
+        if (track.localPath && fs.existsSync(track.localPath)) {
+            const resource = createAudioResource(track.localPath, { inlineVolume: false });
             player.play(resource);
-
             updateSession(guildId, { status: 'PLAYING', currentTrack: track });
             await updateEmbed(guildId, textChannel, client);
+            played = true;
+        } else if (track.source === 'youtube') {
+            let progressiveStream = getPrewarmedStream(guildId, track.link);
+            if (progressiveStream && !progressiveStream.destroyedStream) {
+                try {
+                    activeStreams.set(guildId, progressiveStream);
+                    await progressiveStream.waitUntilReady(8000);
+                    const resource = createAudioResource(progressiveStream, { inputType: StreamType.Raw });
+                    player.play(resource);
+                    updateSession(guildId, { status: 'PLAYING', currentTrack: track });
+                    await updateEmbed(guildId, textChannel, client);
+                    played = true;
+                } catch (_) {
+                    if (progressiveStream) {
+                        try { progressiveStream.destroy(); } catch (_) {}
+                    }
+                    activeStreams.delete(guildId);
+                }
+            }
+
+            if (!played) {
+                let filePath = track.localPath;
+                if (!filePath || !fs.existsSync(filePath)) {
+                    filePath = await downloadTrackToDisk(track);
+                }
+                updateSession(guildId, { status: 'PLAYING', currentTrack: { ...track, localPath: filePath } });
+                const resource = createAudioResource(filePath, { inlineVolume: false });
+                player.play(resource);
+                await updateEmbed(guildId, textChannel, client);
+                played = true;
+            }
         } else {
             let filePath = track.localPath;
             if (!filePath || !fs.existsSync(filePath)) {
@@ -108,6 +133,7 @@ async function playTrack(guildId, track, textChannel, client) {
             player.play(resource);
 
             await updateEmbed(guildId, textChannel, client);
+            played = true;
         }
 
         prefetchNextTrack(guildId).catch(() => {});
@@ -121,11 +147,13 @@ async function playTrack(guildId, track, textChannel, client) {
                 await textChannel.send({ embeds: [buildNotFoundEmbed(track.title)] });
             } catch (_) {}
         }
-        setTimeout(() => handleTrackEnd(guildId, textChannel, client), 2000);
+        transitioningGuilds.delete(guildId);
+        setTimeout(() => handleTrackEnd(guildId, textChannel, client), 1000);
+        return;
     } finally {
         setTimeout(() => {
             transitioningGuilds.delete(guildId);
-        }, 1500);
+        }, 500);
     }
 }
 
@@ -153,7 +181,7 @@ async function handleTrackEnd(guildId, textChannel, client) {
     } finally {
         setTimeout(() => {
             transitioningGuilds.delete(guildId);
-        }, 1500);
+        }, 500);
     }
 }
 
@@ -174,6 +202,7 @@ async function resumePlayer(guildId) {
 }
 
 function stopPlayer(guildId) {
+    cleanupPrewarmedStream(guildId);
     const activeStream = activeStreams.get(guildId);
     if (activeStream) {
         try { activeStream.destroy(); } catch (_) {}
@@ -187,14 +216,14 @@ function stopPlayer(guildId) {
     }
 }
 
-
-const embedUpdateLocksMap = new Map();
-
 async function updateEmbed(guildId, textChannel, client) {
     const session = getSession(guildId);
     if (!session || session._leaving) return;
 
-    if (embedUpdateLocksMap.get(guildId)) return;
+    if (embedUpdateLocksMap.get(guildId)) {
+        embedPendingUpdates.set(guildId, { textChannel, client });
+        return;
+    }
     embedUpdateLocksMap.set(guildId, true);
 
     try {
@@ -212,11 +241,8 @@ async function updateEmbed(guildId, textChannel, client) {
             try {
                 const msg = await targetChannel.messages.fetch(session.embedMessageId);
                 await msg.edit({ embeds, components });
-                return;
             } catch (_) {}
-        }
-
-        if (targetChannel) {
+        } else if (targetChannel) {
             const msg = await targetChannel.send({ embeds, components });
             updateSession(guildId, { embedMessageId: msg.id });
         }
@@ -224,6 +250,13 @@ async function updateEmbed(guildId, textChannel, client) {
         console.error('[RadioPlayer] Falha ao atualizar embed:', err.message);
     } finally {
         embedUpdateLocksMap.delete(guildId);
+        if (embedPendingUpdates.has(guildId)) {
+            const pending = embedPendingUpdates.get(guildId);
+            embedPendingUpdates.delete(guildId);
+            setTimeout(() => {
+                updateEmbed(guildId, pending.textChannel, pending.client);
+            }, 600);
+        }
     }
 }
 

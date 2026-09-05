@@ -71,25 +71,38 @@ async function handleRadioButton(interaction, client) {
                 return await interaction.reply({ content: '❌ A playlist do rádio está vazia.', flags: MessageFlags.Ephemeral });
             }
 
-            const modal = new ModalBuilder()
-                .setCustomId('radio_remove_modal')
-                .setTitle('🗑️ Remover Música do Rádio');
+            const options = session.playlist.slice(0, 25).map((t, idx) => {
+                const label = `${idx + 1}. ${t.title}`.slice(0, 100);
+                const desc = `${t.artist || 'Desconhecido'}`.slice(0, 100);
+                return {
+                    label,
+                    description: desc,
+                    value: String(idx)
+                };
+            });
 
-            const input = new TextInputBuilder()
-                .setCustomId('radio_remove_input')
-                .setLabel(`Número da faixa na lista (1 a ${session.playlist.length})`)
-                .setStyle(TextInputStyle.Short)
-                .setPlaceholder('Ex: 1, 2, 5...')
-                .setRequired(true)
-                .setMaxLength(10);
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('radio_select_remove')
+                .setPlaceholder('Selecione a música para remover...')
+                .addOptions(options);
 
-            modal.addComponents(new ActionRowBuilder().addComponents(input));
-            return await interaction.showModal(modal);
+            const row = new ActionRowBuilder().addComponents(selectMenu);
+            return await interaction.reply({
+                content: '🗑️ **Escolha a faixa que deseja remover da fila:**',
+                components: [row],
+                flags: MessageFlags.Ephemeral
+            });
         }
 
         if (cid === 'radio_queue') {
-            const embed = buildQueueEmbed(session);
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            const { embed, components } = buildQueueEmbed(session, 1);
+            return await interaction.reply({ embeds: [embed], components, flags: MessageFlags.Ephemeral });
+        }
+
+        if (cid.startsWith('radio_qpage_')) {
+            const pageNum = parseInt(cid.replace('radio_qpage_', ''), 10) || 1;
+            const { embed, components } = buildQueueEmbed(session, pageNum);
+            return await interaction.update({ embeds: [embed], components });
         }
 
         if (cid === 'radio_voice_toggle') {
@@ -145,8 +158,10 @@ async function handleRadioButton(interaction, client) {
             }
         } else if (cid === 'radio_shuffle') {
             toggleShuffle(guildId);
+            prefetchNextTrack(guildId).catch(() => {});
         } else if (cid === 'radio_loop') {
             setLoopMode(guildId);
+            prefetchNextTrack(guildId).catch(() => {});
         } else if (cid === 'radio_voice_toggle') {
             cycleVoiceMode(guildId);
         } else if (cid === 'radio_stream_mode') {
@@ -377,8 +392,36 @@ async function handleAmbiguousSelect(interaction, client) {
     return true;
 }
 
+async function handleRadioSelectRemove(interaction, client) {
+    try {
+        const guildId = interaction.guildId;
+        const session = getSession(guildId);
+        if (!session) {
+            return await interaction.reply({ content: '❌ Nenhuma sessão de rádio ativa.', flags: MessageFlags.Ephemeral });
+        }
+
+        const selectedIndex = parseInt(interaction.values[0], 10);
+        if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= session.playlist.length) {
+            return await interaction.update({ content: '❌ Faixa não encontrada ou já removida.', components: [] });
+        }
+
+        const removedTrack = session.playlist[selectedIndex];
+        removeTrackFromPlaylist(guildId, selectedIndex);
+
+        await updateEmbed(guildId, interaction.channel, client);
+        return await interaction.update({
+            content: `✅ Removida com sucesso: **${removedTrack?.title || 'Faixa'}** da fila.`,
+            components: []
+        });
+    } catch (err) {
+        console.error('[RadioSelectRemove] Erro:', err.message);
+        return await interaction.reply({ content: '❌ Erro ao remover a faixa.', flags: MessageFlags.Ephemeral }).catch(() => {});
+    }
+}
+
 module.exports = {
     handleRadioButton,
     handleRadioModal,
-    handleAmbiguousSelect
+    handleAmbiguousSelect,
+    handleRadioSelectRemove
 };

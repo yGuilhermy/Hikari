@@ -201,6 +201,7 @@ async function handleRadioMCPCall(toolName, toolArgs, userId, guildId, textChann
 
     if (toolName === 'radio_toggle_shuffle') {
         const enabled = toggleShuffle(guildId);
+        prefetchNextTrack(guildId).catch(() => {});
         await updateEmbed(guildId, textChannel, client);
         await sendTempMessage(textChannel, `🔀 ${userMention} Modo aleatório ${enabled ? 'ativado' : 'desativado'}.`);
         return null;
@@ -208,6 +209,7 @@ async function handleRadioMCPCall(toolName, toolArgs, userId, guildId, textChann
 
     if (toolName === 'radio_set_repeat') {
         const newMode = setLoopMode(guildId);
+        prefetchNextTrack(guildId).catch(() => {});
         const label = newMode === 'TRACK' ? 'repetir faixa atual 🔂' : newMode === 'QUEUE' ? 'repetir playlist 🔁' : 'desativada ❌';
         await updateEmbed(guildId, textChannel, client);
         await sendTempMessage(textChannel, `🔁 ${userMention} Repetição: ${label}`);
@@ -215,8 +217,8 @@ async function handleRadioMCPCall(toolName, toolArgs, userId, guildId, textChann
     }
 
     if (toolName === 'radio_show_queue') {
-        const embed = buildQueueEmbed(session);
-        try { await textChannel.send({ embeds: [embed] }); } catch (_) {}
+        const { embed, components } = buildQueueEmbed(session, 1);
+        try { await textChannel.send({ embeds: [embed], components }); } catch (_) {}
         return null;
     }
 

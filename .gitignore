@@ -40,3 +40,6 @@ src/script/send_updates.js
 # Notas esquisofrenicas
 notas.md
 notas-tecnicas.md
+
+.agents/
+backups/

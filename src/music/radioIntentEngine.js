@@ -1,13 +1,29 @@
 function parseRadioIntent(text) {
     if (!text || typeof text !== 'string') return null;
 
-    const cleanText = text.toLowerCase().trim();
+    let cleanText = text.toLowerCase().trim();
+    cleanText = cleanText.replace(/^(?:hikari|hicari|ikari)\s+/i, '').trim();
+
+    const addPrefixRegex = /(?:^|\b)(?:toca|tocar|bota|botar|bote|coloca|colocar|coloque|adicione|adicionar|pesquisa|pesquisar|reproduzir|solta|soltar)\s+(?:a\s+música\s+|a\s+musica\s+|o\s+som\s+de\s+|a\s+faixa\s+)?(.+)$/i;
+    const addMatch = cleanText.match(addPrefixRegex);
+    if (addMatch && addMatch[1]) {
+        let query = addMatch[1].trim();
+        query = query.replace(/\s+(?:então|cara|por favor|aí|ai|mano|bro|velho|tipo|assim).*$/i, '').trim();
+        query = query.replace(/[.,!?:;]+$/, '').trim();
+        if (query.length >= 2) {
+            return { type: 'ADD', query };
+        }
+    }
+
+    if (/^(?:para|pare|parar|stop)$/i.test(cleanText)) {
+        return { type: 'STOP' };
+    }
 
     if (/\b(pausa|pausar|pause|espera|silêncio|silencio|para um pouco|dá um tempo|da um tempo|hold|cala a boca|cala boca)\b/i.test(cleanText)) {
         return { type: 'PAUSE' };
     }
 
-    if (/\b(parar|pare|para|parar rádio|parar radio|pare o rádio|pare o radio|pare a música|pare a musica|para a música|para a musica|desliga a música|desliga a musica|stop|cancela|desliga|desliga o rádio|desliga o radio|fechar|encerrar)\b/i.test(cleanText)) {
+    if (/\b(parar|pare|parar rádio|parar radio|pare o rádio|pare o radio|pare a música|pare a musica|para a música|para a musica|para o rádio|para o radio|para o som|para tudo|desliga a música|desliga a musica|stop|cancela|desliga o rádio|desliga o radio|fechar|encerrar)\b/i.test(cleanText)) {
         return { type: 'STOP' };
     }
 
@@ -19,7 +35,7 @@ function parseRadioIntent(text) {
         return { type: 'NEXT' };
     }
 
-    if (/\b(anterior|voltar|música anterior|musica anterior|voltar música|voltar musica|toca a anterior|toca anterior|tocar anterior)\b/i.test(cleanText)) {
+    if (/\b(anterior|voltar|música anterior|musica anterior|voltar música|voltar musica|toca a anterior|toca anterior|tocar anterior|back)\b/i.test(cleanText)) {
         return { type: 'PREVIOUS' };
     }
 
@@ -35,7 +51,7 @@ function parseRadioIntent(text) {
         return { type: 'INFO' };
     }
 
-    if (/\b(mostra a fila|ver fila|lista de músicas|lista de musicas|quais músicas tem|quais musicas tem|ver a lista|mostra a lista)\b/i.test(cleanText)) {
+    if (/\b(mostra a fila|ver fila|lista de músicas|lista de musicas|quais músicas tem|quais musicas tem|ver a lista|mostra a lista|queue)\b/i.test(cleanText)) {
         return { type: 'QUEUE' };
     }
 
@@ -44,18 +60,7 @@ function parseRadioIntent(text) {
         return { type: 'REMOVE', position: parseInt(removeMatch[1], 10) };
     }
 
-    const addPrefixRegex = /(?:^|\b)(?:toca|tocar|bota|botar|bote|coloca|colocar|coloque|adicione|adicionar|pesquisa|pesquisar|reproduzir|solta|soltar)\s+(?:a\s+música\s+|a\s+musica\s+|o\s+som\s+de\s+|a\s+faixa\s+)?(.+)$/i;
-    const addMatch = cleanText.match(addPrefixRegex);
-    if (addMatch && addMatch[1]) {
-        let query = addMatch[1].trim();
-        query = query.replace(/\s+(?:então|cara|por favor|aí|ai|mano|bro|velho|tipo|assim).*$/i, '').trim();
-        query = query.replace(/[.,!?:;]+$/, '').trim();
-        if (query.length >= 2) {
-            return { type: 'ADD', query };
-        }
-    }
-
-    if (/\b(tocar|play|retomar|voltar a tocar|despausar|solta o som|continua|solta a música|solta a musica|despausar)\b/i.test(cleanText)) {
+    if (/\b(tocar|play|retomar|voltar a tocar|despausar|solta o som|continua|solta a música|solta a musica|resume)\b/i.test(cleanText)) {
         return { type: 'RESUME' };
     }
 

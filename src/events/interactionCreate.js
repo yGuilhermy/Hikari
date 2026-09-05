@@ -47,7 +47,7 @@ const { convertCurrency, formatCurrencyNumber } = require('../handlers/currencyH
 const { generateResponse } = require('../handlers/llmHandler');
 const { handleConfigCommand, handleConfigButton, handleConfigModal, handleConfigSelect } = require('../handlers/configPanelHandler');
 const { handleMusicSearchAndDownload, clearSession } = require('../handlers/deezerMusicHandler');
-const { handleRadioButton, handleRadioModal, handleAmbiguousSelect } = require('../music/radioModalHandler');
+const { handleRadioButton, handleRadioModal, handleAmbiguousSelect, handleRadioSelectRemove } = require('../music/radioModalHandler');
 const { startRadioMode } = require('../music/radioManager');
 const { handleServerAdminCommand, handleServerAdminInteraction, handleIaFerramentasCommand } = require('../handlers/serverAdminHandler');
 const { handleCreatorAdminCommand, handleCreatorAdminInteraction } = require('../handlers/creatorAdminHandler');
@@ -109,6 +109,9 @@ module.exports = {
         if (interaction.isStringSelectMenu()) {
             if (interaction.customId.startsWith('radio_ambiguous_select_')) {
                 return await handleAmbiguousSelect(interaction, client);
+            }
+            if (interaction.customId.startsWith('radio_select_remove')) {
+                return await handleRadioSelectRemove(interaction, client);
             }
             if (interaction.customId.startsWith('music_select_')) {
                 const banInfo = checkBan(interaction.user.id, interaction.guildId, interaction.channelId);

@@ -215,9 +215,54 @@ function resolveYouTubePlaylist(url) {
     });
 }
 
+function searchYouTubeTrack(query) {
+    return new Promise((resolve) => {
+        if (!query || !query.trim()) return resolve(null);
+        const config = require('../config');
+        const cookiesPath = config.ytdlpCookiesPath;
+        const cookieFlag = (cookiesPath && fs.existsSync(cookiesPath)) ? `--cookies "${cookiesPath}"` : '';
+        const extraFlags = (config.ytdlpExtraFlags || []).join(' ');
+        const cleanQuery = query.replace(/["\\]/g, '').trim();
+        const cmd = `yt-dlp ${cookieFlag} ${extraFlags} --default-search "ytsearch1" --print "%(id)s:::%(title)s:::%(uploader)s:::%(duration)s:::%(thumbnail)s" --no-warnings --no-playlist "ytsearch1:${cleanQuery}"`;
+
+        exec(cmd, { maxBuffer: 5 * 1024 * 1024, timeout: 25000 }, (err, stdout) => {
+            if (err || !stdout) return resolve(null);
+            const line = stdout.split('\n').map(l => l.trim()).find(l => l.includes(':::'));
+            if (!line) return resolve(null);
+            const parts = line.split(':::');
+            if (parts.length < 2 || !parts[0]) return resolve(null);
+            const id = parts[0].trim();
+            const title = parts[1]?.trim() || 'Faixa YouTube';
+            const artist = parts[2]?.trim() || 'YouTube';
+            const duration = parseInt(parts[3], 10) || 0;
+            const cover = parts[4]?.trim() || `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
+            resolve({
+                id,
+                title,
+                artist,
+                album: '',
+                duration,
+                cover,
+                link: `https://www.youtube.com/watch?v=${id}`,
+                source: 'youtube'
+            });
+        });
+    });
+}
+
 async function searchByName(query) {
     const results = await searchDeezerTracks(query);
-    if (!results || results.length === 0) return { track: null, ambiguous: false, results: [] };
+    if (!results || results.length === 0) {
+        const ytTrack = await searchYouTubeTrack(query);
+        if (ytTrack) {
+            return {
+                track: ytTrack,
+                ambiguous: false,
+                results: []
+            };
+        }
+        return { track: null, ambiguous: false, results: [] };
+    }
 
     const top = results[0];
     const score = calculateConfidenceScore(query, top);
@@ -274,27 +319,7 @@ function downloadTrackToDisk(track, context = null) {
             const link = track.link || `https://www.deezer.com/track/${track.id}`;
             const cmd = `${pythonBin} "${scriptPath}" "${link}" "${TEMP_RADIO_DIR}" "${arl}"`;
 
-            let resolved = false;
-            const checkInterval = setInterval(() => {
-                try {
-                    const files = fs.readdirSync(TEMP_RADIO_DIR)
-                        .filter(f => f.includes(track.id))
-                        .map(f => path.join(TEMP_RADIO_DIR, f));
-                    if (files.length > 0) {
-                        const stat = fs.statSync(files[0]);
-                        if (stat.size >= 256 * 1024) {
-                            resolved = true;
-                            clearInterval(checkInterval);
-                            return resolve(files[0]);
-                        }
-                    }
-                } catch (_) {}
-            }, 150);
-
-            exec(cmd, { maxBuffer: 10 * 1024 * 1024, timeout: 60000 }, (error, stdout) => {
-                clearInterval(checkInterval);
-                if (resolved) return;
-
+            exec(cmd, { maxBuffer: 10 * 1024 * 1024, timeout: 60000 }, async (error, stdout) => {
                 const match = stdout?.match(/DOWNLOADED_FILE:(.+)/);
                 if (match && match[1]) {
                     const p = match[1].trim();
@@ -304,6 +329,22 @@ function downloadTrackToDisk(track, context = null) {
                     .filter(f => f.includes(track.id))
                     .map(f => path.join(TEMP_RADIO_DIR, f));
                 if (files.length > 0) return resolve(files[0]);
+
+                const searchTarget = (track.title && track.artist && track.artist !== 'Desconhecido') 
+                    ? `${track.title} ${track.artist}`.trim() 
+                    : (track.title || null);
+                if (searchTarget) {
+                    try {
+                        const ytFallback = await searchYouTubeTrack(searchTarget);
+                        if (ytFallback && ytFallback.link) {
+                            const result = await downloadAudio(ytFallback.link, logContext);
+                            if (result && result.filePath && fs.existsSync(result.filePath)) {
+                                return resolve(result.filePath);
+                            }
+                        }
+                    } catch (_) {}
+                }
+
                 reject(new Error('Falha ao baixar faixa via deemix'));
             });
         } else if (track.source === 'youtube') {
@@ -316,22 +357,21 @@ function downloadTrackToDisk(track, context = null) {
                 if (result && result.filePath && fs.existsSync(result.filePath)) {
                     return resolve(result.filePath);
                 }
-            } catch (ytErr) {
-                console.warn(`[RadioProviders] youtubeAudioHandler.downloadAudio falhou: ${ytErr.message}`);
-            }
+            } catch (_) {}
 
             const searchTarget = (track.title && track.title !== 'Vídeo do YouTube') ? `${track.title} ${track.artist !== 'YouTube' ? track.artist : ''}`.trim() : null;
             if (searchTarget) {
-                console.log(`[RadioProviders] 🔄 YouTube falhou. Tentando fallback via Deezer para: "${searchTarget}"...`);
                 try {
                     const deezerRes = await searchDeezerTracks(searchTarget);
                     if (deezerRes && deezerRes.length > 0) {
                         const fallbackTrack = {
                             id: String(deezerRes[0].id),
+                            title: deezerRes[0].title,
+                            artist: deezerRes[0].artist,
                             link: deezerRes[0].link,
                             source: 'deezer'
                         };
-                        const downloadedPath = await downloadTrackToDisk(fallbackTrack);
+                        const downloadedPath = await downloadTrackToDisk(fallbackTrack, logContext);
                         return resolve(downloadedPath);
                     }
                 } catch (_) {}
@@ -538,7 +578,13 @@ async function resolveInput(input, guildId = null) {
             const tracks = await resolveYouTubePlaylist(cleanUrl);
             if (tracks && tracks.length > 0) {
                 if (isFast) {
-                    const converted = await Promise.all(tracks.map(t => convertYouTubeTrackToDeezer(t)));
+                    const converted = [];
+                    for (const t of tracks) {
+                        converted.push(await convertYouTubeTrackToDeezer(t));
+                        if (tracks.length > 5) {
+                            await new Promise(r => setTimeout(r, 60));
+                        }
+                    }
                     return { type: 'playlist', tracks: converted };
                 }
                 return { type: 'playlist', tracks };
@@ -570,5 +616,6 @@ module.exports = {
     resolveInput,
     downloadTrackToDisk,
     searchByName,
+    searchYouTubeTrack,
     TEMP_RADIO_DIR
 };

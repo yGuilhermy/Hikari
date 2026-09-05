@@ -29,6 +29,8 @@ const { prefetchNextTrack, cleanupSessionAudioFiles } = require('./radioPrefetch
 
 const radioAmbiguousSessions = new Map();
 const userLastVoiceCommand = new Map();
+const emptyChannelIntervals = new Map();
+const radioMCPTools = require('./radioMCPTools.json');
 
 const RADIO_TRIGGER_REGEX = /\b(hikari|hikare|hikary|hikarii|hikarie|hikaris|hicari|hicare|hicary|hicarii|hicaris|hikario|hicario|hikaru|hicaru|hikar|hicar|ikari|ikare|ikary|ikarii|ikaris|icari|icare|icaro|icary|icarii|icaris|icara|icaras|icaros|ikario|icario|ikaru|icaru|ikar|icar|ricardo|ricard|ricardi|ricari|ricare|rikari|rikare|ricario|ricarto|recari|recaro|ricar|ricardin|ricardinho|ficari|ficare|vicari|vicare|ficardo|vicardo|dicari|dicare|kikari|kicari|ticari|ih\s*cari|e\s*cari|eh\s*cari|i\s*cari|re\s*cari|ri\s*cari|hi\s*cari|he\s*cari|a\s*cari|o\s*cari|ei\s*cari|oh\s*cari|oi\s*cari)\b/i;
 
@@ -477,12 +479,6 @@ async function processDirectRadioVoiceCommand(prompt, userId, guildId, textChann
 }
 
 async function processRadioVoiceCommand(prompt, userId, guildId, textChannel, client) {
-    const fs = require('fs');
-    const path = require('path');
-
-    const radioMCPToolsPath = path.join(__dirname, 'radioMCPTools.json');
-    const radioMCPTools = JSON.parse(fs.readFileSync(radioMCPToolsPath, 'utf-8'));
-
     const { addToQueue } = require('../handlers/llmHandler');
 
     const contextMessage = {
@@ -525,6 +521,11 @@ async function processRadioVoiceCommand(prompt, userId, guildId, textChannel, cl
 }
 
 async function leaveRadioCall(guildId, textChannel) {
+    if (emptyChannelIntervals.has(guildId)) {
+        clearInterval(emptyChannelIntervals.get(guildId));
+        emptyChannelIntervals.delete(guildId);
+    }
+
     const session = getSession(guildId);
     if (session) {
         updateSession(guildId, { _leaving: true });
@@ -557,19 +558,28 @@ async function leaveRadioCall(guildId, textChannel) {
 }
 
 function monitorEmptyChannel(guildId, voiceChannel, textChannel) {
+    if (emptyChannelIntervals.has(guildId)) {
+        clearInterval(emptyChannelIntervals.get(guildId));
+        emptyChannelIntervals.delete(guildId);
+    }
+
     const CHECK_INTERVAL = 10000;
     const interval = setInterval(() => {
         const session = getSession(guildId);
         if (!session) {
             clearInterval(interval);
+            emptyChannelIntervals.delete(guildId);
             return;
         }
         const humanMembers = voiceChannel.members?.filter(m => !m.user.bot) || new Map();
         if (humanMembers.size === 0) {
             clearInterval(interval);
+            emptyChannelIntervals.delete(guildId);
             leaveRadioCall(guildId, textChannel);
         }
     }, CHECK_INTERVAL);
+
+    emptyChannelIntervals.set(guildId, interval);
 }
 
 function scheduleAmbiguousAutoSelect(pendingKey, messageTarget) {

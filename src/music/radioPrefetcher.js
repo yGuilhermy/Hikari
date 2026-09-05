@@ -1,10 +1,12 @@
 const fs = require('fs');
 const path = require('path');
-const { getSession } = require('./radioDatabase');
+const { getSession, peekNextTrack } = require('./radioDatabase');
 const { downloadTrackToDisk } = require('./radioProviders');
+const { TEMP_RADIO_DIR } = require('./radioCleaner');
 
 const activePrefetchQueues = new Set();
-const TEMP_DIR = path.join(__dirname, '../../temp_radio_audio');
+const prewarmedStreams = new Map();
+const TEMP_DIR = TEMP_RADIO_DIR;
 
 function cleanupOrphanedAudioFiles() {
     try {
@@ -21,7 +23,29 @@ function cleanupOrphanedAudioFiles() {
 
 cleanupOrphanedAudioFiles();
 
-async function downloadWithTimeout(track, timeoutMs = 15000) {
+function cleanupPrewarmedStream(guildId) {
+    const entry = prewarmedStreams.get(guildId);
+    if (entry) {
+        try {
+            if (entry.stream) entry.stream.destroy();
+        } catch (_) {}
+        prewarmedStreams.delete(guildId);
+    }
+}
+
+function getPrewarmedStream(guildId, link) {
+    const entry = prewarmedStreams.get(guildId);
+    if (entry && entry.link === link && entry.stream && !entry.stream.destroyedStream) {
+        prewarmedStreams.delete(guildId);
+        return entry.stream;
+    }
+    if (entry) {
+        cleanupPrewarmedStream(guildId);
+    }
+    return null;
+}
+
+async function downloadWithTimeout(track, timeoutMs = 35000) {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
             reject(new Error('Timeout no download da faixa'));
@@ -46,48 +70,30 @@ async function prefetchPlaylistTracks(guildId) {
     try {
         const session = getSession(guildId);
         if (!session || !Array.isArray(session.playlist) || session.playlist.length === 0) {
+            cleanupPrewarmedStream(guildId);
             return;
         }
 
-        let orderIndices = [];
-        const total = session.playlist.length;
-        const current = session.currentIndex >= 0 ? session.currentIndex : 0;
-
-        if (session.shuffle && total > 1) {
-            const remaining = [];
-            for (let i = 0; i < total; i++) {
-                if (i !== current) remaining.push(i);
-            }
-            for (let i = remaining.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
-            }
-            orderIndices = remaining;
-        } else {
-            for (let i = 1; i <= total; i++) {
-                orderIndices.push((current + i) % total);
-            }
+        const track = peekNextTrack(guildId);
+        if (!track) {
+            cleanupPrewarmedStream(guildId);
+            return;
         }
 
-        for (const idx of orderIndices) {
-            const currentSession = getSession(guildId);
-            if (!currentSession) break;
+        cleanupPrewarmedStream(guildId);
 
-            const track = session.playlist[idx];
-            if (!track || track.source === 'youtube') continue;
-            if (track.localPath && fs.existsSync(track.localPath)) continue;
-            if (track._prefetching) continue;
+        if (track.localPath && fs.existsSync(track.localPath)) return;
+        if (track._prefetching) return;
 
-            track._prefetching = true;
-            try {
-                const filePath = await downloadWithTimeout(track, 15000);
-                track._prefetching = false;
-                if (filePath && fs.existsSync(filePath)) {
-                    track.localPath = filePath;
-                }
-            } catch (_) {
-                track._prefetching = false;
+        track._prefetching = true;
+        try {
+            const filePath = await downloadWithTimeout(track, 35000);
+            track._prefetching = false;
+            if (filePath && fs.existsSync(filePath)) {
+                track.localPath = filePath;
             }
+        } catch (_) {
+            track._prefetching = false;
         }
     } catch (_) {
     } finally {
@@ -117,5 +123,7 @@ module.exports = {
     prefetchNextTrack,
     prefetchPlaylistTracks,
     cleanupSessionAudioFiles,
-    cleanupOrphanedAudioFiles
+    cleanupOrphanedAudioFiles,
+    getPrewarmedStream,
+    cleanupPrewarmedStream
 };

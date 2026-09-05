@@ -66,49 +66,67 @@ function buildRadioEmbed(session) {
         embed.setDescription(`**${statusLabel}**\n\nNenhuma faixa tocando. Playlist com ${playlist.length} música(s). Use ➕ para adicionar!\n🚀 **Modo de Busca:** ${streamModeText}`);
     }
 
+    const prevDisabled = !playlist.length || session.currentIndex <= 0;
+    const nextDisabled = !playlist.length || (session.currentIndex >= playlist.length - 1 && session.loopMode !== 'QUEUE');
+    const stopDisabled = status === 'STOPPED';
+    const shuffleDisabled = playlist.length <= 1;
+    const removeDisabled = playlist.length === 0;
+    const queueDisabled = playlist.length === 0;
+
     const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('radio_prev').setLabel('⏮️').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('radio_prev').setLabel('⏮️').setStyle(ButtonStyle.Secondary).setDisabled(prevDisabled),
         new ButtonBuilder().setCustomId('radio_playpause').setEmoji(status === 'PLAYING' ? '⏸️' : '▶️').setLabel(status === 'PLAYING' ? 'Pausar' : 'Play').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('radio_stop').setLabel('⏹️').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId('radio_next').setLabel('⏭️').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('radio_shuffle').setLabel('🔀 Shuffle').setStyle(session.shuffle ? ButtonStyle.Success : ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('radio_stop').setLabel('⏹️').setStyle(ButtonStyle.Danger).setDisabled(stopDisabled),
+        new ButtonBuilder().setCustomId('radio_next').setLabel('⏭️').setStyle(ButtonStyle.Secondary).setDisabled(nextDisabled),
+        new ButtonBuilder().setCustomId('radio_shuffle').setLabel('🔀 Shuffle').setStyle(session.shuffle ? ButtonStyle.Success : ButtonStyle.Secondary).setDisabled(shuffleDisabled)
     );
 
     const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('radio_loop').setLabel(loopLabel(session.loopMode)).setStyle(loopButtonStyle(session.loopMode)),
-        new ButtonBuilder().setCustomId('radio_voice_toggle').setLabel(voiceModeLabel(currentVoiceMode)).setStyle(voiceButtonStyle(currentVoiceMode)),
-        new ButtonBuilder().setCustomId('radio_queue').setLabel('📜 Ver Lista').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId('radio_add').setLabel('➕ Adicionar').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('radio_remove').setLabel('🗑️ Remover').setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId('radio_remove').setLabel('🗑️ Remover').setStyle(ButtonStyle.Danger).setDisabled(removeDisabled),
+        new ButtonBuilder().setCustomId('radio_queue').setLabel('📜 Ver Lista').setStyle(ButtonStyle.Secondary).setDisabled(queueDisabled),
+        new ButtonBuilder().setCustomId('radio_loop').setLabel(loopLabel(session.loopMode)).setStyle(loopButtonStyle(session.loopMode)),
+        new ButtonBuilder().setCustomId('radio_leave').setLabel('🚪 Sair').setStyle(ButtonStyle.Secondary)
     );
 
     const row3 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('radio_voice_toggle').setLabel(voiceModeLabel(currentVoiceMode)).setStyle(voiceButtonStyle(currentVoiceMode)),
         new ButtonBuilder().setCustomId('radio_stream_mode').setLabel(isFast ? '⚡ Rápido' : '⚖️ Híbrido').setStyle(isFast ? ButtonStyle.Success : ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('radio_leave').setLabel('🚪 Sair').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setLabel('Apoie o projeto').setURL('https://bio.site/yGuilhermy').setStyle(ButtonStyle.Link).setEmoji('💖')
     );
 
     return { embeds: [embed], components: [row1, row2, row3] };
 }
 
-function buildQueueEmbed(session) {
+function buildQueueEmbed(session, page = 1) {
     const playlist = session.playlist || [];
     const currentIdx = typeof session.currentIndex === 'number' ? session.currentIndex : -1;
+    const totalPages = Math.max(1, Math.ceil(playlist.length / 10));
+    const safePage = Math.min(Math.max(1, page), totalPages);
 
     const embed = new EmbedBuilder()
         .setColor(0x7C3AED)
         .setTitle('📋 Fila Permanente do Rádio')
-        .setFooter({ text: `${playlist.length} faixa(s) cadastradas nesta sessão de rádio` });
+        .setFooter({ text: `Página ${safePage}/${totalPages} • ${playlist.length} faixa(s) cadastradas` });
+
+    if (playlist.length === 0) {
+        embed.setDescription('Fila vazia.');
+        return { embed, components: [] };
+    }
+
+    const startIndex = (safePage - 1) * 10;
+    const pageTracks = playlist.slice(startIndex, startIndex + 10);
 
     let desc = '';
-    playlist.forEach((t, i) => {
-        const pos = i + 1;
+    pageTracks.forEach((t, relativeIndex) => {
+        const absoluteIndex = startIndex + relativeIndex;
+        const pos = absoluteIndex + 1;
         const dur = formatDuration(t.duration);
-        if (i === currentIdx && session.status === 'PLAYING') {
+        if (absoluteIndex === currentIdx && session.status === 'PLAYING') {
             desc += `**▶️ #${pos}. ${t.title} — ${t.artist}** (tocando agora)\n`;
-        } else if (i === currentIdx && session.status === 'PAUSED') {
+        } else if (absoluteIndex === currentIdx && session.status === 'PAUSED') {
             desc += `**⏸️ #${pos}. ${t.title} — ${t.artist}** (pausada)\n`;
-        } else if (i < currentIdx) {
+        } else if (absoluteIndex < currentIdx) {
             desc += `~~#${pos}. ${t.title} — ${t.artist}~~\n`;
         } else {
             desc += `**#${pos}.** ${t.title} — ${t.artist} (${dur})\n`;
@@ -116,7 +134,17 @@ function buildQueueEmbed(session) {
     });
 
     embed.setDescription(desc || 'Fila vazia.');
-    return embed;
+
+    const components = [];
+    if (totalPages > 1) {
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`radio_qpage_${safePage - 1}`).setLabel('⬅️ Anterior').setStyle(ButtonStyle.Secondary).setDisabled(safePage <= 1),
+            new ButtonBuilder().setCustomId(`radio_qpage_${safePage + 1}`).setLabel('Próxima ➡️').setStyle(ButtonStyle.Secondary).setDisabled(safePage >= totalPages)
+        );
+        components.push(row);
+    }
+
+    return { embed, components };
 }
 
 function buildAmbiguousEmbed(results) {
@@ -143,7 +171,7 @@ function buildNotFoundEmbed(query) {
     return new EmbedBuilder()
         .setColor(0xE11D48)
         .setTitle('❌ Música não encontrada')
-        .setDescription(`Não consegui encontrar **"${query}"** no Deezer.`)
+        .setDescription(`Não consegui encontrar **"${query}"** nos serviços de música.`)
         .setFooter({ text: 'Hikari Radio' });
 }
 

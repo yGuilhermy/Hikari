@@ -172,6 +172,14 @@ async function joinVoiceCall(member, textChannel, replyFn = null) {
 }
 
 async function leaveVoiceCall(guildId, textChannel = null, replyFn = null) {
+    try {
+        const { getSession } = require('../music/radioDatabase');
+        if (getSession(guildId)) {
+            const { leaveRadioCall } = require('../music/radioManager');
+            await leaveRadioCall(guildId, textChannel);
+        }
+    } catch (_) {}
+
     const existingConn = getVoiceConnection(guildId);
     const stateData = activeConnections.get(guildId);
 
@@ -375,6 +383,23 @@ async function processVoiceTranscription(userId, text, stateData, client) {
 
 async function handleVoiceStateUpdate(oldState, newState) {
     const guildId = oldState.guild.id;
+
+    try {
+        const { getSession } = require('../music/radioDatabase');
+        const radioSession = getSession(guildId);
+        if (radioSession && !radioSession._leaving) {
+            const voiceChannel = oldState.guild.channels.cache.get(radioSession.voiceChannelId);
+            if (voiceChannel) {
+                const humanMembers = voiceChannel.members.filter(m => !m.user.bot);
+                if (humanMembers.size === 0) {
+                    const { leaveRadioCall } = require('../music/radioManager');
+                    const textChannel = oldState.client.channels.cache.get(radioSession.textChannelId);
+                    await leaveRadioCall(guildId, textChannel);
+                }
+            }
+        }
+    } catch (_) {}
+
     if (!activeConnections.has(guildId)) return;
 
     const stateData = activeConnections.get(guildId);
