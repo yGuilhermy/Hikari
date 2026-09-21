@@ -55,7 +55,8 @@ All global constants are centralized for easier maintenance. Below are the prima
 | `defaultAutoMod` | `DEFAULT_AUTOMOD` | Enables or disables AutoMod by default for new servers (Default: `true`). |
 | `automodMode` | `AUTOMOD_MODE` | Defines the AutoMod operating mode (`off`, `trigger`, `mcp`, `both`). |
 | `aiDbReadEnabled` | `AI_DB_READ` | Enables reading from the permanent AI memory (`true`/`false`). |
-| `aiDbWriteEnabled` | `AI_DB_WRITE` | Enables writing and updating in the permanent memory (`true`/`false`). |
+| `aiDbWriteEnabled` | `AI_DB_WRITE` | Enables writing new records to the permanent memory (`true`/`false`). |
+| `aiDbEditEnabled` | `AI_DB_EDIT` | Enables editing records in the permanent memory (`true`/`false`). |
 | `aiDbDeleteEnabled` | `AI_DB_DELETE` | Enables deleting entries from the permanent memory (`true`/`false`). |
 
 ---

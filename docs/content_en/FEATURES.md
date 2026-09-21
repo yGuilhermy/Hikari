@@ -4,14 +4,15 @@ Hikari is not just a chat wrapper. It is an asynchronous processing ecosystem th
 
 ---
 
-## 📂 Summary
+## 📂 Table of Contents
 
-1. [🧠 1. Artificial Intelligence: The Prompt Life Cycle](#-1-artificial-intelligence-the-prompt-life-cycle)
+1. [🧠 1. Artificial Intelligence: The Prompt Lifecycle](#-1-artificial-intelligence-the-prompt-lifecycle)
 2. [🎨 2. Image Generation (Provider Hierarchy)](#-2-image-generation-provider-hierarchy)
 3. [🎵 3. Media Processing (Audio, Video, and Compression)](#-3-media-processing-audio-video-and-compression)
-4. [🎙️ 4. Voice Assistant & DAVE Protocol (Discord Voice Calls)](#-4-voice-assistant--dave-protocol-discord-voice-calls)
-5. [💾 5. Permanent AI Database & On-Demand Memory](#-5-permanent-ai-database--on-demand-memory-zero-token-overhead)
-6. [💡 Advanced Usage Tips](#-advanced-usage-tips)
+4. [🎙️ 4. Voice Assistant & DAVE Protocol (Discord Calls)](#-4-voice-assistant--dave-protocol-discord-calls)
+5. [🎙️ 5. Audio Transcription in History (Whisper On-Demand)](#-5-audio-transcription-in-history-whisper-on-demand)
+6. [💾 6. Permanent AI Database & On-Demand Memory](#-6-permanent-ai-database--on-demand-memory-zero-token-overhead)
+7. [💡 Advanced Usage Tips](#-advanced-usage-tips)
 
 ---
 
@@ -72,16 +73,35 @@ Hikari's voice ecosystem allows her to participate in voice channels and process
 
 ---
 
-## 💾 5. Permanent AI Database & On-Demand Memory (Zero Token Overhead)
+## 🎙️ 5. Audio Transcription in History (Whisper On-Demand)
 
-To avoid inflating the System Prompt on every request with hundreds of static tokens or historical facts, Hikari features an **autonomous permanent database** (`ai_database.json`).
+Hikari doesn't ignore voice notes sent in channels! When called upon in a chat whose recent history contains voice messages:
 
-- **On-Demand Retrieval ("Think Twice"):** Rather than stuffing all context into the prompt, the AI autonomously decides when to query memory using `database_read`. It performs the internal lookup and formulates a coherent, natural response with pinpoint precision.
-- **Write & Update (`database_write`):** The AI can persist critical facts, user preferences, and long-term notes to disk across bot restarts.
-- **Cleanup of Stale Records (`database_delete`):** Allows removing outdated or obsolete entries to keep storage lean.
-- **Creator Protection (`protected: true`):** Sensitive and architectural records (such as creator biography and credentials) have the protected flag enabled. Regular users and autonomous AI routines are strictly prevented from overwriting or deleting protected records; only the Bot Owner (`isOwner`) has authorization to modify them.
-- **Granular Control via Environment Variables & Panel:** Access can be individually managed via `.env` (`AI_DB_READ`, `AI_DB_WRITE`, `AI_DB_DELETE`) or dynamically toggled in the Owner Config Panel. Disabling read access automatically cascades to block write and delete operations for safety.
-- **Privacy & Open-Source Security:** The local storage file `src/data/ai_database.json` is ignored in `.gitignore`, guaranteeing that private data and personal information are never exposed in public Git repositories.
+- **On-Demand Transcription:** Hikari only sends the voice audio file to Whisper when a user explicitly mentions her or asks a question relating to that conversation context.
+- **Provider Hierarchy:** Primarily leverages **Wit.ai** for fast, free transcriptions across Portuguese and other languages, with automated fallback to the **Groq** API (`whisper-large-v3-turbo`).
+- **Persistent Cache per Message:** Once a message's voice audio has been transcribed, the text is cached and mapped to that message in memory. Subsequent queries reuse the cached transcription without re-triggering API calls.
+- **Intelligent Audio Type Filtering:** Discord voice notes are formatted as `[Transcribed audio: "..."]`, while standard music files or sound effects are identified solely by filename (e.g. `song.mp3`), preventing wasteful transcription attempts on music tracks.
+
+---
+
+## 💾 6. Permanent AI Database & On-Demand Memory (Zero Token Overhead)
+
+To avoid inflating the System Prompt on every request with hundreds of static tokens or historical facts, Hikari features an **autonomous permanent database** (`src/data/ai_database.json`).
+
+- **On-Demand Retrieval & Multi-Topic Aggregation (`db_read`):** Rather than stuffing all context into the prompt, the AI autonomously queries memory. It features tiered key lookup and **automatic aggregation**: if multiple records exist regarding a topic (e.g., `sekinin`, `sekinin_rules`, `sekinin_events`), it correlates and synthesizes all of them into a single, cohesive answer.
+- **Author Tracking & Auditing (`db_write`):** Whenever storing a record, Hikari records authorship metadata (`salvo_por: "username - id"`, `savedById`, `savedByTag`) and an importance classification (`important: boolean`, default `false`), intelligently evaluated by the AI.
+- **Secure Editing (`db_edit`):** Allows updating, correcting, or appending to existing notes while preserving authorship and history.
+- **Controlled Deletion (`db_delete`):** Removes records from disk when explicitly requested.
+- **Protection Against Unauthorized Edits & Deletions:**
+  - Records tagged as **important** (`important: true`) can only be modified or deleted by the **original author** who created them, by **Server Staff/Moderators** (`Administrator`, `ManageGuild`, `ManageMessages`, or Server Owner), or by the **Bot Creator** (`isOwner`).
+  - Unauthorized attempts by regular members are politely and naturally refused in chat by Hikari (without emojis), safeguarding community lore and notes against trolls.
+  - Simple records (`important: false`) can be edited or deleted normally by any member.
+- **Privacy Shield Against Bulk Dumps:** The AI is strictly barred from dumping the entire database (`*`, `all`, `dump`) for regular users, naturally explaining privacy constraints and asking the user to specify a topic.
+- **Conduct Directives & Harmful Content Prevention:** Hikari strictly refuses to store defamatory notes, user harassment, attacks, Discord TOS violations, or criminal activities in the database.
+- **Visual Footer Identification:** Responses derived from database lookups display the footer badge `-# 💾 Database`.
+- **Creator Protection (`protected: true`):** Core structural records (such as `creator_info`) are locked against modification or deletion by anyone other than the bot creator.
+- **Granular Control via Environment & Panel:** Access can be individually managed via `.env` (`AI_DB_READ`, `AI_DB_WRITE`, `AI_DB_EDIT`, `AI_DB_DELETE`) or toggled inside the Owner Config Panel (`/config`). Disabling read access automatically cascades to block write, edit, and delete operations.
+- **Open-Source Privacy:** The database file `src/data/ai_database.json` is ignored in `.gitignore`, ensuring personal notes never leak to public repositories.
 
 ---
 

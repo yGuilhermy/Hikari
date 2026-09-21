@@ -2392,9 +2392,16 @@ Utilize todos os dados acima recuperados do banco de dados para responder ao usu
                     const { writeDb } = require('./databaseHandler');
                     const targetKey = toolData.args ? (toolData.args.key || toolData.args.chave) : null;
                     const targetContent = toolData.args ? (toolData.args.content || toolData.args.conteudo || toolData.args.texto || toolData.args.data) : null;
+                    const isImportant = Boolean(toolData.args && (toolData.args.important === true || toolData.args.importante === true));
                     const targetGuildId = options.guildId || guildId;
                     const isOwner = config.isOwner(userId);
-                    const writeResult = writeDb(targetKey, targetContent, targetGuildId, isOwner);
+                    const meta = {
+                        salvo_por: userTag && userId ? `${userTag} - ${userId}` : (userTag || userId || 'desconhecido'),
+                        savedById: userId || null,
+                        savedByTag: userTag || null,
+                        important: isImportant
+                    };
+                    const writeResult = writeDb(targetKey, targetContent, targetGuildId, isOwner, meta);
                     if (!writeResult.success) {
                         processedResponse = writeResult.message || 'Não foi possível gravar essa informação no banco.';
                     } else {
@@ -2404,14 +2411,67 @@ Utilize todos os dados acima recuperados do banco de dados para responder ao usu
                 }
                 if (toolData.tool === 'db_edit') {
                     const { editDb } = require('./databaseHandler');
+                    const { PermissionFlagsBits } = require('discord.js');
                     const targetKey = toolData.args ? (toolData.args.key || toolData.args.chave) : null;
                     const targetContent = toolData.args ? (toolData.args.content || toolData.args.conteudo || toolData.args.texto || toolData.args.data) : null;
                     const append = Boolean(toolData.args && (toolData.args.append || toolData.args.adicionar || toolData.args.acrescentar));
+                    const isImportant = toolData.args && (toolData.args.important !== undefined || toolData.args.importante !== undefined)
+                        ? Boolean(toolData.args.important || toolData.args.importante)
+                        : undefined;
                     const targetGuildId = options.guildId || guildId;
                     const isOwner = config.isOwner(userId);
-                    const editResult = editDb(targetKey, targetContent, { append }, targetGuildId, isOwner);
+                    const member = interaction?.member;
+                    const isStaff = Boolean(
+                        isOwner ||
+                        (member && member.permissions && (
+                            member.permissions.has(PermissionFlagsBits.Administrator) ||
+                            member.permissions.has(PermissionFlagsBits.ManageGuild) ||
+                            member.permissions.has(PermissionFlagsBits.ManageMessages)
+                        )) ||
+                        (interaction?.guild && interaction.guild.ownerId === userId)
+                    );
+                    const userContext = {
+                        userId,
+                        userTag,
+                        isOwner,
+                        isStaff
+                    };
+                    const meta = {
+                        userTag,
+                        userId,
+                        important: isImportant
+                    };
+                    const editResult = editDb(targetKey, targetContent, { append, important: isImportant }, targetGuildId, userContext, meta);
                     if (!editResult.success) {
-                        processedResponse = editResult.message || 'Não foi possível editar essa informação no banco.';
+                        if (editResult.error === 'author_confirmation_required') {
+                            const authorLabel = editResult.savedBy || 'o usuário que salvou';
+                            const denialPrompt = `[DIRETRIZ DE PROTEÇÃO DE DADOS DO BANCO]:
+O usuário solicitou alterar/editar uma anotação importante do banco de dados ("${targetKey}").
+Essa anotação foi marcada como importante e pertence a ${authorLabel}.
+Pergunta do usuário: "${prompt}"
+
+[INSTRUÇÃO CRÍTICA]:
+Você DEVE recusar a alteração.
+Formule a sua resposta final diretamente para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; SEM EMOJIS; sem ser robótica; nunca repita a fala do usuário).
+Explique com naturalidade que você não pode alterar ou editar essa anotação porque ela é importante e foi salva por ${authorLabel}, e que para evitar trolls ou perda de dados, somente esse usuário ou a moderação/administração do servidor podem autorizar ou fazer alterações.
+Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque tags de código nem IDs numéricos.`;
+                            processedResponse = await generateResponse(denialPrompt, channelId, {
+                                allowSearch: false,
+                                disableTools: true,
+                                guildId: targetGuildId,
+                                skipLocal: options.skipLocal
+                            });
+                            const dbFooter = '💾 Database';
+                            if (/\n-# /.test(processedResponse)) {
+                                processedResponse += ` | ${dbFooter}`;
+                            } else if (modelFooter) {
+                                processedResponse += `${modelFooter} | ${dbFooter}`;
+                            } else {
+                                processedResponse += `\n-# ${dbFooter}`;
+                            }
+                        } else {
+                            processedResponse = editResult.message || 'Não foi possível editar essa informação no banco.';
+                        }
                     } else {
                         processedResponse = `Pronto, atualizei o registro "${targetKey}" no banco de dados com sucesso.`;
                     }
@@ -2419,12 +2479,56 @@ Utilize todos os dados acima recuperados do banco de dados para responder ao usu
                 }
                 if (toolData.tool === 'db_delete') {
                     const { deleteDb } = require('./databaseHandler');
+                    const { PermissionFlagsBits } = require('discord.js');
                     const targetKey = toolData.args ? (toolData.args.key || toolData.args.chave) : null;
                     const targetGuildId = options.guildId || guildId;
                     const isOwner = config.isOwner(userId);
-                    const deleteResult = deleteDb(targetKey, targetGuildId, isOwner);
+                    const member = interaction?.member;
+                    const isStaff = Boolean(
+                        isOwner ||
+                        (member && member.permissions && (
+                            member.permissions.has(PermissionFlagsBits.Administrator) ||
+                            member.permissions.has(PermissionFlagsBits.ManageGuild) ||
+                            member.permissions.has(PermissionFlagsBits.ManageMessages)
+                        )) ||
+                        (interaction?.guild && interaction.guild.ownerId === userId)
+                    );
+                    const deleteResult = deleteDb(targetKey, targetGuildId, {
+                        userId,
+                        userTag,
+                        isOwner,
+                        isStaff
+                    });
                     if (!deleteResult.success) {
-                        processedResponse = deleteResult.message || 'Não foi possível excluir esse registro.';
+                        if (deleteResult.error === 'author_confirmation_required') {
+                            const authorLabel = deleteResult.savedBy || 'o usuário que salvou';
+                            const denialPrompt = `[DIRETRIZ DE PROTEÇÃO DE DADOS DO BANCO]:
+O usuário solicitou excluir uma anotação importante do banco de dados ("${targetKey}").
+Essa anotação foi marcada como importante e pertence a ${authorLabel}.
+Pergunta do usuário: "${prompt}"
+
+[INSTRUÇÃO CRÍTICA]:
+Você DEVE recusar a exclusão.
+Formule a sua resposta final diretamente para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; SEM EMOJIS; sem ser robótica; nunca repita a fala do usuário).
+Explique com naturalidade que você não pode deletar essa anotação porque ela é importante e foi salva por ${authorLabel}, e que para evitar trolls ou perda de dados, somente esse usuário ou a moderação/administração do servidor podem autorizar ou confirmar a exclusão.
+Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque tags de código nem IDs numéricos.`;
+                            processedResponse = await generateResponse(denialPrompt, channelId, {
+                                allowSearch: false,
+                                disableTools: true,
+                                guildId: targetGuildId,
+                                skipLocal: options.skipLocal
+                            });
+                            const dbFooter = '💾 Database';
+                            if (/\n-# /.test(processedResponse)) {
+                                processedResponse += ` | ${dbFooter}`;
+                            } else if (modelFooter) {
+                                processedResponse += `${modelFooter} | ${dbFooter}`;
+                            } else {
+                                processedResponse += `\n-# ${dbFooter}`;
+                            }
+                        } else {
+                            processedResponse = deleteResult.message || 'Não foi possível excluir esse registro.';
+                        }
                     } else {
                         processedResponse = `Feito, o registro "${targetKey}" foi removido do banco de dados.`;
                     }

@@ -44,12 +44,13 @@ Hikari's MCP ecosystem has been robustly enhanced with specific native behaviors
 - **Smart Direction:** The AI identifies the user's intent to download video or audio. If the request is ambiguous, the AI asks clarification questions in chat instead of blindly triggering the tool. The MCP does not start compression processes; that decision is handled by Discord limits and the user via buttons.
 - **Music Search & Download (`search_and_download_music`):** Allows the AI to search and download HQ MP3 tracks directly from Deezer via `deemix`. If confidence score is high (>=80%), it downloads immediately; if ambiguous, it presents a 5-track text list alongside an interactive selection dropdown menu for the user.
 
-### 5. Permanent AI Database (`database_read`, `database_write`, `database_delete`)
+### 5. Permanent AI Database (`db_read`, `db_write`, `db_edit`, `db_delete`)
 - **Autonomous Memory Architecture:** Instead of stuffing mass context into the System Prompt, the AI autonomously determines when to read or persist records in `src/data/ai_database.json`.
-- **Read & List (`database_read`):** Reads a specific key or lists all available database keys when no key argument is passed.
-- **Write & Update (`database_write`):** Saves strings or structured objects. Automatically updates `updatedAt` and preserves existing `protected` flags.
-- **Protected Record Safeguards (`database_delete`):** Prevents deletion of records marked with `protected: true` unless executed by the Bot Owner (`isOwner`).
-- **Runtime Enforcements:** All operations validate granular flags (`aiDbReadEnabled`, `aiDbWriteEnabled`, `aiDbDeleteEnabled`) in `databaseHandler.js` before interacting with the local JSON file.
+- **Smart Retrieval & Multi-Topic Aggregation (`db_read`):** Tiered search mechanism (exact match, prefix, substring, text scan). Automatically aggregates and synthesizes multiple correlated records into a single coherent answer (e.g., `sekinin`, `sekinin_rules`). Rebuffs global dump attempts (`*`, `all`) by regular users. Responses generated using the database display the badge `-# 💾 Database`.
+- **Author Auditing & Storage (`db_write`):** Saves strings or structured objects with authorship metadata (`salvo_por: "username - id"`, `savedById`, `savedByTag`) and an importance level (`important: boolean`, default `false`). Enforces cognitive guardrails rejecting defamation, user attacks, Discord TOS violations, or criminal acts.
+- **Secure Editing (`db_edit`):** Updates or appends (`append`) content to existing entries. If the record is marked `important: true`, only the original author, Server Staff (`ManageGuild`/`Administrator`), or Bot Owner (`isOwner`) are allowed to modify it.
+- **Protected Deletions (`db_delete`):** Safely deletes records. Important records cannot be deleted by unauthorized third-party members to prevent trolling; protected records (`protected: true`) remain exclusive to the Bot Owner (`isOwner`).
+- **Runtime & Cascading Permissions:** All operations validate granular server permissions and global flags (`AI_DB_READ`, `AI_DB_WRITE`, `AI_DB_EDIT`, `AI_DB_DELETE`) in `databaseHandler.js` before interacting with the local JSON file. Disabling read automatically blocks writing, editing, and deleting.
 
 ---
 

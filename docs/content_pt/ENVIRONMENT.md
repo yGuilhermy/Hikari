@@ -47,6 +47,13 @@ Este guia explica cada entrada do arquivo `.env` e as configurações internas d
 - **`DEEZER_ARL`** (ou `DEEMIX_ARL`): Token de autenticação ARL da sua conta Deezer para permitir o download de músicas em alta qualidade via `deemix`.
   - 🔗 **Obter em:** Cookie `arl` nas ferramentas de desenvolvedor do navegador em [Deezer.com](https://www.deezer.com).
 
+### 🎙️ Transcrição de Voz & Áudio (Whisper)
+
+- **`WIT_AI_KEY`**: Chave de acesso do aplicativo na Wit.ai para transcrição de voz gratuita e em alta velocidade via Whisper no chat.
+  - 🔗 **Obter em:** [Wit.ai Console](https://wit.ai/)
+- **`GROQ_API_KEY`**: Chave da plataforma Groq, utilizada como fallback para transcrições em lote via Whisper (`whisper-large-v3-turbo`).
+  - 🔗 **Obter em:** [Groq Cloud Console](https://console.groq.com/)
+
 ---
 
 ## 🌍 Provedores e URLs
@@ -65,6 +72,10 @@ Este guia explica cada entrada do arquivo `.env` e as configurações internas d
 - **`BOT_NAME`**: O nome que a Hikari reconhecerá como sendo dela.
 - **`REQUIRE_TOS`**: Se `true`, novos servidores precisam aceitar os termos de uso antes de usar o bot.
 - **`SAVE_HISTORY`**: Salva o histórico de mensagens em `src/data/historico.txt` para depuração.
+- **`AI_DB_READ`**: Habilita a leitura/consulta no banco de dados autônomo permanente (`true`/`false`).
+- **`AI_DB_WRITE`**: Habilita a gravação de novos dados no banco permanente (`true`/`false`).
+- **`AI_DB_EDIT`**: Habilita a edição de anotações no banco permanente (`true`/`false`).
+- **`AI_DB_DELETE`**: Habilita a exclusão de anotações no banco permanente (`true`/`false`).
 
 ---
 

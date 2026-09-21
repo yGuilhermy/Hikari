@@ -44,12 +44,13 @@ O ecossistema MCP da Hikari foi robustamente aprimorado com comportamentos nativ
 - **Direcionamento Inteligente:** A IA identifica a intenção do usuário sobre baixar vídeo ou áudio. Caso o pedido seja ambíguo, a IA faz perguntas de esclarecimento ao usuário no chat em vez de disparar a ferramenta às cegas. O MCP não inicia processos de compressão; essa decisão fica a cargo do Discord e do usuário via botões.
 - **Busca e Download de Música (`search_and_download_music`):** Permite à IA buscar e baixar músicas em MP3 HQ diretamente do Deezer via `deemix`. Se a busca possuir alta pontuação de certeza (>=80%), realiza o download imediato; caso seja ambígua, apresenta uma lista textual com as 5 opções acompanhada de menu suspenso para escolha pelo usuário.
 
-### 5. Banco de Dados Permanente (`database_read`, `database_write`, `database_delete`)
+### 5. Banco de Dados Permanente (`db_read`, `db_write`, `db_edit`, `db_delete`)
 - **Arquitetura de Memória Autônoma:** Em vez de depender de injeção massiva no System Prompt, a IA decide autonomamente quando consultar ou salvar registros em `src/data/ai_database.json`.
-- **Controle de Leitura (`database_read`):** Permite ler uma chave específica ou listar todas as chaves existentes quando o argumento `key` não é especificado.
-- **Escrita e Atualização (`database_write`):** Salva conteúdos de texto ou estruturas completas no banco. Mantém metadados de `updatedAt` e herda a flag `protected` de registros existentes.
-- **Deleção Segura (`database_delete`):** Remove registros da base. Se o registro contiver `protected: true` e a chamada não for do Dono (`isOwner`), o sistema recusa a operação com código de erro `protected`.
-- **Segurança de Execução:** Todas as três ferramentas passam por validações prévias no `databaseHandler.js` e verificam se `aiDbReadEnabled`, `aiDbWriteEnabled` ou `aiDbDeleteEnabled` estão ativos antes de acessar o arquivo físico.
+- **Leitura Inteligente & Agregação (`db_read`):** Realiza busca multinível (exata, prefixo, substring e varredura textual). Quando múltiplos registros tratam do mesmo assunto (ex: `sekinin`, `sekinin_regras`), a ferramenta os agrega automaticamente para que a IA gere uma resposta completa e unificada. Conta com trava de segurança que bloqueia tentativas de dump geral (`*`, `tudo`) por usuários comuns, orientando-os a especificar o tópico. Respostas originadas do banco exibem o rodapé `-# 💾 Database`.
+- **Gravação & Auditoria de Autoria (`db_write`):** Grava conteúdos na base vinculando metadados de autoria (`salvo_por: "usuario - id"`, `savedById`, `savedByTag`) e relevância (`important: boolean`, padrão `false`). Possui trava cognitiva contra conteúdos difamatórios, ataques a usuários, violações ao TOS do Discord ou atividades criminosas.
+- **Edição & Preservação (`db_edit`):** Permite alterar ou acrescentar (`append`) conteúdo a registros existentes. Se o registro for importante (`important: true`), apenas o autor original, a Staff do servidor (`ManageGuild`/`Administrator`) ou o criador do bot (`isOwner`) têm permissão para editar.
+- **Deleção Segura (`db_delete`):** Remove registros da base. Registros marcados como importantes não podem ser deletados por terceiros para evitar trolls; registros protegidos (`protected: true`) são exclusivos do Criador (`isOwner`).
+- **Segurança e Cascata:** Todas as ferramentas verificam permissões locais e do servidor antes de acessar o disco. Se a leitura for desligada, escrita, edição e exclusão são bloqueadas automaticamente.
 
 ---
 

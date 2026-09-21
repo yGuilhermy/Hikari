@@ -255,7 +255,7 @@ function readDb(key, guildId = null, isOwner = false) {
     };
 }
 
-function writeDb(key, data, guildId = null, isOwner = false) {
+function writeDb(key, data, guildId = null, isOwner = false, meta = {}) {
     if (!canWrite(guildId)) {
         return {
             success: false,
@@ -280,17 +280,30 @@ function writeDb(key, data, guildId = null, isOwner = false) {
             message: `O registro "${cleanKey}" é protegido pelo criador e não pode ser sobrescrito.`
         };
     }
+    const salvoPor = meta.salvo_por || (meta.userTag && meta.userId ? `${meta.userTag} - ${meta.userId}` : (existing && existing.salvo_por ? existing.salvo_por : null));
+    const savedById = meta.savedById || meta.userId || (existing && existing.savedById ? existing.savedById : null);
+    const savedByTag = meta.savedByTag || meta.userTag || (existing && existing.savedByTag ? existing.savedByTag : null);
+    const isImportant = meta.important !== undefined ? Boolean(meta.important) : (existing && existing.important !== undefined ? Boolean(existing.important) : false);
+
     let recordToSave;
     if (typeof data === 'object' && data !== null) {
         recordToSave = {
             ...data,
             protected: existing ? Boolean(existing.protected) : false,
+            salvo_por: salvoPor,
+            savedById: savedById,
+            savedByTag: savedByTag,
+            important: isImportant,
             updatedAt: new Date().toISOString()
         };
     } else {
         recordToSave = {
             content: String(data),
             protected: existing ? Boolean(existing.protected) : false,
+            salvo_por: salvoPor,
+            savedById: savedById,
+            savedByTag: savedByTag,
+            important: isImportant,
             updatedAt: new Date().toISOString()
         };
     }
@@ -304,7 +317,7 @@ function writeDb(key, data, guildId = null, isOwner = false) {
     };
 }
 
-function editDb(key, newContent, options = {}, guildId = null, isOwner = false) {
+function editDb(key, newContent, options = {}, guildId = null, userContext = {}, meta = {}) {
     if (!canEdit(guildId)) {
         return {
             success: false,
@@ -330,6 +343,10 @@ function editDb(key, newContent, options = {}, guildId = null, isOwner = false) 
         };
     }
     const existing = database[resolvedKey];
+    const isOwner = typeof userContext === 'boolean' ? userContext : Boolean(userContext && userContext.isOwner);
+    const isStaff = typeof userContext === 'object' && userContext !== null ? Boolean(userContext.isStaff || userContext.isAdmin) : false;
+    const currentUserId = typeof userContext === 'object' && userContext !== null ? userContext.userId : (meta && meta.userId ? meta.userId : null);
+
     if (existing.protected && !isOwner) {
         return {
             success: false,
@@ -338,8 +355,27 @@ function editDb(key, newContent, options = {}, guildId = null, isOwner = false) 
         };
     }
 
+    const isAuthor = Boolean(existing.savedById && currentUserId && String(existing.savedById) === String(currentUserId));
+    const isImportant = Boolean(existing.important);
+
+    if (isImportant && !isOwner && !isStaff && !isAuthor) {
+        return {
+            success: false,
+            error: 'author_confirmation_required',
+            key: resolvedKey,
+            savedBy: existing.salvo_por || existing.savedByTag || 'outro usuário',
+            savedById: existing.savedById || null,
+            message: `O registro "${resolvedKey}" é importante e foi salvo por ${existing.salvo_por || existing.savedByTag || 'outro usuário'}. Apenas o próprio autor ou a administração podem autorizar a edição.`
+        };
+    }
+
     const shouldAppend = typeof options === 'boolean' ? options : Boolean(options && options.append);
     let updatedContent = String(newContent || '').trim();
+
+    const salvoPor = existing.salvo_por || meta.salvo_por || (meta.userTag && meta.userId ? `${meta.userTag} - ${meta.userId}` : null);
+    const savedById = existing.savedById || meta.savedById || meta.userId || null;
+    const savedByTag = existing.savedByTag || meta.savedByTag || meta.userTag || null;
+    const nextImportant = options.important !== undefined ? Boolean(options.important) : (meta.important !== undefined ? Boolean(meta.important) : (existing.important !== undefined ? Boolean(existing.important) : false));
 
     let recordToSave;
     if (typeof existing === 'object' && existing !== null) {
@@ -354,6 +390,10 @@ function editDb(key, newContent, options = {}, guildId = null, isOwner = false) 
             content: finalContent,
             resumo: finalContent,
             protected: Boolean(existing.protected),
+            salvo_por: salvoPor,
+            savedById: savedById,
+            savedByTag: savedByTag,
+            important: nextImportant,
             updatedAt: new Date().toISOString()
         };
     } else {
@@ -364,6 +404,10 @@ function editDb(key, newContent, options = {}, guildId = null, isOwner = false) 
         recordToSave = {
             content: finalContent,
             protected: false,
+            salvo_por: salvoPor,
+            savedById: savedById,
+            savedByTag: savedByTag,
+            important: nextImportant,
             updatedAt: new Date().toISOString()
         };
     }
@@ -378,7 +422,7 @@ function editDb(key, newContent, options = {}, guildId = null, isOwner = false) 
     };
 }
 
-function deleteDb(key, guildId = null, isOwner = false) {
+function deleteDb(key, guildId = null, userContext = {}) {
     if (!canDelete(guildId)) {
         return {
             success: false,
@@ -397,6 +441,10 @@ function deleteDb(key, guildId = null, isOwner = false) {
         };
     }
     const existing = database[resolvedKey];
+    const isOwner = typeof userContext === 'boolean' ? userContext : Boolean(userContext && userContext.isOwner);
+    const isStaff = typeof userContext === 'object' && userContext !== null ? Boolean(userContext.isStaff || userContext.isAdmin) : false;
+    const currentUserId = typeof userContext === 'object' && userContext !== null ? userContext.userId : null;
+
     if (existing.protected && !isOwner) {
         return {
             success: false,
@@ -404,6 +452,21 @@ function deleteDb(key, guildId = null, isOwner = false) {
             message: `O registro "${resolvedKey}" é protegido pelo criador e não pode ser excluído.`
         };
     }
+
+    const isAuthor = Boolean(existing.savedById && currentUserId && String(existing.savedById) === String(currentUserId));
+    const isImportant = Boolean(existing.important);
+
+    if (isImportant && !isOwner && !isStaff && !isAuthor) {
+        return {
+            success: false,
+            error: 'author_confirmation_required',
+            key: resolvedKey,
+            savedBy: existing.salvo_por || existing.savedByTag || 'outro usuário',
+            savedById: existing.savedById || null,
+            message: `O registro "${resolvedKey}" é importante e foi salvo por ${existing.salvo_por || existing.savedByTag || 'outro usuário'}. Apenas o próprio autor ou a administração podem autorizar a exclusão.`
+        };
+    }
+
     delete database[resolvedKey];
     saveDatabase();
     return {

@@ -434,7 +434,7 @@
     "type": "function",
     "function": {
       "name": "db_read",
-      "description": "Consulta dados e memórias no banco de dados interno sob demanda. Use SEMPRE que o usuário perguntar sobre o seu criador (key: 'creator_info'), quem te criou, quem te programou, ou solicitar informações sobre tópicos específicos salvos anteriormente. Retorna os dados armazenados para que você possa responder com precisão. CRÍTICO - SEGURANÇA E PRIVACIDADE: É estritamente proibido despejar ou listar 'todos os dados', 'tudo do banco' ou 'todas as anotações'. Se o usuário pedir para listar todo o banco de dados em massa, recuse educadamente na sua fala explicando que não pode expor tudo por segurança e privacidade, e peça para ele especificar o tópico desejado.",
+      "description": "Consulta dados e memórias no banco de dados interno sob demanda. Use SEMPRE que o usuário perguntar sobre o seu criador (key: 'creator_info'), quem te criou, quem te programou, ou solicitar informações sobre tópicos específicos salvos anteriormente. Retorna os dados armazenados para que você possa responder com precisão. CRÍTICO - SEGURANÇA E PRIVACIDADE: É estritamente proibido despejar ou listar 'todos os dados', 'tudo do banco' ou 'todas as anotações' quando é de forma generica sem um topico específico. Se o usuário pedir para listar todo o banco de dados em massa, recuse educadamente na sua fala explicando que não pode expor tudo por segurança e privacidade, e peça para ele especificar o tópico desejado.",
       "textual_triggers": "Gatilhos: \"quem é o seu criador e me fale sobre ele\", \"quem é seu criador?\", \"me fale sobre seu criador\", \"quem te criou?\", \"o que você sabe sobre X\", \"consulte o banco sobre Y\".",
       "textual_args": "{ \"key\": \"creator_info\" }",
       "parameters": {
@@ -460,9 +460,9 @@
     "type": "function",
     "function": {
       "name": "db_write",
-      "description": "Salva ou atualiza um registro no banco de dados interno persistente. Use quando o usuário pedir para lembrar, anotar, guardar ou salvar uma informação importante para consultas futuras.",
+      "description": "Salva ou atualiza um registro no banco de dados interno persistente. Use quando o usuário pedir para lembrar, anotar, guardar ou salvar uma informação para consultas futuras. A IA avalia com inteligência se o dado é importante (defina important: true) ou simples/casual (important: false, padrão). CRÍTICO - CONDUTA, SEGURANÇA E TERMOS DE SERVIÇO: É terminantemente proibido salvar ou registrar informações tóxicas, difamatórias, ofensivas, depreciativas, acusações ou conteúdo negativo contra qualquer usuário ou pessoa, coisas que violem os Termos de Serviço (TOS) do Discord, apologia a crimes ou atividades ilegais. Se o usuário pedir para guardar algo ilícito, difamatório, prejudicial ou contra outro usuário, NÃO execute esta ferramenta; recuse o pedido diretamente na sua fala de forma natural e calma (no estilo da Hikari, sem emojis), explicando que você não guarda esse tipo de coisa.",
       "textual_triggers": "Gatilhos: \"lembre-se que X\", \"salve no banco que Y\", \"guarde essa informação: Z\".",
-      "textual_args": "{ \"key\": \"nome_do_topico\", \"content\": \"informação a ser salva\" }",
+      "textual_args": "{ \"key\": \"nome_do_topico\", \"content\": \"informação a ser salva\", \"important\": false }",
       "parameters": {
         "type": "object",
         "properties": {
@@ -473,6 +473,10 @@
           "content": {
             "type": "string",
             "description": "Conteúdo ou informação detalhada a ser armazenada."
+          },
+          "important": {
+            "type": "boolean",
+            "description": "Se true, indica que a informação é importante, dados pessoais, lore, regras ou algo de relevância (exige confirmação do autor ou staff para deletar). Se false (padrão), é uma anotação simples/casual."
           }
         },
         "required": [
@@ -491,7 +495,7 @@
     "type": "function",
     "function": {
       "name": "db_edit",
-      "description": "Edita ou atualiza um registro já existente no banco de dados interno persistente. Use quando o usuário pedir para alterar, corrigir, acrescentar ou atualizar uma anotação salva anteriormente. Não cria novos registros (para novos, use db_write). AVISO: Registros protegidos pelo criador (como 'creator_info') não podem ser alterados.",
+      "description": "Edita ou atualiza um registro já existente no banco de dados interno persistente. Use quando o usuário pedir para alterar, corrigir, acrescentar ou atualizar uma anotação salva anteriormente. Não cria novos registros (para novos, use db_write). AVISO: Registros protegidos pelo criador (como 'creator_info') não podem ser alterados. Se a anotação pertencer a outro usuário e estiver marcada como importante, apenas o próprio autor que a criou ou a moderação/administração do servidor têm permissão para editá-la para evitar trolls; se for simples, qualquer membro pode editar. CRÍTICO - CONDUTA, SEGURANÇA E TERMOS DE SERVIÇO: É terminantemente proibido alterar registros para incluir conteúdos tóxicos, difamatórios, depreciativos ou ataques contra usuários, violações aos Termos de Serviço ou atos ilícitos. Se solicitado, recuse diretamente na sua fala de forma natural e calma (sem emojis).",
       "textual_triggers": "Gatilhos: \"mude a anotação de X para Y\", \"corrija no banco que X agora é Y\", \"atualize a anotação Z\", \"acrescente à anotação de X que Y\".",
       "textual_args": "{ \"key\": \"nome_do_topico\", \"content\": \"informação atualizada\", \"append\": false }",
       "parameters": {
@@ -508,6 +512,10 @@
           "append": {
             "type": "boolean",
             "description": "Se true, acrescenta a nova informação ao conteúdo existente sem apagar o texto anterior. Se false (padrão), substitui o conteúdo."
+          },
+          "important": {
+            "type": "boolean",
+            "description": "Opcional. Se true, define ou mantém a anotação como importante. Se false, define como simples/casual."
           }
         },
         "required": [
@@ -526,7 +534,7 @@
     "type": "function",
     "function": {
       "name": "db_delete",
-      "description": "Remove um registro da memória interna persistente. Use quando o usuário pedir para esquecer ou deletar um dado salvo. AVISO: Registros protegidos pelo criador (como 'creator_info') não podem ser excluídos.",
+      "description": "Remove um registro da memória interna persistente. Use quando o usuário pedir para esquecer ou deletar um dado salvo. AVISO: Registros protegidos pelo criador (como 'creator_info') não podem ser excluídos. Se o registro pertencer a outro usuário e estiver marcado como importante, apenas o próprio autor que salvou ou a moderação/administração do servidor têm permissão para confirmar a exclusão para evitar trolls; caso seja uma anotação simples ou casual, a exclusão é liberada.",
       "textual_triggers": "Gatilhos: \"esqueça sobre X\", \"delete a anotação Y do banco\".",
       "textual_args": "{ \"key\": \"nome_do_topico\" }",
       "parameters": {

@@ -10,8 +10,9 @@ A Hikari não é apenas um wrapper de chat. Ela é um ecossistema de processamen
 2. [🎨 2. Geração de Imagens (Hierarquia de Provedores)](#-2-geração-de-imagens-hierarquia-de-provedores)
 3. [🎵 3. Processamento de Mídia (Áudio, Vídeo e Compressão)](#-3-processamento-de-mídia-áudio-vídeo-e-compressão)
 4. [🎙️ 4. Assistente de Voz & Protocolo DAVE (Calls do Discord)](#-4-assistente-de-voz--protocolo-dave-calls-do-discord)
-5. [💾 5. Banco de Dados Permanente & Memória Sob Demanda](#-5-banco-de-dados-permanente--memória-sob-demanda-zero-token-overhead)
-6. [💡 Dicas de Uso Avançado](#-dicas-de-uso-avançado)
+5. [🎙️ 5. Transcrição de Áudio no Histórico (Whisper Sob Demanda)](#-5-transcrição-de-áudio-no-histórico-whisper-sob-demanda)
+6. [💾 6. Banco de Dados Permanente & Memória Sob Demanda](#-6-banco-de-dados-permanente--memória-sob-demanda-zero-token-overhead)
+7. [💡 Dicas de Uso Avançado](#-dicas-de-uso-avançado)
 
 ---
 
@@ -72,16 +73,35 @@ O ecossistema de voz da Hikari permite que ela participe de chamadas de voz e at
 
 ---
 
-## 💾 5. Banco de Dados Permanente & Memória Sob Demanda (Zero Token Overhead)
+## 🎙️ 5. Transcrição de Áudio no Histórico (Whisper Sob Demanda)
 
-Para evitar inflar o System Prompt a cada requisição com centenas de tokens de dados fixos ou fatos históricos, a Hikari conta com um sistema de **banco de dados permanente autônomo** (`ai_database.json`).
+A Hikari não ignora áudios enviados nos canais! Quando acionada em um chat cujo histórico recente contém mensagens de voz:
 
-- **Consulta Sob Demanda ("Pensar 2x"):** Em vez de manter todas as informações no prompt (como dados biográficos do criador ou fatos aprendidos), a IA decide autonomamente quando precisa consultar a memória através da ferramenta `database_read`. Ela realiza a busca interna e reformula a resposta final com precisão cirúrgica e naturalidade.
-- **Escrita e Atualização (`database_write`):** A IA pode armazenar informações cruciais e preferências permanentes no disco, garantindo persistência entre reinicializações do bot.
-- **Limpeza de Obsoletos (`database_delete`):** Permite excluir registros ultrapassados para manter a base enxuta.
-- **Proteção do Criador (`protected: true`):** Registros confidenciais e estruturais (como os dados do criador) possuem a flag de proteção ativada. Usuários comuns ou chamadas automáticas da IA são estritamente impedidos de sobrescrever ou deletar esses registros; apenas o Criador/Dono do bot (`isOwner`) tem autorização para alterá-los.
-- **Controle Granular por Variáveis e Painel:** O acesso pode ser gerenciado individualmente via `.env` (`AI_DB_READ`, `AI_DB_WRITE`, `AI_DB_DELETE`) ou pelos botões do Painel de Configuração do Criador. Caso a leitura seja desativada, a escrita e deleção são automaticamente bloqueadas por segurança.
-- **Privacidade e Segurança Open-Source:** O arquivo físico de dados `src/data/ai_database.json` é ignorado no `.gitignore`, garantindo que informações pessoais e dados locais nunca vazem para o repositório público do GitHub.
+- **Transcrição Sob Demanda:** A Hikari envia o arquivo de voz para o motor Whisper apenas quando o usuário a menciona ou pergunta algo relacionado àquela conversa.
+- **Hierarquia de Provedores:** Utiliza primariamente **Wit.ai** para transcrição ultrarrápida e gratuita em português/outros idiomas, com fallback automático para a API do **Groq** (`whisper-large-v3-turbo`).
+- **Cache Persistente por Mensagem:** Uma vez que o áudio de uma mensagem foi transcrito, o texto resultante fica vinculado em memória àquela mensagem do histórico. Nas próximas interações, a Hikari reutiliza o texto transcrito sem acionar novamente as APIs.
+- **Filtro Inteligente de Tipo de Áudio:** Áudios de voz (notas de voz do Discord) são rotulados como `[Áudio transcrito: "..."]`, enquanto músicas ou arquivos de áudio normais são identificados apenas pelo nome original (ex: `musica.mp3`), evitando transcrições desnecessárias de faixas musicais.
+
+---
+
+## 💾 6. Banco de Dados Permanente & Memória Sob Demanda (Zero Token Overhead)
+
+Para evitar inflar o System Prompt a cada requisição com centenas de tokens de dados fixos ou fatos históricos, a Hikari conta com um sistema de **banco de dados permanente autônomo** (`src/data/ai_database.json`).
+
+- **Consulta Sob Demanda & Agregação Multitópicos (`db_read`):** Em vez de carregar tudo no prompt, a IA decide autonomamente quando precisa consultar a memória. Possui busca inteligente em camadas e **agregação automática**: se existirem múltiplos registros sobre um mesmo assunto (ex: `sekinin`, `sekinin_regras`, `sekinin_eventos`), ela unifica e sintetiza todos em uma única resposta completa.
+- **Escrita e Auditoria de Autoria (`db_write`):** Ao salvar um registro, a Hikari grava automaticamente os metadados de autoria (`salvo_por: "usuario - id"`, `savedById`, `savedByTag`) e a classificação de relevância (`important: boolean`, padrão `false`), avaliada inteligentemente pela própria IA.
+- **Edição Segura (`db_edit`):** Permite alterar, corrigir ou acrescentar novas informações a anotações prévias, preservando o histórico e a autoria.
+- **Exclusão Controlada (`db_delete`):** Remove registros da memória quando solicitado.
+- **Trava contra Deleção e Adulteração por Terceiros:**
+  - Registros marcados como **importantes** (`important: true`) só podem ser alterados ou excluídos pelo **próprio autor** que os criou, por membros da **Staff/Moderação** (`Administrator`, `ManageGuild`, `ManageMessages` ou Dono do Servidor) ou pelo **Criador do Bot** (`isOwner`).
+  - Tentativas de outros membros comuns são recusadas pela Hikari de forma amigável e natural no chat (sem emojis), protegendo anotações da comunidade contra trolls.
+  - Registros simples (`important: false`) podem ser editados ou excluídos normalmente por qualquer membro.
+- **Blindagem contra Vazamento e Dumps em Massa:** A IA é instruída e bloqueada de realizar despejos globais de todo o banco de dados (`*`, `tudo`, `dump`) para usuários comuns por motivos de segurança e privacidade, direcionando o usuário a especificar o tópico desejado (com bypass para o Criador).
+- **Diretriz de Conduta e Proteção contra Conteúdo Nocivo:** A IA recusa categoricamente gravar acusações, difamações, ataques contra usuários, apologia a crimes ou violações aos Termos de Serviço do Discord no banco de dados.
+- **Identificação Visual no Rodapé:** Respostas formuladas com base em dados recuperados do banco exibem o indicador `-# 💾 Database`.
+- **Proteção do Criador (`protected: true`):** Registros estruturais (como `creator_info`) são blindados contra sobrescrita e deleção por qualquer usuário além do dono do bot.
+- **Controle Granular por Variáveis e Painel:** O acesso pode ser gerenciado individualmente via `.env` (`AI_DB_READ`, `AI_DB_WRITE`, `AI_DB_EDIT`, `AI_DB_DELETE`) ou pelos botões do Painel de Configuração do Criador (`/config`). Caso a leitura seja desativada, a escrita e deleção são automaticamente bloqueadas por segurança.
+- **Privacidade Open-Source:** O arquivo físico `src/data/ai_database.json` é ignorado no `.gitignore`, garantindo que informações pessoais e dados locais nunca vazem para o repositório público do GitHub.
 
 ---
 

@@ -29,6 +29,9 @@ I'm not just a common chat bot! I'm an **Autonomous Agent** capable of interacti
 - **🎮 Gaming Corner**: I look for torrents and magnets for games (Dodi/Fitgirl) and natively consult **Steam** for prices and technical details.
 - **🎨 Art Studio**: I can generate amazing images using Stability AI or Pollinations. Just ask!
 - **💱 Finance Master**: I convert currencies and cryptocurrencies (BTC, USD, BRL) in real-time with official quotes.
+- **🎙️ Voice Assistant in Calls**: Join voice channels (`/entrar-call`) and talk to me by saying "Hikari". Natively supports Discord DAVE (E2EE) protocol.
+- **🎙️ Audio Transcription in History**: Transcribes chat voice notes on-demand via Whisper (Wit.ai with Groq fallback), persistently caching transcriptions per message without redundant re-processing.
+- **💾 Autonomous Permanent Memory & Database**: On-demand persistent database (Zero Token Overhead) with multi-topic aggregate search, author tracking (`salvo_por: "user - id"`), importance filtering (`important`), unauthorized modification/deletion locks, and security guards against bulk data dumps and harmful content.
 - **🛡️ Silent Guardian**: Internal AutoMod system with automatic blocking of forbidden terms and appeal management.
 
 ---

@@ -55,7 +55,8 @@ Centralizamos todas as constantes globais para facilitar a manutenção. Abaixo,
 | `defaultAutoMod` | `DEFAULT_AUTOMOD` | Habilita ou desabilita o AutoMod por padrão para novos servidores (Padrão: `true`). |
 | `automodMode` | `AUTOMOD_MODE` | Define o modo de operação do AutoMod (`off`, `trigger`, `mcp`, `both`). |
 | `aiDbReadEnabled` | `AI_DB_READ` | Habilita leitura na memória permanente de IA (`true`/`false`). |
-| `aiDbWriteEnabled` | `AI_DB_WRITE` | Habilita escrita e atualização na memória permanente (`true`/`false`). |
+| `aiDbWriteEnabled` | `AI_DB_WRITE` | Habilita gravação de novos registros na memória permanente (`true`/`false`). |
+| `aiDbEditEnabled` | `AI_DB_EDIT` | Habilita edição de anotações na memória permanente (`true`/`false`). |
 | `aiDbDeleteEnabled` | `AI_DB_DELETE` | Habilita exclusão de registros na memória permanente (`true`/`false`). |
 
 ---
