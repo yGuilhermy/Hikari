@@ -26,6 +26,7 @@ const defaultValues = {
     lmStudioApiKey: '',
     braveApiKey: '',
     togetherApiKey: '',
+    localLlmEnabled: false,
     localLlmUrl: 'http://localhost:1234/v1/chat/completions',
     localLlmModel: 'local-model',
     geminiUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
@@ -64,6 +65,7 @@ const envMap = {
     LM_STUDIO_API_KEY: 'lmStudioApiKey',
     BRAVE_API_KEY: 'braveApiKey',
     TOGETHER_API_KEY: 'togetherApiKey',
+    LOCAL_LLM_ENABLED: 'localLlmEnabled',
     LOCAL_LLM_URL: 'localLlmUrl',
     LOCAL_LLM_MODEL: 'localLlmModel',
     GEMINI_URL: 'geminiUrl',
@@ -130,7 +132,7 @@ for (const envKey of Object.keys(envMap)) {
             parsedVal = envVal.split(',').map(id => id.trim()).filter(id => id);
         } else if (configKey === 'ytdlpExtraFlags') {
             parsedVal = envVal.split(' ').map(f => f.trim()).filter(f => f);
-        } else if (configKey === 'requireTos') {
+        } else if (['requireTos', 'localLlmEnabled'].includes(configKey)) {
             parsedVal = envVal === 'true';
         } else if (['saveHistory', 'defaultAutoMod', 'sendEnvironmentInfo'].includes(configKey)) {
             parsedVal = envVal !== 'false';

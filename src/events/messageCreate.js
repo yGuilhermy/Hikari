@@ -131,7 +131,7 @@ module.exports = {
                 if (config.sendEnvironmentInfo) {
                     envInfo = `Servidor: ${message.guild?.name || 'DM'} | Canal: #${message.channel?.name || 'Chat'}\n`;
                 }
-                const finalPrompt = `--- CONTEXTO ---\nData: ${currentDate}\n${envInfo}${history.join('\n')}\n--- MENSAGEM ATUAL ---\n${message.author.username}: "${currentUserPrompt}"\nINSTRUÇÃO: Responda diretamente à mensagem atual. Não repita o que o usuário disse nem o que você disse antes.`;
+                const finalPrompt = `--- CONTEXTO ---\nData: ${currentDate}\n${envInfo}${history.join('\n')}\n--- MENSAGEM ATUAL ---\n${message.author.username}: "${currentUserPrompt}"\nINSTRUÇÃO: Responda diretamente à mensagem atual.`;
                 if (currentUserPrompt.length > 0 || message.attachments.size > 0) {
                     addToQueue(finalPrompt, message, 'mention', { allowSearch: true, searchPrompt: currentUserPrompt, guildId: message.guildId });
                 } else {

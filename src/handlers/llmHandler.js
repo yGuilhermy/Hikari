@@ -1339,8 +1339,8 @@ VOCÊ DEVE ADERIR A ESSA NOVA PERSONA ACIMA DE TUDO.\n`;
     }
     let lastError = null;
     for (const provider of providers) {
-        if (options.skipLocal && provider.func === tryLocal) {
-            console.log(`[IA] Pulando provedor Local conforme solicitado.`);
+        if ((options.skipLocal || !config.localLlmEnabled) && provider.func === tryLocal) {
+            console.log(`[IA] Pulando provedor Local conforme solicitado ou desativado na config.`);
             continue;
         }
         try {
