@@ -112,26 +112,78 @@ function canDelete(guildId = null) {
     return true;
 }
 
-function findMatchingKey(key) {
+const BULK_KEYWORDS = new Set(['*', 'all', 'todos', 'tudo', 'todas', 'dump', 'banco', 'banco de dados', 'database', 'geral', 'global', 'completo', 'full']);
+
+function isBulkQuery(key) {
     const cleanKey = String(key || '').trim().toLowerCase();
-    if (!cleanKey) return null;
-    if (database[cleanKey]) return cleanKey;
-    const keys = Object.keys(database);
-    const directMatch = keys.find(k => k.toLowerCase() === cleanKey);
-    if (directMatch) return directMatch;
-    const partialMatch = keys.find(k => k.toLowerCase().includes(cleanKey) || cleanKey.includes(k.toLowerCase()));
-    if (partialMatch) return partialMatch;
-    const contentMatch = keys.find(k => {
-        const item = database[k];
-        if (!item) return false;
-        const text = typeof item === 'object' ? (item.content || item.resumo || JSON.stringify(item)).toLowerCase() : String(item).toLowerCase();
-        return text.includes(cleanKey);
-    });
-    if (contentMatch) return contentMatch;
-    return null;
+    if (!cleanKey) return true;
+    return BULK_KEYWORDS.has(cleanKey);
 }
 
-function readDb(key, guildId = null) {
+function findMatchingKeys(key) {
+    const cleanKey = String(key || '').trim().toLowerCase();
+    if (!cleanKey) return [];
+    const keys = Object.keys(database);
+    const matched = new Set();
+
+    if (database[cleanKey]) {
+        matched.add(cleanKey);
+    }
+    for (const k of keys) {
+        const lower = k.toLowerCase();
+        if (lower === cleanKey) {
+            matched.add(k);
+        }
+    }
+    for (const k of keys) {
+        const lower = k.toLowerCase();
+        if (lower.startsWith(`${cleanKey}_`) || lower.startsWith(`${cleanKey}-`) || lower.startsWith(`${cleanKey} `) || lower.includes(cleanKey)) {
+            matched.add(k);
+        }
+    }
+    if (matched.size === 0) {
+        for (const k of keys) {
+            const lower = k.toLowerCase();
+            if (cleanKey.includes(lower)) {
+                matched.add(k);
+            }
+        }
+    }
+    if (matched.size === 0) {
+        for (const k of keys) {
+            const item = database[k];
+            if (!item) continue;
+            const text = typeof item === 'object' ? (item.content || item.resumo || JSON.stringify(item)).toLowerCase() : String(item).toLowerCase();
+            if (text.includes(cleanKey)) {
+                matched.add(k);
+            }
+        }
+    }
+    return Array.from(matched);
+}
+
+function findMatchingKey(key) {
+    const keys = findMatchingKeys(key);
+    return keys.length > 0 ? keys[0] : null;
+}
+
+function formatSingleEntry(entry) {
+    if (typeof entry === 'object' && entry !== null) {
+        if (entry.resumo) {
+            return entry.resumo;
+        } else if (entry.content) {
+            return entry.content;
+        } else {
+            return Object.entries(entry)
+                .filter(([k]) => k !== 'protected')
+                .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+                .join('\n');
+        }
+    }
+    return String(entry);
+}
+
+function readDb(key, guildId = null, isOwner = false) {
     if (!canRead(guildId)) {
         return {
             success: false,
@@ -141,8 +193,17 @@ function readDb(key, guildId = null) {
     }
     loadDatabase();
     const cleanKey = String(key || '').trim().toLowerCase();
-    const resolvedKey = findMatchingKey(cleanKey);
-    if (!resolvedKey || !database[resolvedKey]) {
+    if (isBulkQuery(cleanKey) && !isOwner) {
+        return {
+            success: false,
+            error: 'bulk_denied',
+            message: 'Consultas globais ou em massa ao banco de dados são restritas por segurança e privacidade.'
+        };
+    }
+
+    const matchedKeys = findMatchingKeys(cleanKey);
+    const totalKeys = Object.keys(database).length;
+    if (matchedKeys.length === 0) {
         return {
             success: false,
             error: 'not_found',
@@ -151,26 +212,46 @@ function readDb(key, guildId = null) {
             message: `Nenhum dado encontrado para a chave "${key}".`
         };
     }
-    const entry = database[resolvedKey];
-    let formatted = '';
-    if (typeof entry === 'object') {
-        if (entry.resumo) {
-            formatted = entry.resumo;
-        } else {
-            formatted = Object.entries(entry)
-                .filter(([k]) => k !== 'protected')
-                .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
-                .join('\n');
-        }
-    } else {
-        formatted = String(entry);
+
+    if (matchedKeys.length === totalKeys && totalKeys > 3 && !isOwner) {
+        return {
+            success: false,
+            error: 'bulk_denied',
+            message: 'Consultas globais ou em massa ao banco de dados são restritas por segurança e privacidade.'
+        };
     }
+
+    if (matchedKeys.length === 1) {
+        const resolvedKey = matchedKeys[0];
+        const entry = database[resolvedKey];
+        const formatted = formatSingleEntry(entry);
+        return {
+            success: true,
+            key: resolvedKey,
+            data: entry,
+            formatted,
+            isProtected: Boolean(entry && entry.protected),
+            count: 1
+        };
+    }
+
+    const entriesData = {};
+    const formattedBlocks = [];
+    for (const k of matchedKeys) {
+        const item = database[k];
+        entriesData[k] = item;
+        const block = formatSingleEntry(item);
+        formattedBlocks.push(`--- Registro: "${k}" ---\n${block}`);
+    }
+    const formatted = `[${matchedKeys.length} registros encontrados para "${key}"]:\n\n${formattedBlocks.join('\n\n')}`;
     return {
         success: true,
-        key: resolvedKey,
-        data: entry,
+        key: cleanKey,
+        data: entriesData,
         formatted,
-        isProtected: Boolean(entry && entry.protected)
+        matchedKeys,
+        count: matchedKeys.length,
+        isProtected: matchedKeys.some(k => database[k] && database[k].protected)
     };
 }
 
@@ -374,6 +455,8 @@ module.exports = {
     canEdit,
     canDelete,
     findMatchingKey,
+    findMatchingKeys,
+    isBulkQuery,
     readDb,
     writeDb,
     editDb,

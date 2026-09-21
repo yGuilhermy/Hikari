@@ -2281,9 +2281,35 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                     const { readDb } = require('./databaseHandler');
                     const targetKey = (toolData.args && toolData.args.key) ? toolData.args.key : 'creator_info';
                     const targetGuildId = options.guildId || guildId;
+                    const isOwner = config.isOwner(userId);
+                    const dbResult = readDb(targetKey, targetGuildId, isOwner);
                     if (!dbResult.success) {
                         if (dbResult.error === 'disabled') {
                             processedResponse = dbResult.message || 'A leitura do banco de dados está desativada no momento.';
+                        } else if (dbResult.error === 'bulk_denied') {
+                            const denialPrompt = `[DIRETRIZ DE SEGURANÇA E PRIVACIDADE DO BANCO]:
+O usuário solicitou ou tentou despejar todos os dados e anotações do banco de dados interno de uma só vez.
+Pergunta do usuário: "${prompt}"
+
+[INSTRUÇÃO CRÍTICA]:
+Você DEVE recusar o pedido de listar ou expor todo o banco de dados.
+Formule a sua resposta final diretamente para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; SEM EMOJIS; sem ser robótica; nunca repita a fala do usuário).
+Explique com educação e naturalidade que você não pode despejar ou expor todo o banco de uma vez por questões de segurança e privacidade dos dados, e peça para ele dizer qual assunto ou tópico específico ele quer saber para você consultar.
+Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque tags de código nem IDs numéricos.`;
+                            processedResponse = await generateResponse(denialPrompt, channelId, {
+                                allowSearch: false,
+                                disableTools: true,
+                                guildId: targetGuildId,
+                                skipLocal: options.skipLocal
+                            });
+                            const dbFooter = '💾 Database';
+                            if (/\n-# /.test(processedResponse)) {
+                                processedResponse += ` | ${dbFooter}`;
+                            } else if (modelFooter) {
+                                processedResponse += `${modelFooter} | ${dbFooter}`;
+                            } else {
+                                processedResponse += `\n-# ${dbFooter}`;
+                            }
                         } else {
                             const available = dbResult.availableKeys && dbResult.availableKeys.length > 0
                                 ? `Tópicos disponíveis no banco: ${dbResult.availableKeys.filter(k => k !== 'creator_info').join(', ') || 'nenhum'}`
@@ -2333,14 +2359,17 @@ Responda APENAS com o texto da sua fala final para o usuário. NÃO use ferramen
                                 skipLocal: options.skipLocal
                             });
                         } else {
+                            const headerInfo = dbResult.count && dbResult.count > 1
+                                ? `Foram encontrados ${dbResult.count} registros correlacionados sobre "${dbResult.key}". Analise e combine todos eles na resposta.`
+                                : `Chave: "${dbResult.key}"`;
                             const contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO]:
-Chave: "${dbResult.key}"
+${headerInfo}
 Conteúdo:
 ${dbResult.formatted}
 
 [INSTRUÇÃO]:
 O usuário perguntou: "${prompt}"
-Utilize os dados acima recuperados do banco de dados para responder ao usuário de forma natural na sua personalidade (SEM EMOJIS). Responda apenas com a sua fala direta, sem JSON.`;
+Utilize todos os dados acima recuperados do banco de dados para responder ao usuário de forma completa, natural e na sua personalidade (SEM EMOJIS). Responda apenas com a sua fala direta, sem JSON.`;
                             processedResponse = await generateResponse(contextPrompt, channelId, {
                                 allowSearch: false,
                                 disableTools: true,
@@ -2736,6 +2765,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                 }
             }
         } catch (e) {
+            console.error('[TOOL_EXECUTION_ERROR]', e);
         }
         if (processedResponse) {
             processedResponse = stripThinking(processedResponse);

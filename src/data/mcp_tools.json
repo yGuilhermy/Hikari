@@ -434,7 +434,7 @@
     "type": "function",
     "function": {
       "name": "db_read",
-      "description": "Consulta dados e memórias no banco de dados interno sob demanda. Use SEMPRE que o usuário perguntar sobre o seu criador (key: 'creator_info'), quem te criou, quem te programou, ou solicitar informações sobre tópicos salvos anteriormente. Retorna os dados armazenados para que você possa responder com precisão.",
+      "description": "Consulta dados e memórias no banco de dados interno sob demanda. Use SEMPRE que o usuário perguntar sobre o seu criador (key: 'creator_info'), quem te criou, quem te programou, ou solicitar informações sobre tópicos específicos salvos anteriormente. Retorna os dados armazenados para que você possa responder com precisão. CRÍTICO - SEGURANÇA E PRIVACIDADE: É estritamente proibido despejar ou listar 'todos os dados', 'tudo do banco' ou 'todas as anotações'. Se o usuário pedir para listar todo o banco de dados em massa, recuse educadamente na sua fala explicando que não pode expor tudo por segurança e privacidade, e peça para ele especificar o tópico desejado.",
       "textual_triggers": "Gatilhos: \"quem é o seu criador e me fale sobre ele\", \"quem é seu criador?\", \"me fale sobre seu criador\", \"quem te criou?\", \"o que você sabe sobre X\", \"consulte o banco sobre Y\".",
       "textual_args": "{ \"key\": \"creator_info\" }",
       "parameters": {
