@@ -24,7 +24,6 @@
   "hordeImageApiKey": "",
   "lmStudioApiKey": "",
   "braveApiKey": "",
-  "togetherApiKey": "",
   "localLlmEnabled": false,
   "localLlmUrl": "http://localhost:1234/v1/chat/completions",
   "localLlmModel": "local-model",

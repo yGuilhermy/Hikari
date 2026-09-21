@@ -164,43 +164,6 @@ async function tryStableHorde(prompt, negativePrompt, width, height) {
     }
     throw new Error('Stable Horde Timeout (120s)');
 }
-async function tryTogetherAI(prompt, negativePrompt, width, height) {
-    const apiKey = config.togetherApiKey;
-    if (!apiKey) throw new Error('TOGETHER_API_KEY não configurado');
-    console.log('[Image 4/5] Tentando Together AI (FLUX.1-schnell)...');
-    const response = await fetch('https://api.together.ai/v1/images/generations', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            model:  'black-forest-labs/FLUX.1-schnell',
-            prompt: `${prompt}, safe for work, family friendly`,
-            negative_prompt: negativePrompt,
-            width:  Math.min(width,  1440),
-            height: Math.min(height, 1440),
-            steps: 4,
-            n: 1,
-            response_format: 'b64_json',
-        }),
-        signal: AbortSignal.timeout(60_000),
-    });
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Together AI HTTP ${response.status}: ${errText.substring(0, 200)}`);
-    }
-    const data = await response.json();
-    const b64  = data?.data?.[0]?.b64_json;
-    if (!b64) throw new Error('Together AI não retornou imagem base64');
-    const buffer  = Buffer.from(b64, 'base64');
-    const seed    = data?.data?.[0]?.seed || Math.floor(Math.random() * 1e9);
-    const tempDir = path.join(__dirname, 'temp_images');
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-    const filePath = path.join(tempDir, `image_${Date.now()}_${seed}.png`);
-    fs.writeFileSync(filePath, buffer);
-    return { imageUrl: null, localFilePath: filePath, actualSeed: seed, modelName: 'FLUX.1-schnell (Together AI)' };
-}
 async function tryStabilityAI(prompt, negativePrompt, width, height) {
     const apiKey = config.getStabilityKey();
     if (!apiKey) throw new Error('STABILITY_API_KEY não configurado');
@@ -265,7 +228,6 @@ async function generateImage(prompt, negativePrompt = '', width = 1024, height =
         { id: 'gradio',       name: 'Gradio/SDXL-Flash', fn: tryGradioSDXL },
         { id: 'huggingface',  name: 'HuggingFace/FLUX',  fn: tryHuggingFace },
         { id: 'stablehorde',  name: 'StableHorde',       fn: tryStableHorde },
-        { id: 'together',     name: 'Together AI',       fn: tryTogetherAI },
         { id: 'pollinations', name: 'Pollinations AI',   fn: tryPollinations },
     ];
     let providersToTry = allProviders;

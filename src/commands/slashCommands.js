@@ -94,7 +94,6 @@ const commands = [
                         { name: 'Gradio', value: 'gradio' },
                         { name: 'HuggingFace', value: 'huggingface' },
                         { name: 'Stable Horde', value: 'stablehorde' },
-                        { name: 'Together AI', value: 'together' },
                         { name: 'Pollinations AI', value: 'pollinations' }
                     ))
     ),
