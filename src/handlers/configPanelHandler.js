@@ -10,6 +10,7 @@ const {
     updateProviderSetting,
     getProviderSettings,
 } = require('./llmHandler');
+const { getDbSettings, updateDbSetting } = require('./databaseHandler');
 
 const CONFIG_PAGES = [
     {
@@ -48,6 +49,42 @@ const CONFIG_PAGES = [
         min: 0, max: 10, step: 1,
         get: () => getErrorRetries(),
         set: (v) => updateErrorRetries(v),
+    },
+    {
+        key: 'aiDbRead',
+        label: 'Banco de Dados da IA — Leitura',
+        category: '🧠 IA — Memória & Dados',
+        icon: '📖',
+        type: 'boolean',
+        persistence: 'runtime',
+        summary: 'Permite à IA consultar dados sob demanda.',
+        description: 'Controla se a Hikari pode ler registros no banco de dados interno (como os dados do criador) para responder perguntas sem consumir tokens no prompt. Se desativado, a escrita e a deleção também serão bloqueadas.',
+        get: () => getDbSettings().aiDbRead,
+        set: (v) => updateDbSetting('aiDbRead', v),
+    },
+    {
+        key: 'aiDbWrite',
+        label: 'Banco de Dados da IA — Escrita',
+        category: '🧠 IA — Memória & Dados',
+        icon: '💾',
+        type: 'boolean',
+        persistence: 'runtime',
+        summary: 'Permite à IA gravar novos dados.',
+        description: 'Controla se a Hikari pode salvar novas informações na memória do banco de dados persistente. Se a Leitura estiver desativada, esta opção é bloqueada automaticamente.',
+        get: () => getDbSettings().aiDbWrite,
+        set: (v) => updateDbSetting('aiDbWrite', v),
+    },
+    {
+        key: 'aiDbDelete',
+        label: 'Banco de Dados da IA — Deleção',
+        category: '🧠 IA — Memória & Dados',
+        icon: '🗑️',
+        type: 'boolean',
+        persistence: 'runtime',
+        summary: 'Permite à IA deletar dados não protegidos.',
+        description: 'Controla se a Hikari pode apagar registros antigos do banco de dados interno. Registros com a trava de proteção (como creator_info) jamais podem ser deletados pela IA. Se a Leitura estiver desativada, a deleção é bloqueada automaticamente.',
+        get: () => getDbSettings().aiDbDelete,
+        set: (v) => updateDbSetting('aiDbDelete', v),
     },
     {
         key: 'local.temperature',

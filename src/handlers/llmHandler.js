@@ -149,9 +149,16 @@ function buildToolsPayload(guildId, userId = null) {
     const disabled = getDisabledTools(guildId);
     const mode = getAutoBlockMode(guildId);
     const automodActive = mode !== 'off';
+    const { canRead, canWrite, canDelete } = require('./databaseHandler');
+    const readAllowed = canRead(guildId);
+    const writeAllowed = canWrite(guildId);
+    const deleteAllowed = canDelete(guildId);
     return ALL_MCP_TOOLS
         .filter(t => !disabled.includes(t.function.name))
         .filter(t => {
+            if (t.function.name === 'db_read' && !readAllowed) return false;
+            if (t.function.name === 'db_write' && !writeAllowed) return false;
+            if (t.function.name === 'db_delete' && !deleteAllowed) return false;
             if (t.meta && t.meta.guardAutomod) {
                 if (userId && config.isAutomodWhitelisted(userId)) return false;
                 if (!automodActive) return false;
@@ -172,9 +179,16 @@ function buildToolsDefinition(guildId, userId = null) {
     const disabled = getDisabledTools(guildId);
     const mode = getAutoBlockMode(guildId);
     const automodActive = mode !== 'off';
+    const { canRead, canWrite, canDelete } = require('./databaseHandler');
+    const readAllowed = canRead(guildId);
+    const writeAllowed = canWrite(guildId);
+    const deleteAllowed = canDelete(guildId);
     const activeTools = ALL_MCP_TOOLS
         .filter(t => !disabled.includes(t.function.name))
         .filter(t => {
+            if (t.function.name === 'db_read' && !readAllowed) return false;
+            if (t.function.name === 'db_write' && !writeAllowed) return false;
+            if (t.function.name === 'db_delete' && !deleteAllowed) return false;
             if (t.meta && t.meta.guardAutomod) {
                 if (userId && config.isAutomodWhitelisted(userId)) return false;
                 if (!automodActive) return false;
@@ -203,9 +217,17 @@ function buildToolsDefinition(guildId, userId = null) {
         check_steam:     'User: "Elden Ring ta em promo na steam?"\nResponse: { "thought": "User quer saber preço de Elden Ring.", "tool": "check_steam", "args": { "game": "Elden Ring" } }',
         convert_currency:'User: "quanto ta 50 dolares em reais?"\nResponse: { "thought": "User quer converter 50 USD para BRL.", "tool": "convert_currency", "args": { "amount": 50, "from": "USD", "to": "BRL" } }',
         get_current_music:'User: "Hikari, baixe a musica do meu status"\nResponse: { "thought": "User quer baixar música tocando no seu status.", "tool": "get_current_music", "args": { "download": true } }\nUser: "oq eu to escutando no status"\nResponse: { "thought": "User quer saber música do seu status.", "tool": "get_current_music", "args": { "download": true } }',
+        db_read:         'User: "Quem é o seu criador e me fale sobre ele"\nResponse: { "thought": "Consultar dados do criador.", "tool": "db_read", "args": { "key": "creator_info" } }\nUser: "quem te criou?"\nResponse: { "thought": "Consultar criador.", "tool": "db_read", "args": { "key": "creator_info" } }',
+        db_write:        'User: "Lembre-se que o aniversário do servidor é em outubro"\nResponse: { "thought": "Salvar data do aniversário.", "tool": "db_write", "args": { "key": "aniversario_servidor", "content": "Aniversário do servidor é em outubro" } }',
+        db_delete:       'User: "Esqueça a anotação sobre o aniversário"\nResponse: { "thought": "Deletar registro.", "tool": "db_delete", "args": { "key": "aniversario_servidor" } }'
     };
     for (const [name, example] of Object.entries(examplesMap)) {
-        if (!disabled.includes(name)) exampleList += `\n${example}\n`;
+        if (!disabled.includes(name)) {
+            if (name === 'db_read' && !readAllowed) continue;
+            if (name === 'db_write' && !writeAllowed) continue;
+            if (name === 'db_delete' && !deleteAllowed) continue;
+            exampleList += `\n${example}\n`;
+        }
     }
     return `\n--- FERRAMENTAS DISPONÍVEIS ---\nVocê tem acesso às seguintes ferramentas para executar ações reais.\nUse-as quando o usuário pedir para baixar algo, buscar um jogo ou citar um comando MCP.\n${toolList}\n--- INSTRUÇÃO DE PENSAMENTO E DECISÃO ---\nAntes de responder, ANALISE:\n1. O usuário quer apenas conversar ou uma informação que você já sabe? -> Responda apenas com texto (Sem JSON).\n2. O usuário quer uma AÇÃO ESPECÍFICA (Download, Busca Web) ou disse 'mcp de [ferramenta]'? -> Responda com JSON da ferramenta imediatamente.\n\nFORMATO PARA USO DE FERRAMENTA (JSON):\n{\n  "thought": "Pensamento ultra-curto (1 a 3 palavras para economizar tokens, ex: 'baixar audio')",\n  "tool": "nome_da_ferramenta",\n  "args": { ...argumentos... }\n}\n\nEXEMPLOS:${exampleList}\nUser: "Como você está?"\nResponse: Estou bem, e você?\n\n---------------------------------------\n`;
 }
@@ -1728,6 +1750,22 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                         const m = src.match(/(?:imagem|foto|arte|ilustra|desenho|wallpaper|pfp|avatar|banner)[:\sde]+(.+)/i);
                         return { prompt: (m ? m[1] : src).trim().substring(0, 200), negative_prompt: 'nsfw, nude, explicit, gore, violence, blood, adult content, 18+, pornographic' };
                     }
+                },
+                {
+                    tool: 'db_read',
+                    test: () => {
+                        const normalizedPrompt = lowerSearchPrompt.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                        const cleanPrompt = normalizedPrompt.replace(/[?!.,;:_]/g, '').trim();
+                        if (cleanPrompt === 'quem e o seu criador e me fale sobre ele' ||
+                            cleanPrompt === 'quem e seu criador e me fale sobre ele' ||
+                            cleanPrompt === 'quem e seu criador e fale sobre ele' ||
+                            cleanPrompt === 'quem e o seu criador' ||
+                            cleanPrompt === 'quem e seu criador') {
+                            return true;
+                        }
+                        return /\b(quem\s+(?:[eé]|foi)\s+(?:o\s+)?(?:seu\s+)?criador|me\s+fale\s+sobre\s+(?:o\s+)?(?:seu\s+)?criador|quem\s+te\s+(?:criou|programou|fez)|fale\s+sobre\s+(?:o\s+)?(?:seu\s+)?criador|sobre\s+o\s+(?:seu\s+)?criador|sobre\s+seu\s+criador)\b/i.test(lowerSearchPrompt);
+                    },
+                    args: () => ({ key: 'creator_info' })
                 }
             ];
             const PROMISE_PATTERNS = /\b(vou baixar|vou procurar|vou buscar|irei baixar|irei procurar|aguarde enquanto|deixa eu baixar|ok,? vou|blz,? vou|tá,? vou|tô baixando|to baixando|estou baixando|estou buscando|vou te mandar|já te mando|te mando já|vou pesquisar|vou verificar|vou tentar baixar)\b/i;
@@ -1741,12 +1779,22 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                     rawResponse = JSON.stringify({ thought: 'comando-universal-mcp', tool: explicitMcp.tool, args: explicitMcp.args });
                     processedResponse = rawResponse;
                 }
-            } else if (!rawHasJson && PROMISE_PATTERNS.test(lowerRaw)) {
-                const matched = ACTION_TOOLS.find(t => t.test());
-                if (matched && !isToolDisabled(options?.guildId || guildId, matched.tool)) {
-                    console.log(`[FALLBACK DET.] Falso atendimento interceptado. Chamando: ${matched.tool}`);
-                    rawResponse = JSON.stringify({ thought: 'auto-fallback', tool: matched.tool, args: matched.args() });
-                    processedResponse = rawResponse;
+            } else if (!rawHasJson) {
+                const creatorAction = ACTION_TOOLS.find(t => t.tool === 'db_read' && t.test());
+                if (creatorAction && !isToolDisabled(options?.guildId || guildId, 'db_read')) {
+                    const { canRead } = require('./databaseHandler');
+                    if (canRead(options?.guildId || guildId)) {
+                        console.log('[CREATOR_INTENT] Pergunta sobre criador interceptada para db_read.');
+                        rawResponse = JSON.stringify({ thought: 'consultar dados do criador', tool: 'db_read', args: creatorAction.args() });
+                        processedResponse = rawResponse;
+                    }
+                } else if (PROMISE_PATTERNS.test(lowerRaw)) {
+                    const matched = ACTION_TOOLS.find(t => t.test());
+                    if (matched && !isToolDisabled(options?.guildId || guildId, matched.tool)) {
+                        console.log(`[FALLBACK DET.] Falso atendimento interceptado. Chamando: ${matched.tool}`);
+                        rawResponse = JSON.stringify({ thought: 'auto-fallback', tool: matched.tool, args: matched.args() });
+                        processedResponse = rawResponse;
+                    }
                 }
             }
             const CASUAL_ONLY = /^(oi|olá|ola|hey|hi|bom dia|boa tarde|boa noite|tudo bem|tudo bom|e aí|e ai|como vai|como você tá|como vc tá|tá bem|ta bem|blz|beleza|legal|massa|top|show|kk|haha|rs|lol|obrigad|vlw|valeu|tmj|flw|falou)[\s!?.]*$/i;
@@ -2222,6 +2270,92 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                         }
                     }
                     console.log(`[AI/LLM] Resposta gerada via Tool: generate_reply (${duration})`);
+                }
+                if (toolData.tool === 'db_read' || toolData.tool === 'get_creator_info') {
+                    const { readDb } = require('./databaseHandler');
+                    const targetKey = (toolData.args && toolData.args.key) ? toolData.args.key : 'creator_info';
+                    const targetGuildId = options.guildId || guildId;
+                    const dbResult = readDb(targetKey, targetGuildId);
+                    if (!dbResult.success) {
+                        processedResponse = dbResult.message || `Não consegui acessar os dados de "${targetKey}".`;
+                    } else {
+                        const isCreatorKey = String(targetKey).toLowerCase() === 'creator_info' || String(targetKey).toLowerCase().includes('criador');
+                        if (isCreatorKey) {
+                            const contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO SOBRE O CRIADOR]:
+${dbResult.formatted}
+
+[INSTRUÇÃO CRÍTICA]:
+O usuário perguntou: "${prompt}"
+Você consultou o banco de dados interno e obteve as informações acima sobre o seu criador.
+Agora formule a sua resposta final para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; SEM EMOJIS; sem ser robótica; nunca repita a fala do usuário).
+Sua resposta DEVE ser construída utilizando estritamente as informações recuperadas acima do banco de dados, reformulando todos os pontos e observações contidos nos dados de maneira descontraída e natural.
+Responda APENAS com o texto da sua fala final para o usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque tags de código nem IDs numéricos.`;
+                            processedResponse = await generateResponse(contextPrompt, channelId, {
+                                allowSearch: false,
+                                disableTools: true,
+                                guildId: targetGuildId,
+                                skipLocal: options.skipLocal
+                            });
+                        } else {
+                            const contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO]:
+Chave: "${dbResult.key}"
+Conteúdo:
+${dbResult.formatted}
+
+[INSTRUÇÃO]:
+O usuário perguntou: "${prompt}"
+Utilize os dados acima recuperados do banco de dados para responder ao usuário de forma natural na sua personalidade (SEM EMOJIS). Responda apenas com a sua fala direta, sem JSON.`;
+                            processedResponse = await generateResponse(contextPrompt, channelId, {
+                                allowSearch: false,
+                                disableTools: true,
+                                guildId: targetGuildId,
+                                skipLocal: options.skipLocal
+                            });
+                        }
+                    }
+                    if (modelFooter) {
+                        processedResponse += `${modelFooter} | ⏱️ ${duration}`;
+                    } else {
+                        processedResponse += `\n-# ⏱️ ${duration}`;
+                    }
+                    console.log(`[AI/LLM] Resposta gerada via Tool: db_read (${duration})`);
+                }
+                if (toolData.tool === 'db_write') {
+                    const { writeDb } = require('./databaseHandler');
+                    const targetKey = toolData.args ? (toolData.args.key || toolData.args.chave) : null;
+                    const targetContent = toolData.args ? (toolData.args.content || toolData.args.conteudo || toolData.args.texto || toolData.args.data) : null;
+                    const targetGuildId = options.guildId || guildId;
+                    const isOwner = config.isOwner(userId);
+                    const writeResult = writeDb(targetKey, targetContent, targetGuildId, isOwner);
+                    if (!writeResult.success) {
+                        processedResponse = writeResult.message || 'Não foi possível gravar essa informação no banco.';
+                    } else {
+                        processedResponse = `Pronto, anotei e salvei "${targetKey}" no banco de dados com sucesso.`;
+                    }
+                    if (modelFooter) {
+                        processedResponse += `${modelFooter} | ⏱️ ${duration}`;
+                    } else {
+                        processedResponse += `\n-# ⏱️ ${duration}`;
+                    }
+                    console.log(`[AI/LLM] Resposta gerada via Tool: db_write (${duration})`);
+                }
+                if (toolData.tool === 'db_delete') {
+                    const { deleteDb } = require('./databaseHandler');
+                    const targetKey = toolData.args ? (toolData.args.key || toolData.args.chave) : null;
+                    const targetGuildId = options.guildId || guildId;
+                    const isOwner = config.isOwner(userId);
+                    const deleteResult = deleteDb(targetKey, targetGuildId, isOwner);
+                    if (!deleteResult.success) {
+                        processedResponse = deleteResult.message || 'Não foi possível excluir esse registro.';
+                    } else {
+                        processedResponse = `Feito, o registro "${targetKey}" foi removido do banco de dados.`;
+                    }
+                    if (modelFooter) {
+                        processedResponse += `${modelFooter} | ⏱️ ${duration}`;
+                    } else {
+                        processedResponse += `\n-# ⏱️ ${duration}`;
+                    }
+                    console.log(`[AI/LLM] Resposta gerada via Tool: db_delete (${duration})`);
                 }
                 if (toolData.tool === 'search_web') {
                     const query = toolData.args.query;

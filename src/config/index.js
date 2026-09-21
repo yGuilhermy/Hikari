@@ -18,6 +18,9 @@ const defaultValues = {
     defaultAutoMod: true,
     automodMode: 'both',
     sendEnvironmentInfo: true,
+    aiDbReadEnabled: true,
+    aiDbWriteEnabled: true,
+    aiDbDeleteEnabled: true,
     stabilityApiKeys: [],
     geminiApiKeys: [],
     hfToken: '',
@@ -76,7 +79,10 @@ const envMap = {
     HORDE_URL: 'hordeUrl',
     YTDLP_COOKIES_PATH: 'ytdlpCookiesPath',
     YTDLP_EXTRA_FLAGS: 'ytdlpExtraFlags',
-    SYSTEM_PROMPT: 'systemPrompt'
+    SYSTEM_PROMPT: 'systemPrompt',
+    AI_DB_READ: 'aiDbReadEnabled',
+    AI_DB_WRITE: 'aiDbWriteEnabled',
+    AI_DB_DELETE: 'aiDbDeleteEnabled'
 };
 
 const placeholders = [
@@ -134,7 +140,7 @@ for (const envKey of Object.keys(envMap)) {
             parsedVal = envVal.split(' ').map(f => f.trim()).filter(f => f);
         } else if (['requireTos', 'localLlmEnabled'].includes(configKey)) {
             parsedVal = envVal === 'true';
-        } else if (['saveHistory', 'defaultAutoMod', 'sendEnvironmentInfo'].includes(configKey)) {
+        } else if (['saveHistory', 'defaultAutoMod', 'sendEnvironmentInfo', 'aiDbReadEnabled', 'aiDbWriteEnabled', 'aiDbDeleteEnabled'].includes(configKey)) {
             parsedVal = envVal !== 'false';
         } else if (configKey === 'automodMode') {
             parsedVal = ['off', 'mcp', 'trigger', 'both'].includes(envVal) ? envVal : 'both';

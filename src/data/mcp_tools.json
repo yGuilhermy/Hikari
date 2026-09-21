@@ -424,5 +424,88 @@
         }
       }
     }
+  },
+  {
+    "meta": {
+      "label": "📖 Leitura no Banco de Dados (Memória)",
+      "description": "Consulta registros e memórias armazenadas no banco de dados interno sob demanda.",
+      "disableable": true
+    },
+    "type": "function",
+    "function": {
+      "name": "db_read",
+      "description": "Consulta dados e memórias no banco de dados interno sob demanda. Use SEMPRE que o usuário perguntar sobre o seu criador (key: 'creator_info'), quem te criou, quem te programou, ou solicitar informações sobre tópicos salvos anteriormente. Retorna os dados armazenados para que você possa responder com precisão.",
+      "textual_triggers": "Gatilhos: \"quem é o seu criador e me fale sobre ele\", \"quem é seu criador?\", \"me fale sobre seu criador\", \"quem te criou?\", \"o que você sabe sobre X\", \"consulte o banco sobre Y\".",
+      "textual_args": "{ \"key\": \"creator_info\" }",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Chave ou tópico para consultar no banco de dados (ex: 'creator_info')"
+          }
+        },
+        "required": [
+          "key"
+        ]
+      }
+    }
+  },
+  {
+    "meta": {
+      "label": "💾 Gravação no Banco de Dados (Memória)",
+      "description": "Salva ou atualiza registros na memória interna persistente.",
+      "disableable": true
+    },
+    "type": "function",
+    "function": {
+      "name": "db_write",
+      "description": "Salva ou atualiza um registro no banco de dados interno persistente. Use quando o usuário pedir para lembrar, anotar, guardar ou salvar uma informação importante para consultas futuras.",
+      "textual_triggers": "Gatilhos: \"lembre-se que X\", \"salve no banco que Y\", \"guarde essa informação: Z\".",
+      "textual_args": "{ \"key\": \"nome_do_topico\", \"content\": \"informação a ser salva\" }",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Chave ou identificador do tópico a ser salvo."
+          },
+          "content": {
+            "type": "string",
+            "description": "Conteúdo ou informação detalhada a ser armazenada."
+          }
+        },
+        "required": [
+          "key",
+          "content"
+        ]
+      }
+    }
+  },
+  {
+    "meta": {
+      "label": "🗑️ Exclusão no Banco de Dados (Memória)",
+      "description": "Apaga registros não protegidos do banco de dados interno.",
+      "disableable": true
+    },
+    "type": "function",
+    "function": {
+      "name": "db_delete",
+      "description": "Remove um registro da memória interna persistente. Use quando o usuário pedir para esquecer ou deletar um dado salvo. AVISO: Registros protegidos pelo criador (como 'creator_info') não podem ser excluídos.",
+      "textual_triggers": "Gatilhos: \"esqueça sobre X\", \"delete a anotação Y do banco\".",
+      "textual_args": "{ \"key\": \"nome_do_topico\" }",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Chave do registro a ser excluído."
+          }
+        },
+        "required": [
+          "key"
+        ]
+      }
+    }
   }
 ]
