@@ -11,6 +11,7 @@ src/data/*
 !src/data/help.json
 !src/data/mcp_tools.json
 src/data/ai_database.json
+src/data/audio_transcriptions.json
 
 # 🗑️ Temporários e Logs
 src/data/temp_images/

@@ -163,6 +163,14 @@ async function transcribeWithLocal(audioBuffer, localUrl, filename) {
 async function transcribeAudio(audioBuffer, filename = 'speech.wav') {
     const providers = [];
 
+    const witToken = process.env.WITAI_TOKEN || process.env.WIT_AI_KEY;
+    if (STT_PROVIDERS_CONFIG.WITAI && !isPlaceholderKey(witToken)) {
+        providers.push({
+            name: 'Discord Speech / Wit.ai',
+            fn: () => transcribeWithWitAi(audioBuffer, witToken)
+        });
+    }
+
     const groqKeysRaw = process.env.GROQ_API_KEY || '';
     if (STT_PROVIDERS_CONFIG.GROQ && groqKeysRaw) {
         const keys = groqKeysRaw.split(',').map(k => k.trim()).filter(k => !isPlaceholderKey(k));
@@ -171,14 +179,6 @@ async function transcribeAudio(audioBuffer, filename = 'speech.wav') {
                 name: `Groq (Chave ${idx + 1})`,
                 fn: () => transcribeWithGroq(audioBuffer, k, filename)
             });
-        });
-    }
-
-    const witToken = process.env.WITAI_TOKEN || process.env.WIT_AI_KEY;
-    if (STT_PROVIDERS_CONFIG.WITAI && !isPlaceholderKey(witToken)) {
-        providers.push({
-            name: 'Discord Speech / Wit.ai',
-            fn: () => transcribeWithWitAi(audioBuffer, witToken)
         });
     }
 

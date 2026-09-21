@@ -81,7 +81,9 @@ module.exports = {
                 await checkAndInitializeUpdateChannel(message.guild, message.channel);
             }
             try {
-                let currentUserPrompt = message.content;
+                const { resolveMessageAudioContent } = require('../handlers/audioTranscriptionHandler');
+                let rawUserPrompt = await resolveMessageAudioContent(message);
+                let currentUserPrompt = rawUserPrompt;
                 if (isMention) {
                     currentUserPrompt = currentUserPrompt.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
                 }
@@ -115,7 +117,8 @@ module.exports = {
                 for (const msg of filteredMessages) {
                     const isBot = msg.author.id === client.user.id;
                     const authorName = isBot ? 'Hikari' : msg.author.username;
-                    let content = resolveMentions(msg.content, client);
+                    let rawContent = await resolveMessageAudioContent(msg);
+                    let content = resolveMentions(rawContent, client);
                     if (isBot && (content.includes('erro ao processar seu pedido') || content.includes('Limites de Processamento Atingidos') || content.includes('Desculpe, tive um erro'))) {
                         content = 'erro da ia';
                     }
@@ -167,7 +170,9 @@ module.exports = {
                         await checkAndInitializeUpdateChannel(message.guild, message.channel);
                     }
                     try {
-                        const currentUserPrompt = resolveMentions(message.content, client);
+                        const { resolveMessageAudioContent } = require('../handlers/audioTranscriptionHandler');
+                        const rawUserPrompt = await resolveMessageAudioContent(message);
+                        const currentUserPrompt = resolveMentions(rawUserPrompt, client);
                         const history = [];
                         const recentMessages = await message.channel.messages.fetch({ limit: 5, before: message.id });
                         const sortedRecent = [...recentMessages.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
@@ -180,21 +185,21 @@ module.exports = {
                             }
                         }
                         const filteredRecent = lastDelIndex !== -1 ? sortedRecent.slice(lastDelIndex + 1) : sortedRecent;
-                        filteredRecent.forEach(msg => {
+                        for (const msg of filteredRecent) {
                             const isBot = msg.author.id === client.user.id;
                             const authorName = isBot ? 'Hikari' : msg.author.username;
-                            let content = resolveMentions(msg.content, client);
+                            let rawContent = await resolveMessageAudioContent(msg);
+                            let content = resolveMentions(rawContent, client);
                             if (isBot && (content.includes('erro ao processar seu pedido') || content.includes('Limites de Processamento Atingidos') || content.includes('Desculpe, tive um erro'))) {
                                 content = 'erro da ia';
                             }
                             if (isBot) {
                                 content = content.replace(/^-# .*$/gm, '').replace(/🧠 \*\*Processando\.\.\.\*\*/g, '').trim();
                             }
-                            if (content.trim().length === 0) return;
+                            if (content.trim().length === 0) continue;
                             if (content.length > 500) content = content.substring(0, 500) + '...';
                             history.push(`${authorName}: ${content}`);
-
-                        });
+                        }
                         const currentDate = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
                         let envInfo = '';
                         if (config.sendEnvironmentInfo) {

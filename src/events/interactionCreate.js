@@ -685,15 +685,17 @@ module.exports = {
             const amount = interaction.options.getInteger('quantidade') || 20;
             await interaction.deferReply();
             try {
+                const { resolveMessageAudioContent } = require('../handlers/audioTranscriptionHandler');
                 const messages = await interaction.channel.messages.fetch({ limit: amount });
                 const sortedMessages = [...messages.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
                 let conversationLog = "";
-                sortedMessages.forEach(msg => {
-                    if (msg.content) {
+                for (const msg of sortedMessages) {
+                    const resolved = await resolveMessageAudioContent(msg);
+                    if (resolved) {
                         const time = msg.createdAt.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-                        conversationLog += `[${time}] ${msg.author.username}: ${msg.content}\n`;
+                        conversationLog += `[${time}] ${msg.author.username}: ${resolved}\n`;
                     }
-                });
+                }
                 const summaryPrompt = `Faça um resumo: \n${conversationLog}`;
                 addToQueue(summaryPrompt, interaction, 'slash', { allowSearch: false, disableTools: true });
             } catch (error) {
