@@ -54,11 +54,15 @@ All global constants are centralized for easier maintenance. Below are the prima
 | `localLlmUrl` | `LOCAL_LLM_URL` | Endpoint for integration with LM Studio or Ollama. |
 | `defaultAutoMod` | `DEFAULT_AUTOMOD` | Enables or disables AutoMod by default for new servers (Default: `true`). |
 | `automodMode` | `AUTOMOD_MODE` | Defines the AutoMod operating mode (`off`, `trigger`, `mcp`, `both`). |
+| `aiDbReadEnabled` | `AI_DB_READ` | Enables reading from the permanent AI memory (`true`/`false`). |
+| `aiDbWriteEnabled` | `AI_DB_WRITE` | Enables writing and updating in the permanent memory (`true`/`false`). |
+| `aiDbDeleteEnabled` | `AI_DB_DELETE` | Enables deleting entries from the permanent memory (`true`/`false`). |
 
 ---
 
 ## 💡 Advanced Configuration Tips
 
+- 💡 **Permanent AI Database & Protection:** The permanent database (`src/data/ai_database.json`) features cascading access controls: if `AI_DB_READ` is `false`, write and delete operations are automatically blocked. Records marked with `protected: true` (such as creator biography) are immutable and can only be modified or deleted if the user is identified as the Bot Owner via `isOwner(userId)`.
 - 💡 **Local Rate Limiting:** If using local models via `LOCAL_LLM_URL`, you can configure the `timeout` within the `providerSettings` object in `llmHandler.js` to prevent queue hangups.
 - 💡 **Log Security:** `LOG_WEBHOOK_URL` captures `stderr` and `stdout`. Keep this webhook in a high-security private channel, as it displays error traces that may contain internal execution details.
 - 💡 **Backward Compatibility:** The `ownerId` field (singular) in the config object will always point to the first ID in the list, ensuring that legacy modules continue to function.

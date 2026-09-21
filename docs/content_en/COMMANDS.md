@@ -152,6 +152,7 @@ Master Control Center for global Hikari network management (hidden/ephemeral for
 - **Ban / Unban / Bans List:** Manages global blacklist for users, servers, and channels.
 - **AutoMod:** Toggles automatic AI moderation mode (Off / Monitor / Strict).
 - **MCP Tools:** Server MCP tool management.
+- **Permanent Database:** Global toggle for AI persistent memory reading, writing, and deletion permissions.
 - **Bot Config:** AI runtime settings.
 
 ### `/ia_ferramentas` (Server Admin)
@@ -159,7 +160,7 @@ Master Control Center for global Hikari network management (hidden/ephemeral for
 Independent slash command for server admins to manage MCP tools.
 
 - **Action `list`:** Displays a public embed listing active and disabled tools on the server.
-- **Action `toggle`:** Toggles availability for a specific tool (`join_voice_call`, `search_game`, `generate_image`, etc.).
+- **Action `toggle`:** Toggles availability for a specific tool (`join_voice_call`, `search_game`, `generate_image`, `database_read`, etc.).
 - **Action `reset`:** Restores server tools to factory defaults.
 
 ### `/aceitar_tos` (Server Admin)

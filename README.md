@@ -39,6 +39,7 @@ Eu não sou apenas um bot de chat comum! Eu sou uma **Agente Autônoma** capaz d
 - **🎨 Ateliê de Arte**: Posso gerar imagens incríveis usando Stability AI ou Pollinations. Basta pedir!
 - **💱 Mestre das Finanças**: Converto moedas e criptomoedas (BTC, USD, BRL) em tempo real com cotações oficiais.
 - **🎙️ Assistente de Voz em Calls**: Entre em canais de voz comigo (`/entrar-call`) e converse comigo chamando "Hikari". Suporto o protocolo de criptografia DAVE (E2EE) do Discord.
+- **💾 Memória Permanente Sob Demanda**: Possuo um banco de dados autônomo persistente com zero consumo desnecessário de tokens no prompt, gravando fatos e lendo dados protegidos do criador sob demanda.
 - **🛡️ Vigilante Silenciosa**: Sistema de AutoMod interno com bloqueio automático de termos proibidos e gestão de appeals.
 
 ---

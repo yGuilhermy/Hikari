@@ -44,6 +44,13 @@ Hikari's MCP ecosystem has been robustly enhanced with specific native behaviors
 - **Smart Direction:** The AI identifies the user's intent to download video or audio. If the request is ambiguous, the AI asks clarification questions in chat instead of blindly triggering the tool. The MCP does not start compression processes; that decision is handled by Discord limits and the user via buttons.
 - **Music Search & Download (`search_and_download_music`):** Allows the AI to search and download HQ MP3 tracks directly from Deezer via `deemix`. If confidence score is high (>=80%), it downloads immediately; if ambiguous, it presents a 5-track text list alongside an interactive selection dropdown menu for the user.
 
+### 5. Permanent AI Database (`database_read`, `database_write`, `database_delete`)
+- **Autonomous Memory Architecture:** Instead of stuffing mass context into the System Prompt, the AI autonomously determines when to read or persist records in `src/data/ai_database.json`.
+- **Read & List (`database_read`):** Reads a specific key or lists all available database keys when no key argument is passed.
+- **Write & Update (`database_write`):** Saves strings or structured objects. Automatically updates `updatedAt` and preserves existing `protected` flags.
+- **Protected Record Safeguards (`database_delete`):** Prevents deletion of records marked with `protected: true` unless executed by the Bot Owner (`isOwner`).
+- **Runtime Enforcements:** All operations validate granular flags (`aiDbReadEnabled`, `aiDbWriteEnabled`, `aiDbDeleteEnabled`) in `databaseHandler.js` before interacting with the local JSON file.
+
 ---
 
 ## 📂 3. How to create a new Tool?

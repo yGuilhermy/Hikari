@@ -168,6 +168,7 @@ Central de Controle Master para gerenciamento global da rede Hikari (oculta e re
 - **Banir / Desbanir / Lista de Bans:** Gerencia a lista negra global de usuários, servidores e canais banidos.
 - **AutoMod:** Alterna o modo de moderação automática (Off / Monitor / Strict).
 - **Ferramentas MCP:** Gerencia a ativação de ferramentas MCP por servidor.
+- **Banco de Dados Permanente:** Gerencia permissões globais de leitura, escrita e exclusão na memória persistente da IA.
 - **Bot Config:** Abre as configurações de Runtime da IA.
 
 ### `/ia_ferramentas` (Server Admin)
@@ -175,7 +176,7 @@ Central de Controle Master para gerenciamento global da rede Hikari (oculta e re
 Comando independente para administradores de servidor gerenciarem as ferramentas da IA.
 
 - **Ação `list`:** Exibe um embed público com as ferramentas MCP ativas e desativadas no servidor.
-- **Ação `toggle`:** Alterna a disponibilidade de uma ferramenta específica (`join_voice_call`, `search_game`, `generate_image`, etc.).
+- **Ação `toggle`:** Alterna a disponibilidade de uma ferramenta específica (`join_voice_call`, `search_game`, `generate_image`, `database_read`, etc.).
 - **Ação `reset`:** Restaura as ferramentas do servidor para os padrões de fábrica.
 
 ### `/aceitar_tos` (Server Admin)

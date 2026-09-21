@@ -8,8 +8,10 @@ A Hikari não é apenas um wrapper de chat. Ela é um ecossistema de processamen
 
 1. [🧠 1. Inteligência Artificial: O Ciclo de Vida do Prompt](#-1-inteligência-artificial-o-ciclo-de-vida-do-prompt)
 2. [🎨 2. Geração de Imagens (Hierarquia de Provedores)](#-2-geração-de-imagens-hierarquia-de-provedores)
-3. [🎵 3. Processamento de Áudio e YouTube](#-3-processamento-de-áudio-e-youtube)
-4. [💡 Dicas de Uso Avançado](#-dicas-de-uso-avançado)
+3. [🎵 3. Processamento de Mídia (Áudio, Vídeo e Compressão)](#-3-processamento-de-mídia-áudio-vídeo-e-compressão)
+4. [🎙️ 4. Assistente de Voz & Protocolo DAVE (Calls do Discord)](#-4-assistente-de-voz--protocolo-dave-calls-do-discord)
+5. [💾 5. Banco de Dados Permanente & Memória Sob Demanda](#-5-banco-de-dados-permanente--memória-sob-demanda-zero-token-overhead)
+6. [💡 Dicas de Uso Avançado](#-dicas-de-uso-avançado)
 
 ---
 
@@ -67,6 +69,19 @@ O ecossistema de voz da Hikari permite que ela participe de chamadas de voz e at
 - **Dicionário STT & Matcher Fonético de 75+ Variações**: Incorpora injeção de prompt no Whisper ("Hikari") aliado a um sistema de expressões regulares que identifica 75+ grafias e fonemas derivados de sotaques ou ruídos (ex: "Ricardo", "Hicari", "Icari", "Ficari", "Vicari", "Ih cari").
 - **Ferramenta Unificada MCP (Assistente de Voz)**: O controle de chamada (`join_voice_call` e `leave_voice_call`) é integrado e gerenciado como um único item unificado no comando `/ia_ferramentas`.
 - **Desconexão por Inatividade**: Quando todos os usuários humanos deixam o canal de voz, a Hikari se desconecta automaticamente preservando conexões do servidor.
+
+---
+
+## 💾 5. Banco de Dados Permanente & Memória Sob Demanda (Zero Token Overhead)
+
+Para evitar inflar o System Prompt a cada requisição com centenas de tokens de dados fixos ou fatos históricos, a Hikari conta com um sistema de **banco de dados permanente autônomo** (`ai_database.json`).
+
+- **Consulta Sob Demanda ("Pensar 2x"):** Em vez de manter todas as informações no prompt (como dados biográficos do criador ou fatos aprendidos), a IA decide autonomamente quando precisa consultar a memória através da ferramenta `database_read`. Ela realiza a busca interna e reformula a resposta final com precisão cirúrgica e naturalidade.
+- **Escrita e Atualização (`database_write`):** A IA pode armazenar informações cruciais e preferências permanentes no disco, garantindo persistência entre reinicializações do bot.
+- **Limpeza de Obsoletos (`database_delete`):** Permite excluir registros ultrapassados para manter a base enxuta.
+- **Proteção do Criador (`protected: true`):** Registros confidenciais e estruturais (como os dados do criador) possuem a flag de proteção ativada. Usuários comuns ou chamadas automáticas da IA são estritamente impedidos de sobrescrever ou deletar esses registros; apenas o Criador/Dono do bot (`isOwner`) tem autorização para alterá-los.
+- **Controle Granular por Variáveis e Painel:** O acesso pode ser gerenciado individualmente via `.env` (`AI_DB_READ`, `AI_DB_WRITE`, `AI_DB_DELETE`) ou pelos botões do Painel de Configuração do Criador. Caso a leitura seja desativada, a escrita e deleção são automaticamente bloqueadas por segurança.
+- **Privacidade e Segurança Open-Source:** O arquivo físico de dados `src/data/ai_database.json` é ignorado no `.gitignore`, garantindo que informações pessoais e dados locais nunca vazem para o repositório público do GitHub.
 
 ---
 

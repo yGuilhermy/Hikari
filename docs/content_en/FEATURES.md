@@ -8,8 +8,10 @@ Hikari is not just a chat wrapper. It is an asynchronous processing ecosystem th
 
 1. [🧠 1. Artificial Intelligence: The Prompt Life Cycle](#-1-artificial-intelligence-the-prompt-life-cycle)
 2. [🎨 2. Image Generation (Provider Hierarchy)](#-2-image-generation-provider-hierarchy)
-3. [🎵 3. Audio and YouTube Processing](#-3-audio-and-youtube-processing)
-4. [💡 Advanced Usage Tips](#-advanced-usage-tips)
+3. [🎵 3. Media Processing (Audio, Video, and Compression)](#-3-media-processing-audio-video-and-compression)
+4. [🎙️ 4. Voice Assistant & DAVE Protocol (Discord Voice Calls)](#-4-voice-assistant--dave-protocol-discord-voice-calls)
+5. [💾 5. Permanent AI Database & On-Demand Memory](#-5-permanent-ai-database--on-demand-memory-zero-token-overhead)
+6. [💡 Advanced Usage Tips](#-advanced-usage-tips)
 
 ---
 
@@ -55,6 +57,31 @@ We implemented a complete system for downloading and manipulating media via `you
 - **Global Queue & Host Protection:** The FFMPEG compression process runs in a global queue (only one compression at a time) to preserve VPS resources. There is an active RAM monitor: if memory usage exceeds 95%, the compression process is killed immediately to prevent host crashes.
 - **Usage Limits:** There is a strict limit of 1 active download/process per user at a time to prevent abuse.
 - **Automatic Cleanup:** All temporary files are deleted after sending. Large videos waiting for compression expire and are deleted after 6 hours.
+
+---
+
+## 🎙️ 4. Voice Assistant & DAVE Protocol (Discord Voice Calls)
+
+Hikari's voice ecosystem allows her to participate in voice channels and process voice commands from users in real-time.
+
+- **Native DAVE Protocol Connection (E2EE):** Uses the latest `@discordjs/voice` with native support for Discord's end-to-end encryption protocol (DAVE protocol version 1).
+- **Audio Energy Filtering (PCM RMS):** Evaluates the PCM signal energy of incoming audio. Streams with RMS < 250 or from muted members are automatically dropped to avoid wasting STT API quotas.
+- **STT Dictionary & 75+ Phonetic Variations Matcher:** Leverages prompt injection in Whisper ("Hikari") combined with a regular expression matcher recognizing 75+ variations and slang pronunciations.
+- **Unified Voice MCP Tool:** Voice call management (`join_voice_call` and `leave_voice_call`) is exposed as a unified item in `/ia_ferramentas`.
+- **Inactivity Disconnect:** Disconnects automatically when all human participants leave the call.
+
+---
+
+## 💾 5. Permanent AI Database & On-Demand Memory (Zero Token Overhead)
+
+To avoid inflating the System Prompt on every request with hundreds of static tokens or historical facts, Hikari features an **autonomous permanent database** (`ai_database.json`).
+
+- **On-Demand Retrieval ("Think Twice"):** Rather than stuffing all context into the prompt, the AI autonomously decides when to query memory using `database_read`. It performs the internal lookup and formulates a coherent, natural response with pinpoint precision.
+- **Write & Update (`database_write`):** The AI can persist critical facts, user preferences, and long-term notes to disk across bot restarts.
+- **Cleanup of Stale Records (`database_delete`):** Allows removing outdated or obsolete entries to keep storage lean.
+- **Creator Protection (`protected: true`):** Sensitive and architectural records (such as creator biography and credentials) have the protected flag enabled. Regular users and autonomous AI routines are strictly prevented from overwriting or deleting protected records; only the Bot Owner (`isOwner`) has authorization to modify them.
+- **Granular Control via Environment Variables & Panel:** Access can be individually managed via `.env` (`AI_DB_READ`, `AI_DB_WRITE`, `AI_DB_DELETE`) or dynamically toggled in the Owner Config Panel. Disabling read access automatically cascades to block write and delete operations for safety.
+- **Privacy & Open-Source Security:** The local storage file `src/data/ai_database.json` is ignored in `.gitignore`, guaranteeing that private data and personal information are never exposed in public Git repositories.
 
 ---
 
