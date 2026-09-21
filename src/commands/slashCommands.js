@@ -91,10 +91,9 @@ const commands = [
                     .setRequired(false)
                     .addChoices(
                         { name: 'Auto', value: 'auto' },
-                        { name: 'Gradio', value: 'gradio' },
-                        { name: 'HuggingFace', value: 'huggingface' },
-                        { name: 'Stable Horde', value: 'stablehorde' },
-                        { name: 'Pollinations AI', value: 'pollinations' }
+                        { name: 'FLUX.1 Oficial (HuggingFace)', value: 'flux' },
+                        { name: 'Pollinations AI', value: 'pollinations' },
+                        { name: 'Stable Horde', value: 'stablehorde' }
                     ))
     ),
     setGlobalContext(

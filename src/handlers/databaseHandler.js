@@ -150,11 +150,13 @@ function findMatchingKeys(key) {
         }
     }
     if (matched.size === 0) {
+        const normCleanKey = cleanKey.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         for (const k of keys) {
             const item = database[k];
             if (!item) continue;
-            const text = typeof item === 'object' ? (item.content || item.resumo || JSON.stringify(item)).toLowerCase() : String(item).toLowerCase();
-            if (text.includes(cleanKey)) {
+            const rawText = typeof item === 'object' ? JSON.stringify(item).toLowerCase() : String(item).toLowerCase();
+            const normText = rawText.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            if (rawText.includes(cleanKey) || normText.includes(normCleanKey)) {
                 matched.add(k);
             }
         }
@@ -169,16 +171,13 @@ function findMatchingKey(key) {
 
 function formatSingleEntry(entry) {
     if (typeof entry === 'object' && entry !== null) {
-        if (entry.resumo) {
-            return entry.resumo;
-        } else if (entry.content) {
-            return entry.content;
-        } else {
-            return Object.entries(entry)
-                .filter(([k]) => k !== 'protected')
-                .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
-                .join('\n');
+        const keys = Object.keys(entry).filter(k => k !== 'protected' && k !== 'updatedAt');
+        if (keys.length === 1 && (entry.content || entry.resumo)) {
+            return entry.content || entry.resumo;
         }
+        return keys
+            .map(k => `${k}: ${typeof entry[k] === 'object' ? JSON.stringify(entry[k]) : entry[k]}`)
+            .join('\n');
     }
     return String(entry);
 }

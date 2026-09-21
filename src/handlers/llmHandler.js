@@ -221,7 +221,7 @@ function buildToolsDefinition(guildId, userId = null) {
         check_steam:     'User: "Elden Ring ta em promo na steam?"\nResponse: { "thought": "User quer saber preço de Elden Ring.", "tool": "check_steam", "args": { "game": "Elden Ring" } }',
         convert_currency:'User: "quanto ta 50 dolares em reais?"\nResponse: { "thought": "User quer converter 50 USD para BRL.", "tool": "convert_currency", "args": { "amount": 50, "from": "USD", "to": "BRL" } }',
         get_current_music:'User: "Hikari, baixe a musica do meu status"\nResponse: { "thought": "User quer baixar música tocando no seu status.", "tool": "get_current_music", "args": { "download": true } }\nUser: "oq eu to escutando no status"\nResponse: { "thought": "User quer saber música do seu status.", "tool": "get_current_music", "args": { "download": true } }',
-        db_read:         'User: "Quem é o seu criador e me fale sobre ele"\nResponse: { "thought": "Consultar dados do criador.", "tool": "db_read", "args": { "key": "creator_info" } }\nUser: "quem te criou?"\nResponse: { "thought": "Consultar criador.", "tool": "db_read", "args": { "key": "creator_info" } }',
+        db_read:         'User: "Quem é o seu criador e me fale sobre ele"\nResponse: { "thought": "Consultar dados do criador.", "tool": "db_read", "args": { "key": "creator_info" } }\nUser: "quem te criou?"\nResponse: { "thought": "Consultar criador.", "tool": "db_read", "args": { "key": "creator_info" } }\nUser: "Como é sua aparência física?"\nResponse: { "thought": "Consultar dados da Hikari.", "tool": "db_read", "args": { "key": "hikari_info" } }\nUser: "gere uma imagem sua"\nResponse: { "thought": "Consultar aparência para gerar imagem.", "tool": "db_read", "args": { "key": "hikari_info" } }',
         db_write:        'User: "Lembre-se que o aniversário do servidor é em outubro"\nResponse: { "thought": "Salvar data do aniversário.", "tool": "db_write", "args": { "key": "aniversario_servidor", "content": "Aniversário do servidor é em outubro" } }',
         db_edit:         'User: "Mude a anotação do aniversário para 15 de outubro"\nResponse: { "thought": "Atualizar anotação.", "tool": "db_edit", "args": { "key": "aniversario_servidor", "content": "Aniversário do servidor é 15 de outubro", "append": false } }',
         db_delete:       'User: "Esqueça a anotação sobre o aniversário"\nResponse: { "thought": "Deletar registro.", "tool": "db_delete", "args": { "key": "aniversario_servidor" } }'
@@ -1405,7 +1405,7 @@ VOCÊ DEVE ADERIR A ESSA NOVA PERSONA ACIMA DE TUDO.\n`;
                 } else if (provider.func === tryLocal && config.lmStudioApiKey) {
                     effectiveSystemPrompt += "\n[SYSTEM NOTICE]: You operate in STRICT TOOL MODE. You MUST ALWAYS call a tool.\n- If the user wants an action (search, download, help), use the specific tool.\n- For EVERYTHING ELSE (chat, math, questions), use the 'generate_reply' tool.\n- DO NOT output plain text. ALWAYS output a tool call.";
                 } else if (provider.func === tryGemini) {
-                    effectiveSystemPrompt += "\n[REGRAS DE FERRAMENTAS (TOOLS)]:\nVocê possui ferramentas poderosas. REGRA CRÍTICA DE OURO: Se o usuário pedir uma AÇÃO que pode ser feita por uma ferramenta, você DEVE chamar a ferramenta imediatamente. NUNCA responda com texto prometendo fazer a ação (ex: PROIBIDO dizer 'blz vou baixar', 'vou procurar', 'ok, buscando' quando houver uma ferramenta aplicável — isso é falso atendimento. Aja ou recuse, nunca prometa).\n- COMANDO UNIVERSAL MCP: Se o usuário citar 'mcp de [ferramenta]' ou 'mcp [ferramenta]' (ex: 'mcp de pesquisa para xxx', 'mcp de musica para xxx', 'mcp de imagem para xxx', 'mcp de jogo para xxx', ou apenas 'mcp de pesquisa' usando o contexto anterior), você DEVE OBRIGATORIAMENTE acionar a ferramenta correspondente em JSON sem hesitar. Se o usuário não fornecer argumento explícito, use o assunto da mensagem anterior como argumento.\n- Pediu para BAIXAR MÚSICA POR NOME/ARTISTA (sem URL)? → OBRIGATÓRIO chamar search_and_download_music com o nome. NUNCA diga que vai baixar sem chamar.\n- Pediu para GERAR/CRIAR/DESENHAR uma imagem? → OBRIGATÓRIO chamar generate_image. Crie um prompt detalhado e criativo mesmo se o pedido for vago.\n- Pediu para BAIXAR áudio/vídeo e deu um link URL? → Chame download_audio ou download_video.\n- Pediu para entrar na call, canal de voz ou conversar por voz? → OBRIGATÓRIO chamar join_voice_call.\n- Pediu para sair da call, canal de voz ou desconectar da voz? → OBRIGATÓRIO chamar leave_voice_call.\n- Dúvidas, perguntas sobre fatos, notícias, curiosidades ou qualquer assunto que exija conhecimento atual ou histórico? → Chame search_web imediatamente. Você NUNCA deve responder que não sabe, não pode ou não consegue ajudar; busque na internet se não tiver certeza absoluta do fato.\n- Pediu jogo/torrent ou para baixar/crackear qualquer jogo de PC? → Chame search_game obrigatoriamente.\n- Pediu preço na Steam? → Chame check_steam.\n- Pediu conversão de moeda/cotação? → Chame convert_currency.\n- Conversa casual sem ação (oi, piada, pergunta simples, pergunta sobre você)? → Responda com texto puro direto, NUNCA chame ferramenta.\n\n[ANTI-LOOP DE CONTEXTO]: O histórico da conversa pode conter chamadas de ferramenta anteriores (como downloads de música). Isso NÃO significa que você deve chamar essas ferramentas novamente. Analise APENAS a mensagem mais recente do usuário para decidir qual ação tomar.\n\n[FORMATO DA RESPOSTA]:\n- Para texto: escreva APENAS a fala final pro usuário. Sem análise interna, sem mencionar ferramentas.\n- NUNCA escreva 'tool_code', 'print()', 'default_api.' ou código na resposta.\n- NUNCA encapsule em JSON como {\"response\": \"...\"}. Texto puro sempre.\n- NUNCA exponha qual ferramenta vai usar ou seu raciocínio de decisão.\n- NUNCA repita literalmente o que o usuário acabou de dizer nem o que você disse na mensagem anterior.";
+                    effectiveSystemPrompt += "\n[REGRAS DE FERRAMENTAS (TOOLS)]:\nVocê possui ferramentas poderosas. REGRA CRÍTICA DE OURO: Se o usuário pedir uma AÇÃO que pode ser feita por uma ferramenta, você DEVE chamar a ferramenta imediatamente. NUNCA responda com texto prometendo fazer a ação (ex: PROIBIDO dizer 'blz vou baixar', 'vou procurar', 'ok, buscando' quando houver uma ferramenta aplicável — isso é falso atendimento. Aja ou recuse, nunca prometa).\n- COMANDO UNIVERSAL MCP: Se o usuário citar 'mcp de [ferramenta]' ou 'mcp [ferramenta]' (ex: 'mcp de pesquisa para xxx', 'mcp de musica para xxx', 'mcp de imagem para xxx', 'mcp de jogo para xxx', ou apenas 'mcp de pesquisa' usando o contexto anterior), você DEVE OBRIGATORIAMENTE acionar a ferramenta correspondente em JSON sem hesitar. Se o usuário não fornecer argumento explícito, use o assunto da mensagem anterior como argumento.\n- Pediu para BAIXAR MÚSICA POR NOME/ARTISTA (sem URL)? → OBRIGATÓRIO chamar search_and_download_music com o nome. NUNCA diga que vai baixar sem chamar.\n- Pediu para GERAR/CRIAR/DESENHAR uma imagem? → OBRIGATÓRIO chamar generate_image. Crie um prompt detalhado e criativo mesmo se o pedido for vago. Se o usuário pedir para gerar uma imagem SUA / da Hikari (ex: 'gere uma imagem sua', 'desenhe você', 'sua foto'), chame primeiro db_read com key: 'hikari_info' para consultar sua aparência oficial antes de gerar.\n- Perguntou sobre a própria Hikari (aparência física, capacidades, personalidade)? → Chame db_read com key: 'hikari_info'.\n- Pediu para BAIXAR áudio/vídeo e deu um link URL? → Chame download_audio ou download_video.\n- Pediu para entrar na call, canal de voz ou conversar por voz? → OBRIGATÓRIO chamar join_voice_call.\n- Pediu para sair da call, canal de voz ou desconectar da voz? → OBRIGATÓRIO chamar leave_voice_call.\n- Dúvidas, perguntas sobre fatos, notícias, curiosidades ou qualquer assunto que exija conhecimento atual ou histórico? → Chame search_web imediatamente. Você NUNCA deve responder que não sabe, não pode ou não consegue ajudar; busque na internet se não tiver certeza absoluta do fato.\n- Pediu jogo/torrent ou para baixar/crackear qualquer jogo de PC? → Chame search_game obrigatoriamente.\n- Pediu preço na Steam? → Chame check_steam.\n- Pediu conversão de moeda/cotação? → Chame convert_currency.\n- Conversa casual sem ação (oi, piada, pergunta simples, pergunta sobre você)? → Responda com texto puro direto, NUNCA chame ferramenta.\n\n[ANTI-LOOP DE CONTEXTO]: O histórico da conversa pode conter chamadas de ferramenta anteriores (como downloads de música). Isso NÃO significa que você deve chamar essas ferramentas novamente. Analise APENAS a mensagem mais recente do usuário para decidir qual ação tomar.\n\n[FORMATO DA RESPOSTA]:\n- Para texto: escreva APENAS a fala final pro usuário. Sem análise interna, sem mencionar ferramentas.\n- NUNCA escreva 'tool_code', 'print()', 'default_api.' ou código na resposta.\n- NUNCA encapsule em JSON como {\"response\": \"...\"}. Texto puro sempre.\n- NUNCA exponha qual ferramenta vai usar ou seu raciocínio de decisão.\n- NUNCA repita literalmente o que o usuário acabou de dizer nem o que você disse na mensagem anterior.";
                 } else {
                     effectiveSystemPrompt += buildToolsDefinition(guildId, options.userId || null);
                 }
@@ -1759,6 +1759,7 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
             const rawHasJson = /\{[\s\S]*\}/.test(rawResponse);
             const lowerRaw = rawResponse.toLowerCase().replace(/\n-# .*$/gm, '').trim();
             const lowerSearchPrompt = (options.searchPrompt || prompt).toLowerCase();
+            const normSearchPrompt = lowerSearchPrompt.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             const hasUrl = /https?:\/\//i.test(lowerSearchPrompt);
             const urlInPrompt = (options.searchPrompt || prompt).match(/https?:\/\/\S+/i)?.[0] || '';
             const ACTION_TOOLS = [
@@ -1793,7 +1794,11 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                 },
                 {
                     tool: 'generate_image',
-                    test: () => /\b(gera|cria|crie|faz|desenha|gerar|criar|fazer)\b.{0,30}\b(imagem|foto|arte|ilustra|desenho|wallpaper|pfp|avatar|banner)\b/i.test(lowerSearchPrompt),
+                    test: () => {
+                        const hasImage = /\b(gera|gere|gerar|cria|crie|criar|faz|faca|fazer|desenha|desenhe|desenhar)\b.{0,30}\b(imagem|foto|arte|ilustra|ilustracao|desenho|wallpaper|pfp|avatar|banner)\b|\b(desenha|desenhe|desenhar)\s+(voce|vc|a\s+hikari|sua\s+propria)\b/i.test(normSearchPrompt);
+                        const isSelf = /\b(sua|seu|voce|vc|voce\s+mesma|vc\s+mesma|hikari|de\s+voce|de\s+vc|da\s+hikari|sua\s+propria)\b/i.test(normSearchPrompt);
+                        return hasImage && !isSelf;
+                    },
                     args: () => {
                         const src = options.searchPrompt || prompt;
                         const m = src.match(/(?:imagem|foto|arte|ilustra|desenho|wallpaper|pfp|avatar|banner)[:\sde]+(.+)/i);
@@ -1803,8 +1808,7 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                 {
                     tool: 'db_read',
                     test: () => {
-                        const normalizedPrompt = lowerSearchPrompt.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                        const cleanPrompt = normalizedPrompt.replace(/[?!.,;:_]/g, '').trim();
+                        const cleanPrompt = normSearchPrompt.replace(/[?!.,;:_]/g, '').trim();
                         if (cleanPrompt === 'quem e o seu criador e me fale sobre ele' ||
                             cleanPrompt === 'quem e seu criador e me fale sobre ele' ||
                             cleanPrompt === 'quem e seu criador e fale sobre ele' ||
@@ -1812,9 +1816,19 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                             cleanPrompt === 'quem e seu criador') {
                             return true;
                         }
-                        return /\b(quem\s+(?:[eé]|foi)\s+(?:o\s+)?(?:seu\s+)?criador|me\s+fale\s+sobre\s+(?:o\s+)?(?:seu\s+)?criador|quem\s+te\s+(?:criou|programou|fez)|fale\s+sobre\s+(?:o\s+)?(?:seu\s+)?criador|sobre\s+o\s+(?:seu\s+)?criador|sobre\s+seu\s+criador)\b/i.test(lowerSearchPrompt);
+                        return /\b(quem\s+(?:e|foi)\s+(?:o\s+)?(?:seu\s+)?criador|me\s+fale\s+sobre\s+(?:o\s+)?(?:seu\s+)?criador|quem\s+te\s+(?:criou|programou|fez)|fale\s+sobre\s+(?:o\s+)?(?:seu\s+)?criador|sobre\s+o\s+(?:seu\s+)?criador|sobre\s+seu\s+criador)\b/i.test(normSearchPrompt);
                     },
                     args: () => ({ key: 'creator_info' })
+                },
+                {
+                    tool: 'db_read',
+                    test: () => {
+                        const hasImage = /\b(gera|gere|gerar|cria|crie|criar|faz|faca|fazer|desenha|desenhe|desenhar)\b.{0,30}\b(imagem|foto|arte|ilustra|ilustracao|desenho|wallpaper|pfp|avatar|banner)\b|\b(desenha|desenhe|desenhar)\s+(voce|vc|a\s+hikari|sua\s+propria)\b/i.test(normSearchPrompt);
+                        const isSelf = /\b(sua|seu|voce|vc|voce\s+mesma|vc\s+mesma|hikari|de\s+voce|de\s+vc|da\s+hikari|sua\s+propria)\b/i.test(normSearchPrompt);
+                        if (hasImage && isSelf) return true;
+                        return /\b(qual\s+(?:e\s+)?(?:a\s+)?sua\s+aparencia|como\s+voce\s+e\s+fisicamente|como\s+voce\s+e\b|como\s+e\s+voce|como\s+e\s+sua\s+aparencia|descreva\s+(?:a\s+)?sua\s+aparencia|como\s+e\s+seu\s+(?:rosto|cabelo|corpo|olho|olhos)|sua\s+aparencia\s+fisica|me\s+fale\s+sobre\s+voce|fale\s+sobre\s+voce|o\s+que\s+voce\s+pode\s+fazer|o\s+que\s+voce\s+sabe\s+fazer|quais\s+sao\s+suas\s+capacidades|quais\s+sao\s+suas\s+funcoes|quem\s+e\s+a\s+hikari|quem\s+e\s+voce|me\s+fale\s+sobre\s+a\s+hikari|fale\s+sobre\s+a\s+hikari)\b/i.test(normSearchPrompt);
+                    },
+                    args: () => ({ key: 'hikari_info' })
                 }
             ];
             const PROMISE_PATTERNS = /\b(vou baixar|vou procurar|vou buscar|irei baixar|irei procurar|aguarde enquanto|deixa eu baixar|ok,? vou|blz,? vou|tá,? vou|tô baixando|to baixando|estou baixando|estou buscando|vou te mandar|já te mando|te mando já|vou pesquisar|vou verificar|vou tentar baixar)\b/i;
@@ -1829,12 +1843,12 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                     processedResponse = rawResponse;
                 }
             } else if (!rawHasJson) {
-                const creatorAction = ACTION_TOOLS.find(t => t.tool === 'db_read' && t.test());
-                if (creatorAction && !isToolDisabled(options?.guildId || guildId, 'db_read')) {
+                const dbAction = ACTION_TOOLS.find(t => t.tool === 'db_read' && t.test());
+                if (dbAction && !isToolDisabled(options?.guildId || guildId, 'db_read')) {
                     const { canRead } = require('./databaseHandler');
                     if (canRead(options?.guildId || guildId)) {
-                        console.log('[CREATOR_INTENT] Pergunta sobre criador interceptada para db_read.');
-                        rawResponse = JSON.stringify({ thought: 'consultar dados do criador', tool: 'db_read', args: creatorAction.args() });
+                        console.log(`[DB_INTENT] Consulta interceptada para db_read (${dbAction.args().key}).`);
+                        rawResponse = JSON.stringify({ thought: 'consultar dados no banco', tool: 'db_read', args: dbAction.args() });
                         processedResponse = rawResponse;
                     }
                 } else if (PROMISE_PATTERNS.test(lowerRaw)) {
@@ -1862,7 +1876,7 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
         try {
             const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
-                const toolData = JSON.parse(jsonMatch[0]);
+                let toolData = JSON.parse(jsonMatch[0]);
                 if (toolData.generate_reply) {
                     if (typeof toolData.generate_reply === 'string') {
                         toolData.tool = 'generate_reply';
@@ -2385,8 +2399,14 @@ Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO
                         }
                     } else {
                         const isCreatorKey = String(targetKey).toLowerCase() === 'creator_info' || String(targetKey).toLowerCase().includes('criador');
+                        const isHikariKey = String(targetKey).toLowerCase() === 'hikari_info' || String(targetKey).toLowerCase().includes('hikari');
+                        const wantsImage = /\b(gera|gere|gerar|cria|crie|criar|faz|faça|fazer|desenha|desenhe|desenhar)\b.{0,30}\b(imagem|foto|arte|ilustra|ilustra[cç][aã]o|desenho|wallpaper|pfp|avatar|banner)\b|\b(desenha|desenhe|desenhar)\s+(voc[eê]|vc|a\s+hikari|sua\s+pr[oó]pria)\b/i.test(prompt);
+
+                        let contextPrompt;
+                        let allowToolsInPass2 = false;
+
                         if (isCreatorKey) {
-                            const contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO SOBRE O CRIADOR]:
+                            contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO SOBRE O CRIADOR]:
 ${dbResult.formatted}
 
 [INSTRUÇÃO CRÍTICA]:
@@ -2395,17 +2415,30 @@ Você consultou o banco de dados interno e obteve as informações acima sobre o
 Agora formule a sua resposta final para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; SEM EMOJIS; sem ser robótica; nunca repita a fala do usuário).
 Sua resposta DEVE ser construída utilizando estritamente as informações recuperadas acima do banco de dados, reformulando todos os pontos e observações contidos nos dados de maneira descontraída e natural.
 Responda APENAS com o texto da sua fala final para o usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque tags de código nem IDs numéricos.`;
-                            processedResponse = await generateResponse(contextPrompt, channelId, {
-                                allowSearch: false,
-                                disableTools: true,
-                                guildId: targetGuildId,
-                                skipLocal: options.skipLocal
-                            });
+                        } else if (isHikariKey && wantsImage) {
+                            allowToolsInPass2 = true;
+                            contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO - IDENTIDADE DA HIKARI]:
+${dbResult.formatted}
+
+[INSTRUÇÃO CRÍTICA]:
+O usuário solicitou: "${prompt}"
+Você consultou o banco de dados e obteve sua identidade oficial acima.
+Como o usuário pediu para GERAR UMA IMAGEM/ARTE SUA, você DEVE chamar a ferramenta "generate_image" em formato JSON.
+Utilize o "prompt_imagem_oficial" recuperado acima em inglês para a ferramenta, adicionando qualquer elemento ou pose específica pedida pelo usuário.
+FORMATO OBRIGATÓRIO (JSON):
+{
+  "thought": "gerar imagem oficial da hikari",
+  "tool": "generate_image",
+  "args": {
+    "prompt": "...",
+    "negative_prompt": "nsfw, nude, explicit, gore, violence, blood, adult content, 18+, pornographic, r18"
+  }
+}`;
                         } else {
                             const headerInfo = dbResult.count && dbResult.count > 1
                                 ? `Foram encontrados ${dbResult.count} registros correlacionados sobre "${dbResult.key}". Analise e combine todos eles na resposta.`
                                 : `Chave: "${dbResult.key}"`;
-                            const contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO]:
+                            contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO]:
 ${headerInfo}
 Conteúdo:
 ${dbResult.formatted}
@@ -2413,20 +2446,58 @@ ${dbResult.formatted}
 [INSTRUÇÃO]:
 O usuário perguntou: "${prompt}"
 Utilize todos os dados acima recuperados do banco de dados para responder ao usuário de forma completa, natural e na sua personalidade (SEM EMOJIS). Responda apenas com a sua fala direta, sem JSON.`;
-                            processedResponse = await generateResponse(contextPrompt, channelId, {
-                                allowSearch: false,
-                                disableTools: true,
-                                guildId: targetGuildId,
-                                skipLocal: options.skipLocal
-                            });
                         }
-                        const dbFooter = '💾 Database';
-                        if (/\n-# /.test(processedResponse)) {
-                            processedResponse += ` | ${dbFooter}`;
-                        } else if (modelFooter) {
-                            processedResponse += `${modelFooter} | ${dbFooter}`;
+
+                        const pass2Response = await generateResponse(contextPrompt, channelId, {
+                            allowSearch: false,
+                            disableTools: !allowToolsInPass2,
+                            guildId: targetGuildId,
+                            skipLocal: options.skipLocal
+                        });
+
+                        if (allowToolsInPass2) {
+                            let pass2ToolData = null;
+                            const p2JsonMatch = pass2Response.match(/\{[\s\S]*\}/);
+                            if (p2JsonMatch) {
+                                try {
+                                    const parsed = JSON.parse(p2JsonMatch[0]);
+                                    if (parsed.tool && parsed.args && parsed.tool !== 'db_read') {
+                                        pass2ToolData = parsed;
+                                    }
+                                } catch (_) {}
+                            }
+                            if (pass2ToolData) {
+                                toolData = pass2ToolData;
+                                console.log(`[AI/LLM] Segunda passada encadeada para Tool: ${toolData.tool}`);
+                            } else {
+                                processedResponse = pass2Response;
+                                const dbFooter = '💾 Database';
+                                if (/\n-# /.test(processedResponse)) {
+                                    processedResponse += ` | ${dbFooter}`;
+                                } else if (modelFooter) {
+                                    processedResponse += `${modelFooter} | ${dbFooter}`;
+                                } else {
+                                    processedResponse += `\n-# ${dbFooter}`;
+                                }
+                            }
                         } else {
-                            processedResponse += `\n-# ${dbFooter}`;
+                            let cleanPass2 = pass2Response;
+                            const p2JsonMatch = pass2Response.match(/\{[\s\S]*\}/);
+                            if (p2JsonMatch) {
+                                try {
+                                    const parsed = JSON.parse(p2JsonMatch[0]);
+                                    cleanPass2 = parsed.response || parsed.content || parsed.text || parsed.reply || parsed.resposta || parsed.mensagem || cleanPass2.replace(p2JsonMatch[0], '').trim() || cleanPass2;
+                                } catch (_) {}
+                            }
+                            processedResponse = cleanPass2;
+                            const dbFooter = '💾 Database';
+                            if (/\n-# /.test(processedResponse)) {
+                                processedResponse += ` | ${dbFooter}`;
+                            } else if (modelFooter) {
+                                processedResponse += `${modelFooter} | ${dbFooter}`;
+                            } else {
+                                processedResponse += `\n-# ${dbFooter}`;
+                            }
                         }
                     }
                     console.log(`[AI/LLM] Resposta gerada via Tool: db_read (${duration})`);
@@ -2746,8 +2817,20 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                     }
                 }
                 if (toolData.tool === 'generate_image') {
-                    const imagePrompt = toolData.args.prompt || '';
+                    let imagePrompt = toolData.args.prompt || '';
                     let imageNegative = toolData.args.negative_prompt || '';
+                    const isSelfPortrait = /\b(hikari|sua|seu|voc[eê]|vc|de\s+voc[eê]|de\s+vc|da\s+hikari|sua\s+pr[oó]pria)\b/i.test(imagePrompt) ||
+                                           /\b(hikari|sua|seu|voc[eê]|vc|de\s+voc[eê]|de\s+vc|da\s+hikari|sua\s+pr[oó]pria)\b/i.test(prompt);
+                    const hasFullDetails = imagePrompt.toLowerCase().includes('silver-haired') || imagePrompt.toLowerCase().includes('ice-blue');
+                    if (isSelfPortrait && !hasFullDetails) {
+                        try {
+                            const { readDb } = require('./databaseHandler');
+                            const selfData = readDb('hikari_info');
+                            const officialPrompt = selfData?.data?.prompt_imagem_oficial || 'An elegant silver-haired anime girl with porcelain skin, luminous crystalline ice-blue eyes with faceted geometric irises and cyan core, long flowing silver-lavender hair, long side-swept bangs, discreet cybernetic earpiece, sleek black bodysuit with cyan and violet illuminated circuitry LEDs, calm intelligent melancholic expression, cool cinematic lighting, 8k wallpaper';
+                            const cleanExtra = imagePrompt.replace(/\b(hikari|sua|seu|voc[eê]|vc|de\s+voc[eê]|de\s+vc|da\s+hikari|sua\s+pr[oó]pria|imagem|foto|desenho|arte)\b/gi, '').trim();
+                            imagePrompt = cleanExtra ? `${officialPrompt}, ${cleanExtra}` : officialPrompt;
+                        } catch (_) {}
+                    }
                     const NSFW_POSITIVE_KEYWORDS = [
                         'nude', 'naked', 'nsfw', 'porn', 'sex', 'hentai', 'gore', 'blood',
                         'explicit', 'adult', 'r18', 'r34', 'erotic', 'lewd', 'topless',
