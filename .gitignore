@@ -12,6 +12,7 @@ src/data/*
 !src/data/mcp_tools.json
 src/data/ai_database.json
 src/data/audio_transcriptions.json
+src/data/image_descriptions.json
 
 # 🗑️ Temporários e Logs
 src/data/temp_images/

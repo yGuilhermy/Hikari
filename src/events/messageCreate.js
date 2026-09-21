@@ -3,6 +3,73 @@ const { checkBan } = require('../handlers/banHandler');
 const { resolveMentions } = require('../utils/mentions');
 const { addToQueue, getChannelSettings, getServerSettings } = require('../handlers/llmHandler');
 const config = require('../config');
+
+async function buildMessagePrompt(message, client, options = {}) {
+    const { isMention = false, isChatter = false } = options;
+    const { resolveMessageAudioContent } = require('../handlers/audioTranscriptionHandler');
+    const { resolveMessageVisualContent } = require('../handlers/imageVisionHandler');
+    let rawUserPrompt = await resolveMessageAudioContent(message);
+    rawUserPrompt = await resolveMessageVisualContent(message, rawUserPrompt);
+    let currentUserPrompt = rawUserPrompt;
+    if (isMention) {
+        currentUserPrompt = currentUserPrompt.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
+    }
+    currentUserPrompt = resolveMentions(currentUserPrompt, client);
+    const history = [];
+    let repliedMessage = null;
+    if (message.reference && message.reference.messageId) {
+        try {
+            repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
+        } catch (err) {
+            console.error(err.message);
+        }
+    }
+    const limit = isChatter ? 5 : 10;
+    const recentMessages = await message.channel.messages.fetch({ limit, before: message.id });
+    const messageMap = new Map();
+    if (repliedMessage) messageMap.set(repliedMessage.id, repliedMessage);
+    recentMessages.forEach(msg => {
+        if (msg.author.bot && msg.author.id !== client.user.id) return;
+        if (!messageMap.has(msg.id)) messageMap.set(msg.id, msg);
+    });
+    const sortedMessages = [...messageMap.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+    let lastDelIndex = -1;
+    for (let i = sortedMessages.length - 1; i >= 0; i--) {
+        const c = sortedMessages[i].content.trim().toLowerCase();
+        if (c === 'mcp del' || c === 'mcp del.' || c === 'hikari mcp del' || c.replace(/<@!?\d+>/g, '').trim() === 'mcp del') {
+            lastDelIndex = i;
+            break;
+        }
+    }
+    const filteredMessages = lastDelIndex !== -1 ? sortedMessages.slice(lastDelIndex + 1) : sortedMessages;
+    for (const msg of filteredMessages) {
+        const isBot = msg.author.id === client.user.id;
+        const authorName = isBot ? 'Hikari' : msg.author.username;
+        let rawContent = await resolveMessageAudioContent(msg);
+        rawContent = await resolveMessageVisualContent(msg, rawContent);
+        let content = resolveMentions(rawContent, client);
+        if (isBot && (content.includes('erro ao processar seu pedido') || content.includes('Limites de Processamento Atingidos') || content.includes('Desculpe, tive um erro'))) {
+            content = 'erro da ia';
+        }
+        if (isBot) {
+            content = content.replace(/^-# .*$/gm, '').replace(/🧠 \*\*Processando\.\.\.\*\*/g, '').trim();
+        }
+        if (content.trim().length === 0) continue;
+        if (content.length > 500) content = content.substring(0, 500) + '...';
+        history.push(`${authorName}: ${content}`);
+    }
+    const currentDate = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    let envInfo = '';
+    if (config.sendEnvironmentInfo) {
+        envInfo = `Servidor: ${message.guild?.name || 'DM'} | Canal: #${message.channel?.name || 'Chat'}\n`;
+    }
+    const instruction = isChatter
+        ? 'INSTRUÇÃO: Entre na conversa espontaneamente sem repetir o que foi dito.'
+        : 'INSTRUÇÃO: Responda diretamente à mensagem atual.';
+    const finalPrompt = `--- CONTEXTO ---\nData: ${currentDate}\n${envInfo}${history.join('\n')}\n--- MENSAGEM ATUAL ---\n${message.author.username}: "${currentUserPrompt}"\n${instruction}`;
+    return { prompt: finalPrompt, searchPrompt: currentUserPrompt };
+}
+
 module.exports = {
     name: 'messageCreate',
     once: false,
@@ -80,75 +147,26 @@ module.exports = {
                 const { checkAndInitializeUpdateChannel } = require('../handlers/tosHandler');
                 await checkAndInitializeUpdateChannel(message.guild, message.channel);
             }
-            try {
-                const { resolveMessageAudioContent } = require('../handlers/audioTranscriptionHandler');
-                let rawUserPrompt = await resolveMessageAudioContent(message);
-                let currentUserPrompt = rawUserPrompt;
-                if (isMention) {
-                    currentUserPrompt = currentUserPrompt.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
-                }
-                currentUserPrompt = resolveMentions(currentUserPrompt, client);
-                const history = [];
-                let repliedMessage = null;
-                if (message.reference && message.reference.messageId) {
-                    try {
-                        repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
-                    } catch (err) {
-                        console.error(err.message);
-                    }
-                }
-                const recentMessages = await message.channel.messages.fetch({ limit: 10, before: message.id });
-                const messageMap = new Map();
-                if (repliedMessage) messageMap.set(repliedMessage.id, repliedMessage);
-                recentMessages.forEach(msg => {
-                    if (msg.author.bot && msg.author.id !== client.user.id) return;
-                    if (!messageMap.has(msg.id)) messageMap.set(msg.id, msg);
-                });
-                const sortedMessages = [...messageMap.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-                let lastDelIndex = -1;
-                for (let i = sortedMessages.length - 1; i >= 0; i--) {
-                    const c = sortedMessages[i].content.trim().toLowerCase();
-                    if (c === 'mcp del' || c === 'mcp del.' || c === 'hikari mcp del' || c.replace(/<@!?\d+>/g, '').trim() === 'mcp del') {
-                        lastDelIndex = i;
-                        break;
-                    }
-                }
-                const filteredMessages = lastDelIndex !== -1 ? sortedMessages.slice(lastDelIndex + 1) : sortedMessages;
-                for (const msg of filteredMessages) {
-                    const isBot = msg.author.id === client.user.id;
-                    const authorName = isBot ? 'Hikari' : msg.author.username;
-                    let rawContent = await resolveMessageAudioContent(msg);
-                    let content = resolveMentions(rawContent, client);
-                    if (isBot && (content.includes('erro ao processar seu pedido') || content.includes('Limites de Processamento Atingidos') || content.includes('Desculpe, tive um erro'))) {
-                        content = 'erro da ia';
-                    }
-                    if (isBot) {
-                        content = content.replace(/^-# .*$/gm, '').replace(/🧠 \*\*Processando\.\.\.\*\*/g, '').trim();
-                    }
-                    if (content.trim().length === 0) continue;
-                    if (content.length > 500) content = content.substring(0, 500) + '...';
-                    history.push(`${authorName}: ${content}`);
-                }
-                const currentDate = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                let envInfo = '';
-                if (config.sendEnvironmentInfo) {
-                    envInfo = `Servidor: ${message.guild?.name || 'DM'} | Canal: #${message.channel?.name || 'Chat'}\n`;
-                }
-                const finalPrompt = `--- CONTEXTO ---\nData: ${currentDate}\n${envInfo}${history.join('\n')}\n--- MENSAGEM ATUAL ---\n${message.author.username}: "${currentUserPrompt}"\nINSTRUÇÃO: Responda diretamente à mensagem atual.`;
-                if (currentUserPrompt.length > 0 || message.attachments.size > 0) {
-                    addToQueue(finalPrompt, message, 'mention', { allowSearch: true, searchPrompt: currentUserPrompt, guildId: message.guildId });
-                } else {
-                    message.reply('Oi! Vi que me marcou, mas não entendi o que você precisa.');
-                }
-            } catch (error) {
-                console.error(error);
-                const fallbackPrompt = message.content.replace(`<@${client.user.id}>`, '').trim();
-                if (fallbackPrompt) {
-                    addToQueue(fallbackPrompt, message, 'mention', { allowSearch: true, searchPrompt: fallbackPrompt, guildId: message.guildId });
-                } else {
-                    message.reply('Oi, tive um erro ao ler o histórico.');
-                }
+            const hasAttachments = Boolean(message.attachments && message.attachments.size > 0);
+            let rawClean = (message.content || '');
+            if (isMention) {
+                rawClean = rawClean.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
             }
+            rawClean = resolveMentions(rawClean, client).trim();
+            if (!hasAttachments && rawClean.length === 0) {
+                message.reply('Oi! Vi que me marcou, mas não entendi o que você precisa.');
+                return;
+            }
+            if (message.channel && typeof message.channel.sendTyping === 'function') {
+                message.channel.sendTyping().catch(() => {});
+            }
+            const initialSearchPrompt = rawClean || (hasAttachments ? 'analise do anexo' : message.content);
+            addToQueue(initialSearchPrompt, message, 'mention', {
+                allowSearch: true,
+                searchPrompt: initialSearchPrompt,
+                guildId: message.guildId,
+                resolvePrompt: () => buildMessagePrompt(message, client, { isMention })
+            });
         } else {
             const settings = getChannelSettings(message.channelId);
             if (settings?.chatter?.active) {
@@ -169,48 +187,16 @@ module.exports = {
                         const { checkAndInitializeUpdateChannel } = require('../handlers/tosHandler');
                         await checkAndInitializeUpdateChannel(message.guild, message.channel);
                     }
-                    try {
-                        const { resolveMessageAudioContent } = require('../handlers/audioTranscriptionHandler');
-                        const rawUserPrompt = await resolveMessageAudioContent(message);
-                        const currentUserPrompt = resolveMentions(rawUserPrompt, client);
-                        const history = [];
-                        const recentMessages = await message.channel.messages.fetch({ limit: 5, before: message.id });
-                        const sortedRecent = [...recentMessages.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-                        let lastDelIndex = -1;
-                        for (let i = sortedRecent.length - 1; i >= 0; i--) {
-                            const c = sortedRecent[i].content.trim().toLowerCase();
-                            if (c === 'mcp del' || c === 'mcp del.' || c === 'hikari mcp del' || c.replace(/<@!?\d+>/g, '').trim() === 'mcp del') {
-                                lastDelIndex = i;
-                                break;
-                            }
-                        }
-                        const filteredRecent = lastDelIndex !== -1 ? sortedRecent.slice(lastDelIndex + 1) : sortedRecent;
-                        for (const msg of filteredRecent) {
-                            const isBot = msg.author.id === client.user.id;
-                            const authorName = isBot ? 'Hikari' : msg.author.username;
-                            let rawContent = await resolveMessageAudioContent(msg);
-                            let content = resolveMentions(rawContent, client);
-                            if (isBot && (content.includes('erro ao processar seu pedido') || content.includes('Limites de Processamento Atingidos') || content.includes('Desculpe, tive um erro'))) {
-                                content = 'erro da ia';
-                            }
-                            if (isBot) {
-                                content = content.replace(/^-# .*$/gm, '').replace(/🧠 \*\*Processando\.\.\.\*\*/g, '').trim();
-                            }
-                            if (content.trim().length === 0) continue;
-                            if (content.length > 500) content = content.substring(0, 500) + '...';
-                            history.push(`${authorName}: ${content}`);
-                        }
-                        const currentDate = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                        let envInfo = '';
-                        if (config.sendEnvironmentInfo) {
-                            envInfo = `Servidor: ${message.guild?.name || 'DM'} | Canal: #${message.channel?.name || 'Chat'}\n`;
-                        }
-                        const finalPrompt = `--- CONTEXTO ---\nData: ${currentDate}\n${envInfo}${history.join('\n')}\n--- MENSAGEM ATUAL ---\n${message.author.username}: "${currentUserPrompt}"\nINSTRUÇÃO: Entre na conversa espontaneamente sem repetir o que foi dito.`;
-                        addToQueue(finalPrompt, message, 'mention', { allowSearch: true, searchPrompt: currentUserPrompt, guildId: message.guildId });
-
-                    } catch (error) {
-                        console.error(error);
+                    if (message.channel && typeof message.channel.sendTyping === 'function') {
+                        message.channel.sendTyping().catch(() => {});
                     }
+                    const initialSearchPrompt = message.content || 'conversa';
+                    addToQueue(initialSearchPrompt, message, 'mention', {
+                        allowSearch: true,
+                        searchPrompt: initialSearchPrompt,
+                        guildId: message.guildId,
+                        resolvePrompt: () => buildMessagePrompt(message, client, { isMention: false, isChatter: true })
+                    });
                 }
             }
         }

@@ -515,7 +515,7 @@ module.exports = {
                     const drawEmbed = new EmbedBuilder()
                         .setColor(0x7C3AED)
                         .setTitle('🎨 Imagem Gerada')
-                        .setDescription('⚠️ **Aviso:** Eu apenas **gero** imagens novas a partir de texto. Eu **não edito** imagens e **não tenho visão computacional** para ver arquivos.')
+                        .setDescription('⚠️ **Aviso:** Eu apenas **gero** imagens novas a partir de texto. Eu **não edito** imagens geradas anteriormente nem arquivos de imagem existentes.')
                         .addFields(
                             { name: '🤖 Modelo', value: `\`${imageData.modelName || 'Desconhecido'}\``, inline: false },
                             { name: '🌱 Seed', value: `\`${imageData.actualSeed}\``, inline: true },
@@ -686,11 +686,13 @@ module.exports = {
             await interaction.deferReply();
             try {
                 const { resolveMessageAudioContent } = require('../handlers/audioTranscriptionHandler');
+                const { resolveMessageVisualContent } = require('../handlers/imageVisionHandler');
                 const messages = await interaction.channel.messages.fetch({ limit: amount });
                 const sortedMessages = [...messages.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
                 let conversationLog = "";
                 for (const msg of sortedMessages) {
-                    const resolved = await resolveMessageAudioContent(msg);
+                    let resolved = await resolveMessageAudioContent(msg);
+                    resolved = await resolveMessageVisualContent(msg, resolved);
                     if (resolved) {
                         const time = msg.createdAt.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
                         conversationLog += `[${time}] ${msg.author.username}: ${resolved}\n`;

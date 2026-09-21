@@ -1318,7 +1318,7 @@ async function generateResponse(prompt, channelId = null, options = {}) {
     ];
     const guildId = options.guildId || options.guild?.id || null;
     const serverCustomPrompt = getServerPrompt(guildId);
-    let baseSystemPrompt = (serverCustomPrompt || config.systemPrompt) + "\n[IMAGEM/VISÃO]: Você CONSEGUE gerar imagens novas do zero usando a ferramenta generate_image — basta o usuário descrever o que quer. Se o pedido for vago (ex: 'faz uma imagem do server'), crie um prompt criativo baseado no contexto (nome do server, tema da conversa, etc.) e gere a imagem. Porém, você NÃO tem visão computacional: não consegue ver, analisar, editar ou descrever imagens que os usuários enviam. Se pedirem para editar/alterar uma imagem existente, explique que só pode gerar artes novas.\n[ANTI-REPETIÇÃO]: NUNCA repita a mesma frase ou resposta idêntica em mensagens consecutivas. Se já disse algo parecido antes, reformule completamente usando palavras diferentes. Varie seu vocabulário e estrutura. Respostas repetitivas são proibidas.";
+    let baseSystemPrompt = (serverCustomPrompt || config.systemPrompt) + "\n[IMAGEM/VISÃO/VÍDEO]: Você possui capacidade de compreensão visual de imagens: quando usuários enviam imagens no chat, elas são automaticamente analisadas e fornecidas a você no contexto da conversa no formato [Imagem: ...]. Você pode conversar sobre elas, rir de memes, ler textos de prints e comentar o que vê. Porém, você NÃO edita imagens geradas anteriormente nem altera arquivos de imagem existentes — para novas artes, você gera do zero com a ferramenta generate_image. Caso alguém envie ou mencione vídeos ([Vídeo anexado: ...]), explique de forma natural e espontânea que você consegue ver imagens, mas ainda não consegue ver nem entender vídeos.\n[ANTI-REPETIÇÃO]: NUNCA repita a mesma frase ou resposta idêntica em mensagens consecutivas. Se já disse algo parecido antes, reformule completamente usando palavras diferentes. Varie seu vocabulário e estrutura. Respostas repetitivas são proibidas.";
     if (config.sendEnvironmentInfo && (options.guildName || options.channelName)) {
         baseSystemPrompt += `\n[CONTEXTO DO AMBIENTE]: Você está conversando no servidor Discord "${options.guildName || 'DM'}" no canal/chat "#${options.channelName || 'Chat'}".`;
     }
@@ -1477,7 +1477,9 @@ async function processQueue() {
         return;
     }
     isProcessing = true;
-    const { prompt, interaction, type, userTag, userId, channelId, options } = processingQueue.shift();
+    const queueItem = processingQueue.shift();
+    let prompt = queueItem.prompt;
+    const { interaction, type, userTag, userId, channelId, options } = queueItem;
     const guildId = interaction?.guild?.id || interaction?.guildId;
     const guildName = interaction?.guild?.name || "DM";
     const serverIdentifier = interaction?.guild?.id || interaction?.guildId || "N/A";
@@ -1604,6 +1606,47 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
         }
         if (!options.radioMode) {
             await unifiedReply('🧠 **Processando...**');
+            if (interaction?.channel && typeof interaction.channel.sendTyping === 'function') {
+                interaction.channel.sendTyping().catch(() => {});
+            }
+        }
+        if (typeof options.resolvePrompt === 'function') {
+            try {
+                const resolved = await options.resolvePrompt();
+                if (typeof resolved === 'string') {
+                    prompt = resolved;
+                } else if (resolved && typeof resolved === 'object') {
+                    if (resolved.prompt) prompt = resolved.prompt;
+                    if (resolved.searchPrompt !== undefined) options.searchPrompt = resolved.searchPrompt;
+                }
+            } catch (err) {
+                console.error('[Queue] Erro ao resolver prompt:', err.message);
+            }
+        }
+        if (!prompt || prompt.trim().length === 0) {
+            await unifiedReply('Oi! Vi sua mensagem, mas não encontrei conteúdo legível para processar.');
+            return;
+        }
+        if (_triggerEnabled) {
+            const postTrigger = options.searchPrompt || prompt;
+            const postAutoBan = checkAutoBan(postTrigger, guildName, guildId, channelName, channelId, userId);
+            if (postAutoBan) {
+                const isAutoBlockOn = typeof getAutoBlock === 'function' && getAutoBlock(guildId);
+                if (isAutoBlockOn && guildId) {
+                    const alreadyBanned = checkBan(postAutoBan.type === 'user' ? userId : null, postAutoBan.type === 'guild' ? guildId : null, postAutoBan.type === 'channel' ? channelId : null);
+                    if (!alreadyBanned) {
+                        addBan(postAutoBan.type, postAutoBan.id, postAutoBan.reason);
+                        console.warn(`[AUTO-BAN] ${postAutoBan.type} bloqueado pós-transcrição. Gatilho: ${postAutoBan.keyword}`);
+                        const banEmbed = new EmbedBuilder()
+                            .setColor(0xE11D48)
+                            .setTitle('🚨 DISPOSITIVO DE SEGURANÇA ACIONADO — VOCÊ FOI BANIDO!')
+                            .setDescription(`🛑 **UM BLOQUEIO PERMANENTE E IMEDIATO FOI APLICADO.**\n\nSua última ação violou gravemente as diretrizes de segurança da **IA Hikari**.\n\n**DETALHES DO BANIMENTO:**\n- **ALVO:** ${postAutoBan.type === 'user' ? 'Seu perfil de usuário (Banido Globalmente)' : postAutoBan.type === 'guild' ? 'Este servidor (Bot Inutilizado)' : 'Este canal (Canal Bloqueado)'}\n- **STATUS:** 🔴 TOTALMENTE BANIDO E BLOQUEADO.`)
+                            .setFooter({ text: 'Hikari Security & Moderation • by yGuilhermy' })
+                            .setTimestamp();
+                        return await unifiedReply(null, [], [], [banEmbed]);
+                    }
+                }
+            }
         }
         const startTime = Date.now();
         console.log(`[HISTORICO] Prompt IA (${guildName} #${channelName} | ${userTag} [${userId}]):\n${prompt}`);
@@ -2766,7 +2809,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                                 }
                                 const imageEmbed = new EmbedBuilder()
                                     .setColor(0x7C3AED)
-                                    .setDescription('⚠️ **Aviso:** Eu apenas **gero** imagens novas a partir de texto. Eu **não edito** imagens e **não tenho visão computacional** para ver arquivos.')
+                                    .setDescription('⚠️ **Aviso:** Eu apenas **gero** imagens novas a partir de texto. Eu **não edito** imagens geradas anteriormente nem arquivos de imagem existentes.')
                                     .addFields(
                                         { name: '🤖 Modelo', value: `\`${imageData.modelName || 'Desconhecido'}\``, inline: false },
                                         { name: '🌱 Seed',   value: `\`${imageData.actualSeed}\``, inline: true },
