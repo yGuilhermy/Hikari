@@ -41,9 +41,9 @@ async function transcribeWithGroq(audioBuffer, apiKey, filename) {
 
 async function transcribeWithGemini(audioBuffer, apiKey) {
     const base64Audio = audioBuffer.toString('base64');
-    const model = process.env.GEMINI_MODEL_FALLBACK && !process.env.GEMINI_MODEL_FALLBACK.includes('2.5')
+    const model = process.env.GEMINI_MODEL_FALLBACK && !process.env.GEMINI_MODEL_FALLBACK.includes('1.5')
         ? process.env.GEMINI_MODEL_FALLBACK
-        : 'gemini-1.5-flash';
+        : 'gemini-2.5-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const payload = {
@@ -64,7 +64,7 @@ async function transcribeWithGemini(audioBuffer, apiKey) {
 
     const response = await axios.post(url, payload, {
         headers: { 'Content-Type': 'application/json' },
-        timeout: 12000
+        timeout: 8000
     });
 
     const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -163,14 +163,6 @@ async function transcribeWithLocal(audioBuffer, localUrl, filename) {
 async function transcribeAudio(audioBuffer, filename = 'speech.wav') {
     const providers = [];
 
-    const witToken = process.env.WITAI_TOKEN || process.env.WIT_AI_KEY;
-    if (STT_PROVIDERS_CONFIG.WITAI && !isPlaceholderKey(witToken)) {
-        providers.push({
-            name: 'Discord Speech / Wit.ai',
-            fn: () => transcribeWithWitAi(audioBuffer, witToken)
-        });
-    }
-
     const groqKeysRaw = process.env.GROQ_API_KEY || '';
     if (STT_PROVIDERS_CONFIG.GROQ && groqKeysRaw) {
         const keys = groqKeysRaw.split(',').map(k => k.trim()).filter(k => !isPlaceholderKey(k));
@@ -179,6 +171,14 @@ async function transcribeAudio(audioBuffer, filename = 'speech.wav') {
                 name: `Groq (Chave ${idx + 1})`,
                 fn: () => transcribeWithGroq(audioBuffer, k, filename)
             });
+        });
+    }
+
+    const witToken = process.env.WITAI_TOKEN || process.env.WIT_AI_KEY;
+    if (STT_PROVIDERS_CONFIG.WITAI && !isPlaceholderKey(witToken)) {
+        providers.push({
+            name: 'Discord Speech / Wit.ai',
+            fn: () => transcribeWithWitAi(audioBuffer, witToken)
         });
     }
 

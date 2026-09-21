@@ -68,7 +68,7 @@ function logCompressionAction(context, status, extra = '') {
 
 function formatVideoSuccessMessage(videoData, showDetails = false) {
     const metadata = videoData.metadata || {};
-    let providerName = 'Vídeo';
+    let providerName = 'undefined';
     const extractor = (metadata.extractor_key || '').toLowerCase();
     if (extractor.includes('instagram')) {
         providerName = 'Instagram Reels';

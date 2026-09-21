@@ -47,7 +47,7 @@ function isVoiceMessage(msg, attachment) {
         return true;
     }
     const name = (attachment.name || '').toLowerCase();
-    if (name === 'voice-message.ogg' || name === 'voice_message.ogg' || name.startsWith('audio_message')) {
+    if (name === 'voice-message.ogg' || name === 'voice_message.ogg' || name.startsWith('audio_message') || name.startsWith('ptt-') || name.startsWith('gravacao') || name.startsWith('gravação') || name.startsWith('voice')) {
         return true;
     }
     return false;
@@ -121,6 +121,9 @@ async function fetchAudioBuffer(url) {
     if (!url || typeof url !== 'string') return null;
     const response = await axios.get(url, {
         responseType: 'arraybuffer',
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+        },
         timeout: 10000,
         maxContentLength: MAX_AUDIO_BYTES
     });
@@ -178,7 +181,10 @@ async function resolveMessageAudioContent(msg) {
     for (const [, attachment] of msg.attachments) {
         if (!isAudioAttachment(attachment)) continue;
 
-        const isVoice = isVoiceMessage(msg, attachment);
+        const isVoice = isVoiceMessage(msg, attachment) ||
+            Boolean(attachment.waveform) ||
+            Boolean(attachment.duration && attachment.duration <= 180) ||
+            /\b(áudio|audio|gravação|gravacao|voz|escuta|ouve|transcreva|ouça)\b/i.test(baseText);
         if (isVoice) {
             const cacheKey = attachment.id || msg.id;
             let transcribedText = transcriptionCache.get(cacheKey);
