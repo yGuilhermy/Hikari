@@ -9,6 +9,7 @@ let database = {};
 let runtimeSettings = {
     aiDbRead: true,
     aiDbWrite: true,
+    aiDbEdit: true,
     aiDbDelete: true
 };
 
@@ -39,6 +40,7 @@ function getDbSettings() {
     return {
         aiDbRead: runtimeSettings.aiDbRead && (config.aiDbReadEnabled !== false),
         aiDbWrite: runtimeSettings.aiDbWrite && (config.aiDbWriteEnabled !== false),
+        aiDbEdit: runtimeSettings.aiDbEdit && (config.aiDbEditEnabled !== false),
         aiDbDelete: runtimeSettings.aiDbDelete && (config.aiDbDeleteEnabled !== false)
     };
 }
@@ -73,6 +75,21 @@ function canWrite(guildId = null) {
         try {
             const { isToolDisabled } = require('./llmHandler');
             if (typeof isToolDisabled === 'function' && isToolDisabled(guildId, 'db_write')) {
+                return false;
+            }
+        } catch (_) {}
+    }
+    return true;
+}
+
+function canEdit(guildId = null) {
+    if (!canRead(guildId)) return false;
+    const settings = getDbSettings();
+    if (!settings.aiDbEdit) return false;
+    if (guildId) {
+        try {
+            const { isToolDisabled } = require('./llmHandler');
+            if (typeof isToolDisabled === 'function' && isToolDisabled(guildId, 'db_edit')) {
                 return false;
             }
         } catch (_) {}
@@ -184,6 +201,79 @@ function writeDb(key, data, guildId = null, isOwner = false) {
     };
 }
 
+function editDb(key, newContent, options = {}, guildId = null, isOwner = false) {
+    if (!canEdit(guildId)) {
+        return {
+            success: false,
+            error: 'disabled',
+            message: 'A edição no banco de dados está desativada no momento.'
+        };
+    }
+    loadDatabase();
+    const cleanKey = String(key || '').trim().toLowerCase();
+    if (!cleanKey) {
+        return {
+            success: false,
+            error: 'invalid_key',
+            message: 'Chave inválida fornecida para edição.'
+        };
+    }
+    const existing = database[cleanKey];
+    if (!existing) {
+        return {
+            success: false,
+            error: 'not_found',
+            message: `O registro "${cleanKey}" não foi encontrado no banco de dados para ser editado. Utilize db_write se desejar criar uma nova anotação.`
+        };
+    }
+    if (existing.protected && !isOwner) {
+        return {
+            success: false,
+            error: 'protected',
+            message: `O registro "${cleanKey}" é protegido pelo criador e não pode ser alterado.`
+        };
+    }
+
+    const shouldAppend = typeof options === 'boolean' ? options : Boolean(options && options.append);
+    let updatedContent = String(newContent || '').trim();
+
+    let recordToSave;
+    if (typeof existing === 'object' && existing !== null) {
+        let finalContent = updatedContent;
+        if (shouldAppend) {
+            const baseContent = existing.content || existing.resumo || '';
+            finalContent = baseContent ? `${baseContent}\n${updatedContent}`.trim() : updatedContent;
+        }
+
+        recordToSave = {
+            ...existing,
+            content: finalContent,
+            resumo: finalContent,
+            protected: Boolean(existing.protected),
+            updatedAt: new Date().toISOString()
+        };
+    } else {
+        let finalContent = updatedContent;
+        if (shouldAppend && existing) {
+            finalContent = `${String(existing)}\n${updatedContent}`.trim();
+        }
+        recordToSave = {
+            content: finalContent,
+            protected: false,
+            updatedAt: new Date().toISOString()
+        };
+    }
+
+    database[cleanKey] = recordToSave;
+    saveDatabase();
+    return {
+        success: true,
+        key: cleanKey,
+        data: recordToSave,
+        message: `Registro "${cleanKey}" atualizado com sucesso no banco de dados.`
+    };
+}
+
 function deleteDb(key, guildId = null, isOwner = false) {
     if (!canDelete(guildId)) {
         return {
@@ -257,9 +347,11 @@ module.exports = {
     updateDbSetting,
     canRead,
     canWrite,
+    canEdit,
     canDelete,
     readDb,
     writeDb,
+    editDb,
     deleteDb,
     listDbKeys,
     setProtection

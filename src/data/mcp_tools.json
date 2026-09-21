@@ -484,6 +484,41 @@
   },
   {
     "meta": {
+      "label": "✏️ Edição no Banco de Dados (Memória)",
+      "description": "Edita ou atualiza anotações e memórias já existentes no banco de dados interno.",
+      "disableable": true
+    },
+    "type": "function",
+    "function": {
+      "name": "db_edit",
+      "description": "Edita ou atualiza um registro já existente no banco de dados interno persistente. Use quando o usuário pedir para alterar, corrigir, acrescentar ou atualizar uma anotação salva anteriormente. Não cria novos registros (para novos, use db_write). AVISO: Registros protegidos pelo criador (como 'creator_info') não podem ser alterados.",
+      "textual_triggers": "Gatilhos: \"mude a anotação de X para Y\", \"corrija no banco que X agora é Y\", \"atualize a anotação Z\", \"acrescente à anotação de X que Y\".",
+      "textual_args": "{ \"key\": \"nome_do_topico\", \"content\": \"informação atualizada\", \"append\": false }",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Chave ou identificador do tópico existente a ser editado."
+          },
+          "content": {
+            "type": "string",
+            "description": "Novo conteúdo ou informação atualizada a ser gravada."
+          },
+          "append": {
+            "type": "boolean",
+            "description": "Se true, acrescenta a nova informação ao conteúdo existente sem apagar o texto anterior. Se false (padrão), substitui o conteúdo."
+          }
+        },
+        "required": [
+          "key",
+          "content"
+        ]
+      }
+    }
+  },
+  {
+    "meta": {
       "label": "🗑️ Exclusão no Banco de Dados (Memória)",
       "description": "Apaga registros não protegidos do banco de dados interno.",
       "disableable": true

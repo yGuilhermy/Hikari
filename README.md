@@ -4,15 +4,15 @@
   <picture>
     <source
       width="100%"
-      srcset="https://i.imgur.com/2NTL0Cj.png"
+      srcset="https://i.imgur.com/9hOy6Nf.png"
       media="(prefers-color-scheme: dark)"
     />
     <source
       width="100%"
-      srcset="https://i.imgur.com/2NTL0Cj.png"
+      srcset="https://i.imgur.com/9hOy6Nf.png"
       media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)"
     />
-    <img width="250" src="https://i.imgur.com/2NTL0Cj.png" alt="Hikari Banner" />
+    <img width="250" src="https://i.imgur.com/9hOy6Nf.png" alt="Hikari Banner" />
   </picture>
   <p><i>"Prazer em te conhecer! Eu sou a Hikari, sua agente de IA pessoal pro Discord... ✨"</i></p>
 

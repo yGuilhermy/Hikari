@@ -149,15 +149,17 @@ function buildToolsPayload(guildId, userId = null) {
     const disabled = getDisabledTools(guildId);
     const mode = getAutoBlockMode(guildId);
     const automodActive = mode !== 'off';
-    const { canRead, canWrite, canDelete } = require('./databaseHandler');
+    const { canRead, canWrite, canEdit, canDelete } = require('./databaseHandler');
     const readAllowed = canRead(guildId);
     const writeAllowed = canWrite(guildId);
+    const editAllowed = canEdit(guildId);
     const deleteAllowed = canDelete(guildId);
     return ALL_MCP_TOOLS
         .filter(t => !disabled.includes(t.function.name))
         .filter(t => {
             if (t.function.name === 'db_read' && !readAllowed) return false;
             if (t.function.name === 'db_write' && !writeAllowed) return false;
+            if (t.function.name === 'db_edit' && !editAllowed) return false;
             if (t.function.name === 'db_delete' && !deleteAllowed) return false;
             if (t.meta && t.meta.guardAutomod) {
                 if (userId && config.isAutomodWhitelisted(userId)) return false;
@@ -179,15 +181,17 @@ function buildToolsDefinition(guildId, userId = null) {
     const disabled = getDisabledTools(guildId);
     const mode = getAutoBlockMode(guildId);
     const automodActive = mode !== 'off';
-    const { canRead, canWrite, canDelete } = require('./databaseHandler');
+    const { canRead, canWrite, canEdit, canDelete } = require('./databaseHandler');
     const readAllowed = canRead(guildId);
     const writeAllowed = canWrite(guildId);
+    const editAllowed = canEdit(guildId);
     const deleteAllowed = canDelete(guildId);
     const activeTools = ALL_MCP_TOOLS
         .filter(t => !disabled.includes(t.function.name))
         .filter(t => {
             if (t.function.name === 'db_read' && !readAllowed) return false;
             if (t.function.name === 'db_write' && !writeAllowed) return false;
+            if (t.function.name === 'db_edit' && !editAllowed) return false;
             if (t.function.name === 'db_delete' && !deleteAllowed) return false;
             if (t.meta && t.meta.guardAutomod) {
                 if (userId && config.isAutomodWhitelisted(userId)) return false;
@@ -219,12 +223,14 @@ function buildToolsDefinition(guildId, userId = null) {
         get_current_music:'User: "Hikari, baixe a musica do meu status"\nResponse: { "thought": "User quer baixar música tocando no seu status.", "tool": "get_current_music", "args": { "download": true } }\nUser: "oq eu to escutando no status"\nResponse: { "thought": "User quer saber música do seu status.", "tool": "get_current_music", "args": { "download": true } }',
         db_read:         'User: "Quem é o seu criador e me fale sobre ele"\nResponse: { "thought": "Consultar dados do criador.", "tool": "db_read", "args": { "key": "creator_info" } }\nUser: "quem te criou?"\nResponse: { "thought": "Consultar criador.", "tool": "db_read", "args": { "key": "creator_info" } }',
         db_write:        'User: "Lembre-se que o aniversário do servidor é em outubro"\nResponse: { "thought": "Salvar data do aniversário.", "tool": "db_write", "args": { "key": "aniversario_servidor", "content": "Aniversário do servidor é em outubro" } }',
+        db_edit:         'User: "Mude a anotação do aniversário para 15 de outubro"\nResponse: { "thought": "Atualizar anotação.", "tool": "db_edit", "args": { "key": "aniversario_servidor", "content": "Aniversário do servidor é 15 de outubro", "append": false } }',
         db_delete:       'User: "Esqueça a anotação sobre o aniversário"\nResponse: { "thought": "Deletar registro.", "tool": "db_delete", "args": { "key": "aniversario_servidor" } }'
     };
     for (const [name, example] of Object.entries(examplesMap)) {
         if (!disabled.includes(name)) {
             if (name === 'db_read' && !readAllowed) continue;
             if (name === 'db_write' && !writeAllowed) continue;
+            if (name === 'db_edit' && !editAllowed) continue;
             if (name === 'db_delete' && !deleteAllowed) continue;
             exampleList += `\n${example}\n`;
         }
@@ -2336,6 +2342,21 @@ Utilize os dados acima recuperados do banco de dados para responder ao usuário 
                         processedResponse = `Pronto, anotei e salvei "${targetKey}" no banco de dados com sucesso.`;
                     }
                     console.log(`[AI/LLM] Resposta gerada via Tool: db_write (${duration})`);
+                }
+                if (toolData.tool === 'db_edit') {
+                    const { editDb } = require('./databaseHandler');
+                    const targetKey = toolData.args ? (toolData.args.key || toolData.args.chave) : null;
+                    const targetContent = toolData.args ? (toolData.args.content || toolData.args.conteudo || toolData.args.texto || toolData.args.data) : null;
+                    const append = Boolean(toolData.args && (toolData.args.append || toolData.args.adicionar || toolData.args.acrescentar));
+                    const targetGuildId = options.guildId || guildId;
+                    const isOwner = config.isOwner(userId);
+                    const editResult = editDb(targetKey, targetContent, { append }, targetGuildId, isOwner);
+                    if (!editResult.success) {
+                        processedResponse = editResult.message || 'Não foi possível editar essa informação no banco.';
+                    } else {
+                        processedResponse = `Pronto, atualizei o registro "${targetKey}" no banco de dados com sucesso.`;
+                    }
+                    console.log(`[AI/LLM] Resposta gerada via Tool: db_edit (${duration})`);
                 }
                 if (toolData.tool === 'db_delete') {
                     const { deleteDb } = require('./databaseHandler');

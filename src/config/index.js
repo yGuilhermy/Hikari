@@ -20,6 +20,7 @@ const defaultValues = {
     sendEnvironmentInfo: true,
     aiDbReadEnabled: true,
     aiDbWriteEnabled: true,
+    aiDbEditEnabled: true,
     aiDbDeleteEnabled: true,
     stabilityApiKeys: [],
     geminiApiKeys: [],
@@ -80,6 +81,7 @@ const envMap = {
     SYSTEM_PROMPT: 'systemPrompt',
     AI_DB_READ: 'aiDbReadEnabled',
     AI_DB_WRITE: 'aiDbWriteEnabled',
+    AI_DB_EDIT: 'aiDbEditEnabled',
     AI_DB_DELETE: 'aiDbDeleteEnabled'
 };
 
@@ -138,7 +140,7 @@ for (const envKey of Object.keys(envMap)) {
             parsedVal = envVal.split(' ').map(f => f.trim()).filter(f => f);
         } else if (['requireTos', 'localLlmEnabled'].includes(configKey)) {
             parsedVal = envVal === 'true';
-        } else if (['saveHistory', 'defaultAutoMod', 'sendEnvironmentInfo', 'aiDbReadEnabled', 'aiDbWriteEnabled', 'aiDbDeleteEnabled'].includes(configKey)) {
+        } else if (['saveHistory', 'defaultAutoMod', 'sendEnvironmentInfo', 'aiDbReadEnabled', 'aiDbWriteEnabled', 'aiDbEditEnabled', 'aiDbDeleteEnabled'].includes(configKey)) {
             parsedVal = envVal !== 'false';
         } else if (configKey === 'automodMode') {
             parsedVal = ['off', 'mcp', 'trigger', 'both'].includes(envVal) ? envVal : 'both';
