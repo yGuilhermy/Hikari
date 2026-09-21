@@ -2312,11 +2312,14 @@ Utilize os dados acima recuperados do banco de dados para responder ao usuário 
                                 skipLocal: options.skipLocal
                             });
                         }
-                    }
-                    if (modelFooter) {
-                        processedResponse += `${modelFooter} | ⏱️ ${duration}`;
-                    } else {
-                        processedResponse += `\n-# ⏱️ ${duration}`;
+                        const dbFooter = '💾 Database';
+                        if (/\n-# /.test(processedResponse)) {
+                            processedResponse += ` | ${dbFooter}`;
+                        } else if (modelFooter) {
+                            processedResponse += `${modelFooter} | ${dbFooter}`;
+                        } else {
+                            processedResponse += `\n-# ${dbFooter}`;
+                        }
                     }
                     console.log(`[AI/LLM] Resposta gerada via Tool: db_read (${duration})`);
                 }
@@ -2332,11 +2335,6 @@ Utilize os dados acima recuperados do banco de dados para responder ao usuário 
                     } else {
                         processedResponse = `Pronto, anotei e salvei "${targetKey}" no banco de dados com sucesso.`;
                     }
-                    if (modelFooter) {
-                        processedResponse += `${modelFooter} | ⏱️ ${duration}`;
-                    } else {
-                        processedResponse += `\n-# ⏱️ ${duration}`;
-                    }
                     console.log(`[AI/LLM] Resposta gerada via Tool: db_write (${duration})`);
                 }
                 if (toolData.tool === 'db_delete') {
@@ -2349,11 +2347,6 @@ Utilize os dados acima recuperados do banco de dados para responder ao usuário 
                         processedResponse = deleteResult.message || 'Não foi possível excluir esse registro.';
                     } else {
                         processedResponse = `Feito, o registro "${targetKey}" foi removido do banco de dados.`;
-                    }
-                    if (modelFooter) {
-                        processedResponse += `${modelFooter} | ⏱️ ${duration}`;
-                    } else {
-                        processedResponse += `\n-# ⏱️ ${duration}`;
                     }
                     console.log(`[AI/LLM] Resposta gerada via Tool: db_delete (${duration})`);
                 }
