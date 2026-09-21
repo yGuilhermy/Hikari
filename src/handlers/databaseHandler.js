@@ -112,6 +112,25 @@ function canDelete(guildId = null) {
     return true;
 }
 
+function findMatchingKey(key) {
+    const cleanKey = String(key || '').trim().toLowerCase();
+    if (!cleanKey) return null;
+    if (database[cleanKey]) return cleanKey;
+    const keys = Object.keys(database);
+    const directMatch = keys.find(k => k.toLowerCase() === cleanKey);
+    if (directMatch) return directMatch;
+    const partialMatch = keys.find(k => k.toLowerCase().includes(cleanKey) || cleanKey.includes(k.toLowerCase()));
+    if (partialMatch) return partialMatch;
+    const contentMatch = keys.find(k => {
+        const item = database[k];
+        if (!item) return false;
+        const text = typeof item === 'object' ? (item.content || item.resumo || JSON.stringify(item)).toLowerCase() : String(item).toLowerCase();
+        return text.includes(cleanKey);
+    });
+    if (contentMatch) return contentMatch;
+    return null;
+}
+
 function readDb(key, guildId = null) {
     if (!canRead(guildId)) {
         return {
@@ -122,14 +141,17 @@ function readDb(key, guildId = null) {
     }
     loadDatabase();
     const cleanKey = String(key || '').trim().toLowerCase();
-    const entry = database[cleanKey];
-    if (!entry) {
+    const resolvedKey = findMatchingKey(cleanKey);
+    if (!resolvedKey || !database[resolvedKey]) {
         return {
             success: false,
             error: 'not_found',
+            key: cleanKey,
+            availableKeys: Object.keys(database),
             message: `Nenhum dado encontrado para a chave "${key}".`
         };
     }
+    const entry = database[resolvedKey];
     let formatted = '';
     if (typeof entry === 'object') {
         if (entry.resumo) {
@@ -145,7 +167,7 @@ function readDb(key, guildId = null) {
     }
     return {
         success: true,
-        key: cleanKey,
+        key: resolvedKey,
         data: entry,
         formatted,
         isProtected: Boolean(entry && entry.protected)
@@ -218,19 +240,20 @@ function editDb(key, newContent, options = {}, guildId = null, isOwner = false) 
             message: 'Chave inválida fornecida para edição.'
         };
     }
-    const existing = database[cleanKey];
-    if (!existing) {
+    const resolvedKey = findMatchingKey(cleanKey);
+    if (!resolvedKey || !database[resolvedKey]) {
         return {
             success: false,
             error: 'not_found',
             message: `O registro "${cleanKey}" não foi encontrado no banco de dados para ser editado. Utilize db_write se desejar criar uma nova anotação.`
         };
     }
+    const existing = database[resolvedKey];
     if (existing.protected && !isOwner) {
         return {
             success: false,
             error: 'protected',
-            message: `O registro "${cleanKey}" é protegido pelo criador e não pode ser alterado.`
+            message: `O registro "${resolvedKey}" é protegido pelo criador e não pode ser alterado.`
         };
     }
 
@@ -264,13 +287,13 @@ function editDb(key, newContent, options = {}, guildId = null, isOwner = false) 
         };
     }
 
-    database[cleanKey] = recordToSave;
+    database[resolvedKey] = recordToSave;
     saveDatabase();
     return {
         success: true,
-        key: cleanKey,
+        key: resolvedKey,
         data: recordToSave,
-        message: `Registro "${cleanKey}" atualizado com sucesso no banco de dados.`
+        message: `Registro "${resolvedKey}" atualizado com sucesso no banco de dados.`
     };
 }
 
@@ -284,27 +307,28 @@ function deleteDb(key, guildId = null, isOwner = false) {
     }
     loadDatabase();
     const cleanKey = String(key || '').trim().toLowerCase();
-    const existing = database[cleanKey];
-    if (!existing) {
+    const resolvedKey = findMatchingKey(cleanKey);
+    if (!resolvedKey || !database[resolvedKey]) {
         return {
             success: false,
             error: 'not_found',
             message: `Registro "${cleanKey}" não encontrado para exclusão.`
         };
     }
+    const existing = database[resolvedKey];
     if (existing.protected && !isOwner) {
         return {
             success: false,
             error: 'protected',
-            message: `O registro "${cleanKey}" é protegido pelo criador e não pode ser excluído.`
+            message: `O registro "${resolvedKey}" é protegido pelo criador e não pode ser excluído.`
         };
     }
-    delete database[cleanKey];
+    delete database[resolvedKey];
     saveDatabase();
     return {
         success: true,
-        key: cleanKey,
-        message: `Registro "${cleanKey}" excluído com sucesso.`
+        key: resolvedKey,
+        message: `Registro "${resolvedKey}" excluído com sucesso.`
     };
 }
 
@@ -349,6 +373,7 @@ module.exports = {
     canWrite,
     canEdit,
     canDelete,
+    findMatchingKey,
     readDb,
     writeDb,
     editDb,

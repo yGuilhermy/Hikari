@@ -2281,9 +2281,39 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                     const { readDb } = require('./databaseHandler');
                     const targetKey = (toolData.args && toolData.args.key) ? toolData.args.key : 'creator_info';
                     const targetGuildId = options.guildId || guildId;
-                    const dbResult = readDb(targetKey, targetGuildId);
                     if (!dbResult.success) {
-                        processedResponse = dbResult.message || `Não consegui acessar os dados de "${targetKey}".`;
+                        if (dbResult.error === 'disabled') {
+                            processedResponse = dbResult.message || 'A leitura do banco de dados está desativada no momento.';
+                        } else {
+                            const available = dbResult.availableKeys && dbResult.availableKeys.length > 0
+                                ? `Tópicos disponíveis no banco: ${dbResult.availableKeys.filter(k => k !== 'creator_info').join(', ') || 'nenhum'}`
+                                : 'Banco de dados atualmente sem anotações adicionais.';
+                            const notFoundPrompt = `[CONSULTA AO BANCO DE DADOS INTERNO]:
+Chave pesquisada: "${targetKey}"
+Resultado: Nenhum dado ou anotação encontrada com esse nome no banco de dados.
+${available}
+
+[INSTRUÇÃO CRÍTICA]:
+O usuário perguntou: "${prompt}"
+Você consultou seu banco de dados interno procurando por "${targetKey}", mas não encontrou nada salvo sobre esse assunto.
+Formule a sua resposta final diretamente para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; SEM EMOJIS; sem ser robótica; nunca repita a fala do usuário).
+Diga de forma humana e descontraída que você procurou no seu banco de dados/anotações mas não achou nada salvo sobre isso (pode perguntar se ele quer que você anote, ou se ele se referia a outro tópico).
+Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque tags de código nem IDs numéricos.`;
+                            processedResponse = await generateResponse(notFoundPrompt, channelId, {
+                                allowSearch: false,
+                                disableTools: true,
+                                guildId: targetGuildId,
+                                skipLocal: options.skipLocal
+                            });
+                            const dbFooter = '💾 Database';
+                            if (/\n-# /.test(processedResponse)) {
+                                processedResponse += ` | ${dbFooter}`;
+                            } else if (modelFooter) {
+                                processedResponse += `${modelFooter} | ${dbFooter}`;
+                            } else {
+                                processedResponse += `\n-# ${dbFooter}`;
+                            }
+                        }
                     } else {
                         const isCreatorKey = String(targetKey).toLowerCase() === 'creator_info' || String(targetKey).toLowerCase().includes('criador');
                         if (isCreatorKey) {
