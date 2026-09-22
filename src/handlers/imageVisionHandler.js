@@ -77,6 +77,16 @@ async function fetchImageBuffer(url) {
     return Buffer.from(response.data);
 }
 
+const VISION_MODELS = [
+    'gemini-2.5-flash-lite',
+    'gemini-3.1-flash-lite',
+    'gemini-3.5-flash-lite',
+    'gemini-3-flash-preview',
+    'gemini-2.5-flash',
+    config.geminiModel,
+    config.geminiModelFallback
+].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
+
 async function describeWithGemini(buffer, mimeType) {
     const keys = config.geminiApiKeys || [];
     if (!keys.length) {
@@ -85,13 +95,55 @@ async function describeWithGemini(buffer, mimeType) {
     }
 
     const base64Data = buffer.toString('base64');
-    const promptText = 'Descreva brevemente esta imagem em português em 2 a 3 frases objetivas. Se for um print, documento ou imagem contendo texto ou código relevante, transcreva as partes mais importantes, para memes descreva o meme em até 5 frases. Seja conciso, direto e natural.';
+    const promptText = 'Analise e descreva detalhadamente esta imagem em português com riqueza de detalhes: identifique o sujeito principal, cenário, cores, iluminação, objetos secundários, ações, estilo visual e ambientação. Se houver textos, placas, documentos, prints, código ou elementos gráficos, transcreva ou resuma com precisão o conteúdo textual. Se for um meme, anime ou jogo, identifique o contexto, personagens e a piada/situação com clareza. Seja completo, descritivo e natural.';
 
     for (let i = 0; i < keys.length; i++) {
         const key = keys[i];
+        for (const model of VISION_MODELS) {
+            try {
+                const nativeUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+                const payload = {
+                    contents: [{
+                        parts: [
+                            { text: promptText },
+                            { inlineData: { mimeType, data: base64Data } }
+                        ]
+                    }],
+                    generationConfig: {
+                        maxOutputTokens: 2000,
+                        temperature: 0.3
+                    }
+                };
+
+                const response = await axios.post(nativeUrl, payload, {
+                    headers: { 'Content-Type': 'application/json' },
+                    timeout: 20000
+                });
+
+                const candidate = response.data?.candidates?.[0];
+                const text = candidate?.content?.parts?.[0]?.text;
+                if (typeof text === 'string' && text.trim().length > 10) {
+                    const cleaned = text.trim().replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+                    console.log(`[Vision] Imagem descrita com sucesso via chave ${i + 1}/${keys.length} (${model}).`);
+                    return cleaned;
+                }
+            } catch (err) {
+                const status = err.response?.status;
+                const errMsg = err.response?.data?.error?.message || err.message;
+                if (status === 404) {
+                    continue;
+                }
+                if (status === 429) {
+                    console.warn(`[Vision] Cota excedida na chave ${i + 1}/${keys.length} (${model}): ${errMsg}`);
+                    break;
+                }
+                console.warn(`[Vision] Falha na chave ${i + 1}/${keys.length} (${model}):`, errMsg);
+            }
+        }
+
         try {
-            const payload = {
-                model: 'gemini-2.5-flash',
+            const compatPayload = {
+                model: 'gemini-2.5-flash-lite',
                 messages: [
                     {
                         role: 'user',
@@ -106,27 +158,25 @@ async function describeWithGemini(buffer, mimeType) {
                         ]
                     }
                 ],
-                max_tokens: 350,
-                temperature: 0.2
+                max_tokens: 2000,
+                temperature: 0.3
             };
 
-            const response = await axios.post(config.geminiUrl, payload, {
+            const compatResponse = await axios.post(config.geminiUrl, compatPayload, {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${key}`
                 },
-                timeout: 15000
+                timeout: 20000
             });
 
-            const text = response.data?.choices?.[0]?.message?.content;
-            if (typeof text === 'string' && text.trim().length > 0) {
-                const cleaned = text.trim().replace(/\r?\n+/g, ' ');
-                console.log(`[Vision] Imagem descrita com sucesso via chave ${i + 1}/${keys.length}.`);
+            const text = compatResponse.data?.choices?.[0]?.message?.content;
+            if (typeof text === 'string' && text.trim().length > 10) {
+                const cleaned = text.trim().replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+                console.log(`[Vision] Imagem descrita com sucesso via fallback OpenAI na chave ${i + 1}/${keys.length}.`);
                 return cleaned;
             }
-        } catch (err) {
-            console.warn(`[Vision] Falha na chave ${i + 1}/${keys.length}:`, err.response?.data?.error?.message || err.message);
-        }
+        } catch (_) {}
     }
 
     return null;

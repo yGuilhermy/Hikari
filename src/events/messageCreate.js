@@ -59,7 +59,7 @@ async function buildMessagePrompt(message, client, options = {}) {
             content = content.replace(/^-# .*$/gm, '').replace(/🧠 \*\*Processando\.\.\.\*\*/g, '').replace(/🎙️ \*\*Gravando voz\.\.\.\*\*/g, '').trim();
         }
         if (content.trim().length === 0) continue;
-        if (content.length > 500) content = content.substring(0, 500) + '...';
+        if (content.length > 2500) content = content.substring(0, 2500) + '...';
         history.push(`${authorName}: ${content}`);
     }
     const currentDate = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
