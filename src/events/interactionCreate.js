@@ -58,6 +58,17 @@ module.exports = {
     name: 'interactionCreate',
     once: false,
     async execute(interaction, client) {
+        const { isBotPaused } = require('../handlers/ownerCommandHandler');
+        if (isBotPaused() && !config.isOwner(interaction.user.id)) {
+            if (interaction.isRepliable()) {
+                const pauseMsg = '⏸️ A Hikari está temporariamente pausada pelo proprietário para manutenção.';
+                if (interaction.deferred || interaction.replied) {
+                    return interaction.editReply({ content: pauseMsg }).catch(() => {});
+                }
+                return interaction.reply({ content: pauseMsg, ephemeral: true }).catch(() => {});
+            }
+            return;
+        }
         if (interaction.guildId) {
             const isWhitelisted = config.isAutomodWhitelisted(interaction.user.id) || config.isOwner(interaction.user.id);
             if (!isWhitelisted) {

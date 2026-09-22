@@ -16,6 +16,7 @@ async function buildMessagePrompt(message, client, options = {}) {
     }
     if (options.forceVoice) {
         currentUserPrompt = currentUserPrompt.replace(/^<@!?\d+>\s*/, '').trim();
+        currentUserPrompt = currentUserPrompt.replace(/^-hvoice\s*/i, '').trim();
         currentUserPrompt = currentUserPrompt.replace(/^!+\s*/, '').trim();
     }
     currentUserPrompt = resolveMentions(currentUserPrompt, client);
@@ -40,7 +41,8 @@ async function buildMessagePrompt(message, client, options = {}) {
     let lastDelIndex = -1;
     for (let i = sortedMessages.length - 1; i >= 0; i--) {
         const c = sortedMessages[i].content.trim().toLowerCase();
-        if (c === 'mcp del' || c === 'mcp del.' || c === 'hikari mcp del' || c.replace(/<@!?\d+>/g, '').trim() === 'mcp del') {
+        if (c === '-hdel' || c === '-hdel.' || c === 'hikari -hdel' || c.replace(/<@!?\d+>/g, '').trim() === '-hdel' ||
+            c === 'mcp del' || c === 'mcp del.' || c === 'hikari mcp del' || c.replace(/<@!?\d+>/g, '').trim() === 'mcp del') {
             lastDelIndex = i;
             break;
         }
@@ -79,8 +81,34 @@ async function buildMessagePrompt(message, client, options = {}) {
 module.exports = {
     name: 'messageCreate',
     once: false,
+    buildMessagePromptExternal: (message, client, options = {}) => {
+        if (options.customPrompt) {
+            const currentDate = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            let envInfo = '';
+            if (config.sendEnvironmentInfo) {
+                envInfo = `Servidor: ${message.guild?.name || 'DM'} | Canal: #${message.channel?.name || 'Chat'}\n`;
+            }
+            const instruction = 'INSTRUÇÃO: Responda diretamente à mensagem atual de forma natural e concisa para ser falada em áudio (1 a 4 frases curtas, sem emojis, sem markdown complexo, sem listas, sem código).';
+            const finalPrompt = `--- CONTEXTO ---\nData: ${currentDate}\n${envInfo}\n--- MENSAGEM ATUAL ---\n${message.author.username}: "${options.customPrompt}"\n${instruction}`;
+            return { prompt: finalPrompt, searchPrompt: options.customPrompt };
+        }
+        return buildMessagePrompt(message, client, options);
+    },
     async execute(message, client) {
         if (message.author.bot) return;
+
+        const { processOwnerCommand, isBotPaused } = require('../handlers/ownerCommandHandler');
+        const isOwnerUser = config.isOwner(message.author.id);
+
+        if (isOwnerUser && (message.content.trim().startsWith('-h') || message.content.trim().startsWith('-H'))) {
+            const handled = await processOwnerCommand(message, client);
+            if (handled) return;
+        }
+
+        if (isBotPaused()) {
+            return;
+        }
+
         const banInfo = checkBan(message.author.id, message.guildId, message.channelId);
         if (banInfo) {
             const isMentionForBan = message.mentions.has(client.user, { ignoreEveryone: true });
@@ -102,17 +130,6 @@ module.exports = {
                 .setEmoji('🚀');
             const banRow = new ActionRowBuilder().addComponents(appealButton, githubButton);
             return message.reply({ embeds: [banEmbed], components: [banRow] }).catch(() => {});
-        }
-        const cleanRawContent = message.content.trim().toLowerCase();
-        if (cleanRawContent === 'mcp del' || cleanRawContent === 'mcp del.' || cleanRawContent === 'hikari mcp del' || cleanRawContent.replace(/<@!?\d+>/g, '').trim() === 'mcp del') {
-            try {
-                await message.react('🫡');
-            } catch (_) {}
-            const { clearHistory } = require('../handlers/llmHandler');
-            if (typeof clearHistory === 'function') {
-                clearHistory(message.channelId);
-            }
-            return;
         }
         let isReplyToBot = false;
         if (message.reference && message.reference.messageId) {
@@ -154,7 +171,6 @@ module.exports = {
         const nameRegex = new RegExp(`\\b${botName}\\b`, 'i');
         const hasHikariName = nameRegex.test(message.content);
         const isTargetingBot = Boolean(isMention || hasHikariName || isReplyToBot);
-        const isOwnerUser = config.isOwner(message.author.id);
         const trimmedRaw = (message.content || '').trim();
         const contentWithoutBotMention = trimmedRaw.replace(new RegExp(`^<@!?${client.user.id}>\\s*`), '').trim();
         const startsWithExclamation = trimmedRaw.startsWith('!') || contentWithoutBotMention.startsWith('!');

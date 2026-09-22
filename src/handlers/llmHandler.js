@@ -394,6 +394,25 @@ const processingQueue = [];
 let isProcessing = false;
 let onQueueUpdateCallback = null;
 let discordClient = null;
+let currentCancelTokenSource = null;
+
+function clearProcessingQueue() {
+    const count = processingQueue.length;
+    processingQueue.length = 0;
+    if (onQueueUpdateCallback) {
+        onQueueUpdateCallback(0);
+    }
+    return count;
+}
+
+function abortCurrentGeneration() {
+    if (currentCancelTokenSource) {
+        try {
+            currentCancelTokenSource.cancel('Operacao abortada pelo comando -hstop.');
+        } catch (_) {}
+        currentCancelTokenSource = null;
+    }
+}
 const conversationHistory = {};
 const lastModelByChannel = {};
 const MAX_HISTORY = 10;
@@ -1158,7 +1177,8 @@ async function tryGemini(prompt, systemPrompt, options = {}) {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${currentKey}`
                     },
-                    timeout: providerSettings.gemini.timeout
+                    timeout: providerSettings.gemini.timeout,
+                    cancelToken: currentCancelTokenSource?.token
                 });
                 const choice = response.data?.choices?.[0];
                 if (choice) {
@@ -1213,6 +1233,7 @@ async function tryGemini(prompt, systemPrompt, options = {}) {
                     }
                 }
             } catch (error) {
+                if (axios.isCancel(error)) throw error;
                 const status = error.response ? error.response.status : 'Unknown';
                 const msg = error.response?.data?.error?.message || error.message;
                 console.warn(`[Gemini] Falha na chave ${i + 1} com o modelo ${modelName} (Status: ${status}): ${msg}`);
@@ -1502,6 +1523,13 @@ ${prompt}
     return `⚡ **Limites de Processamento Atingidos:** Todos os nossos provedores de IA atingiram a cota temporária de tokens ou estão temporariamente indisponíveis. Tente interagir novamente daqui algumas horas! ✨`;
 }
 async function processQueue() {
+    const { isBotPaused } = require('./ownerCommandHandler');
+    if (isBotPaused()) {
+        processingQueue.length = 0;
+        isProcessing = false;
+        notifyQueueUpdate();
+        return;
+    }
     if (processingQueue.length === 0) {
         isProcessing = false;
         notifyQueueUpdate();
@@ -3473,6 +3501,10 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
         }
 
     } catch (error) {
+        if (axios.isCancel(error)) {
+            console.warn('[ProcessQueue] Processo abortado em tempo real por -hstop.');
+            return;
+        }
         console.error('Erro ao processar fila:', error.response ? error.response.data : error.message);
         addToHistory(channelId, 'assistant', 'erro da ia');
         await unifiedReply('⚠️ Desculpe, tive um erro ao processar seu pedido. Tente novamente.');
@@ -3481,6 +3513,11 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
     }
 }
 async function addToQueue(prompt, interaction, type, options = {}) {
+    const { isBotPaused } = require('./ownerCommandHandler');
+    const senderId = (type === 'mention' && interaction?.author?.id) || interaction?.user?.id;
+    if (isBotPaused() && !config.isOwner(senderId)) {
+        return;
+    }
     let userTag, userId;
     const channelId = interaction.channelId;
     if (type === 'mention') {
@@ -3583,4 +3620,6 @@ module.exports = {
     setServerUpdateChannel,
     setServerLastChannel,
     clearHistory,
+    clearProcessingQueue,
+    abortCurrentGeneration,
 };

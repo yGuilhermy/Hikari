@@ -589,6 +589,12 @@ function isCompressionActive() {
     return isCompressing;
 }
 
+function unlockAllUsers() {
+    const count = activeUserProcesses.size;
+    activeUserProcesses.clear();
+    return count;
+}
+
 module.exports = {
     downloadAudio,
     downloadVideo,
@@ -597,6 +603,7 @@ module.exports = {
     isUserBusy,
     lockUser,
     unlockUser,
+    unlockAllUsers,
     canBypass,
     storeVideoForCompression,
     getPendingVideo,

@@ -333,6 +333,9 @@ async function processVoiceTranscription(userId, text, stateData, client) {
         prompt = 'Olá Hikari';
     }
 
+    const { isBotPaused } = require('./ownerCommandHandler');
+    if (isBotPaused()) return;
+
     const textChannel = client.channels.cache.get(stateData.textChannelId);
     if (!textChannel) return;
 
