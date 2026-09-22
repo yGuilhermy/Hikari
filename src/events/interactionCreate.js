@@ -463,8 +463,15 @@ module.exports = {
         if (commandName === 'ia_chat') {
             const prompt = interaction.options.getString('prompt');
             const visibility = interaction.options.getString('visibilidade');
+            const voice = interaction.options.getBoolean('voice');
             const isPublic = visibility === 'public';
-            addToQueue(prompt, interaction, 'slash', { allowSearch: false, public: isPublic, guildId: interaction.guildId });
+            addToQueue(prompt, interaction, 'slash', {
+                allowSearch: false,
+                public: isPublic,
+                guildId: interaction.guildId,
+                voice: typeof voice === 'boolean' ? voice : undefined,
+                forceVoice: voice === true
+            });
         } else if (commandName === 'config_servidor') {
             return await handleServerAdminCommand(interaction);
         } else if (commandName === 'ia_ferramentas') {

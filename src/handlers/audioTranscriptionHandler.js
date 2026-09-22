@@ -170,6 +170,16 @@ async function transcribeVoiceAttachment(attachmentId, attachmentUrl) {
     return await task;
 }
 
+function registerBotAudio(id, text) {
+    if (!id || !text) return;
+    transcriptionCache.set(String(id), String(text).trim());
+    if (transcriptionCache.size > MAX_CACHE_ENTRIES) {
+        const firstKey = transcriptionCache.keys().next().value;
+        transcriptionCache.delete(firstKey);
+    }
+    saveCache();
+}
+
 async function resolveMessageAudioContent(msg) {
     if (!msg) return '';
     let baseText = (msg.content || '').trim();
@@ -177,6 +187,7 @@ async function resolveMessageAudioContent(msg) {
         return baseText;
     }
 
+    const isBotMsg = Boolean(msg.author && (msg.author.id === msg.client?.user?.id || msg.author.bot));
     const audioItems = [];
     for (const [, attachment] of msg.attachments) {
         if (!isAudioAttachment(attachment)) continue;
@@ -187,18 +198,20 @@ async function resolveMessageAudioContent(msg) {
             /\b(áudio|audio|gravação|gravacao|voz|escuta|ouve|transcreva|ouça)\b/i.test(baseText);
         if (isVoice) {
             const cacheKey = attachment.id || msg.id;
-            let transcribedText = transcriptionCache.get(cacheKey);
-            if (!transcribedText) {
+            let transcribedText = transcriptionCache.get(cacheKey) || (msg.id ? transcriptionCache.get(msg.id) : null);
+            if (!transcribedText && !isBotMsg) {
                 transcribedText = await transcribeVoiceAttachment(cacheKey, attachment.url);
+            } else if (!transcribedText && isBotMsg) {
+                transcribedText = baseText || 'áudio da Hikari';
             }
             if (transcribedText) {
-                audioItems.push(`audio transcrito: ${transcribedText}`);
+                audioItems.push(`[audio transcrito]: ${transcribedText}`);
             } else {
-                audioItems.push('audio de voz inaudível');
+                audioItems.push('[audio inaudível]');
             }
         } else {
             const fileName = attachment.name || 'musica.mp3';
-            audioItems.push(`"${fileName}"`);
+            audioItems.push(`[arquivo de áudio]: "${fileName}"`);
         }
     }
 
@@ -206,11 +219,11 @@ async function resolveMessageAudioContent(msg) {
         return baseText;
     }
 
-    const audioString = audioItems.join(' | ');
+    const audioString = audioItems.join(' ');
     if (!baseText) {
         return audioString;
     }
-    return `${baseText} (${audioString})`;
+    return `${baseText} ${audioString}`;
 }
 
 module.exports = {
@@ -218,6 +231,7 @@ module.exports = {
     isAudioAttachment,
     resolveMessageAudioContent,
     transcribeVoiceAttachment,
+    registerBotAudio,
     loadCache
 };
 

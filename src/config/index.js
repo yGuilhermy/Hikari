@@ -22,6 +22,15 @@ const defaultValues = {
     aiDbWriteEnabled: true,
     aiDbEditEnabled: true,
     aiDbDeleteEnabled: true,
+    voiceChatEnabled: true,
+    voiceSpontaneousEnabled: true,
+    voiceSpontaneousChance: 5,
+    voiceCooldownMinutes: 15,
+    voiceMaxChars: 600,
+    voiceSpeed: 1.15,
+    voiceTemperature: 0.65,
+    modalTtsEndpoint: '',
+    hfTtsEndpoint: '',
     stabilityApiKeys: [],
     geminiApiKeys: [],
     hfToken: '',
@@ -82,7 +91,16 @@ const envMap = {
     AI_DB_READ: 'aiDbReadEnabled',
     AI_DB_WRITE: 'aiDbWriteEnabled',
     AI_DB_EDIT: 'aiDbEditEnabled',
-    AI_DB_DELETE: 'aiDbDeleteEnabled'
+    AI_DB_DELETE: 'aiDbDeleteEnabled',
+    MODAL_TTS_ENDPOINT: 'modalTtsEndpoint',
+    HF_TTS_ENDPOINT: 'hfTtsEndpoint',
+    VOICE_CHAT_ENABLED: 'voiceChatEnabled',
+    VOICE_SPONTANEOUS_ENABLED: 'voiceSpontaneousEnabled',
+    VOICE_SPONTANEOUS_CHANCE: 'voiceSpontaneousChance',
+    VOICE_COOLDOWN_MINUTES: 'voiceCooldownMinutes',
+    VOICE_MAX_CHARS: 'voiceMaxChars',
+    VOICE_SPEED: 'voiceSpeed',
+    VOICE_TEMPERATURE: 'voiceTemperature'
 };
 
 const placeholders = [
@@ -138,10 +156,12 @@ for (const envKey of Object.keys(envMap)) {
             parsedVal = envVal.split(',').map(id => id.trim()).filter(id => id);
         } else if (configKey === 'ytdlpExtraFlags') {
             parsedVal = envVal.split(' ').map(f => f.trim()).filter(f => f);
-        } else if (['requireTos', 'localLlmEnabled'].includes(configKey)) {
+        } else if (['requireTos', 'localLlmEnabled', 'voiceChatEnabled', 'voiceSpontaneousEnabled'].includes(configKey)) {
             parsedVal = envVal === 'true';
         } else if (['saveHistory', 'defaultAutoMod', 'sendEnvironmentInfo', 'aiDbReadEnabled', 'aiDbWriteEnabled', 'aiDbEditEnabled', 'aiDbDeleteEnabled'].includes(configKey)) {
             parsedVal = envVal !== 'false';
+        } else if (['voiceSpontaneousChance', 'voiceCooldownMinutes', 'voiceMaxChars', 'voiceSpeed', 'voiceTemperature'].includes(configKey)) {
+            parsedVal = Number(envVal) || defaultValues[configKey];
         } else if (configKey === 'automodMode') {
             parsedVal = ['off', 'mcp', 'trigger', 'both'].includes(envVal) ? envVal : 'both';
         } else if (configKey === 'ytdlpCookiesPath') {

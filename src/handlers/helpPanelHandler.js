@@ -8,14 +8,16 @@ const COMMAND_DETAILS = {
         category: '🧠 Inteligência Artificial',
         permission: '👥 Todos os Usuários',
         description: 'Inicia uma conversa ou faz uma pergunta direta ao cérebro de IA da Hikari.',
-        syntax: '/ia_chat prompt:<texto> [visibilidade:Publico|Privado]',
+        syntax: '/ia_chat prompt:<texto> [visibilidade:Publico|Privado] [voice:True|False]',
         options: [
             { name: 'prompt', desc: 'Pergunta, dúvida, instrução ou conversa desejada.', required: true },
-            { name: 'visibilidade', desc: 'Publico (todos veem no chat) ou Privado (apenas você vê).', required: false }
+            { name: 'visibilidade', desc: 'Publico (todos veem no chat) ou Privado (apenas você vê).', required: false },
+            { name: 'voice', desc: 'True (responde em mensagem de voz oficial) ou False (força texto).', required: false }
         ],
         examples: [
             '/ia_chat prompt: Me explique como funciona a fotossíntese de forma simples',
-            '/ia_chat prompt: Qual a diferença entre Docker e Máquina Virtual? visibilidade:Privado'
+            '/ia_chat prompt: Qual a diferença entre Docker e Máquina Virtual? visibilidade:Privado',
+            '/ia_chat prompt: Me conta uma curiosidade voice:True'
         ]
     },
     'config_servidor': {

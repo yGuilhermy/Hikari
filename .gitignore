@@ -4,7 +4,8 @@ package-lock.json
 
 # 🔑 Segredos e Configurações de Usuário
 .env
-.env.local
+.env.*
+!.env_example
 
 # 🗄️ Dados e Persistência (Ignorar tudo exceto estrutura base)
 src/data/*
@@ -47,4 +48,31 @@ notas-tecnicas.md
 .agents/
 backups/
 *.zip
+*.tar.gz
+*.7z
+*.rar
 hikari temp/
+*.pth
+*.pt
+*.bin
+*.safetensors
+*.onnx
+*.ckpt
+*.wav
+*.ogg
+*.mp3
+*.flac
+*.m4a
+*.opus
+*.aac
+*.wma
+reference_audios/
+**/reference_audios/**
+models/
+**/models/**
+hikari_voice_export/
+**/hikari_voice_export/**
+voice_models/
+voices/
+voice/
+scratch_voice*

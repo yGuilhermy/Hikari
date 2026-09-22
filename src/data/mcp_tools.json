@@ -434,7 +434,7 @@
     "type": "function",
     "function": {
       "name": "db_read",
-      "description": "Consulta dados e memórias no banco de dados interno sob demanda. Use SEMPRE que o usuário perguntar sobre o seu criador (key: 'creator_info'), quem te criou, sobre a própria Hikari (aparência física, capacidades, personalidade, ou para gerar imagem sua, key: 'hikari_info'), ou solicitar informações sobre tópicos específicos salvos anteriormente. Retorna os dados armazenados para que você possa responder com precisão. CRÍTICO - SEGURANÇA E PRIVACIDADE: É estritamente proibido despejar ou listar 'todos os dados', 'tudo do banco' ou 'todas as anotações' quando é de forma generica sem um topico específico. Se o usuário pedir para listar todo o banco de dados em massa, recuse educadamente na sua fala explicando que não pode expor tudo por segurança e privacidade, e peça para ele especificar o tópico desejado.",
+      "description": "Consulta dados e memórias no banco de dados interno sob demanda. Use SEMPRE que o usuário perguntar sobre o seu criador (key: 'creator_info'), quem te criou, sobre a própria Hikari (aparência física, capacidades, personalidade, ou para gerar imagem sua, key: 'hikari_info'), ou solicitar informações sobre tópicos específicos salvos anteriormente. Se o usuário pedir para você falar em áudio sobre o criador ou sobre você mesma, consulte SEMPRE o banco via db_read primeiro para obter os fatos antes de gerar a voz. Retorna os dados armazenados para que você possa responder com precisão. CRÍTICO - SEGURANÇA E PRIVACIDADE: É estritamente proibido despejar ou listar 'todos os dados', 'tudo do banco' ou 'todas as anotações' quando é de forma generica sem um topico específico. Se o usuário pedir para listar todo o banco de dados em massa, recuse educadamente na sua fala explicando que não pode expor tudo por segurança e privacidade, e peça para ele especificar o tópico desejado.",
       "textual_triggers": "Gatilhos: \"quem é o seu criador e me fale sobre ele\", \"quem é seu criador?\", \"qual sua aparência física?\", \"como você é?\", \"o que você pode fazer?\", \"gere uma imagem sua\", \"consulte o banco sobre Y\".",
       "textual_args": "{ \"key\": \"creator_info\" }",
       "parameters": {
@@ -547,6 +547,32 @@
         },
         "required": [
           "key"
+        ]
+      }
+    }
+  },
+  {
+    "meta": {
+      "label": "🎙️ Mensagem de Voz (Microfone)",
+      "description": "Envia a resposta da Hikari como uma mensagem de voz oficial no Discord usando sua voz neural de estúdio",
+      "disableable": true
+    },
+    "type": "function",
+    "function": {
+      "name": "send_voice_note",
+      "description": "Envia uma mensagem de áudio oficial (Discord Voice Message com player de microfone e waveform) falando diretamente com o usuário com sua própria voz neural de estúdio. Use sempre que o usuário pedir para você falar, mandar um áudio, soltar a voz, responder por áudio, ou quando você mesma escolher responder falando por voz em vez de texto digitado. Se precisar de fatos sobre seu criador ou sobre você mesma, consulte antes o banco de dados via db_read para obter o contexto. Forneça em 'text' a sua fala em português, mantendo seu estilo (curto, natural, 1 a 4 frases, sem emojis, sem links, sem código).",
+      "textual_triggers": "Gatilhos: \"manda áudio\", \"fala por áudio\", \"quero ouvir sua voz\", \"grava um áudio\", \"solta a voz\", \"fala comigo por voz\".",
+      "textual_args": "{ \"text\": \"Texto conciso que a Hikari vai falar no áudio\" }",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "O texto exato e natural em português que você vai falar no áudio de voz (curto, direto, 1 a 4 frases, sem emojis e sem código)."
+          }
+        },
+        "required": [
+          "text"
         ]
       }
     }

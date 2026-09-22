@@ -12,7 +12,8 @@ Hikari is not just a chat wrapper. It is an asynchronous processing ecosystem th
 4. [🎙️ 4. Voice Assistant & DAVE Protocol (Discord Calls)](#-4-voice-assistant--dave-protocol-discord-calls)
 5. [🎙️ 5. Audio Transcription in History (Whisper On-Demand)](#-5-audio-transcription-in-history-whisper-on-demand)
 6. [💾 6. Permanent AI Database & On-Demand Memory](#-6-permanent-ai-database--on-demand-memory-zero-token-overhead)
-7. [💡 Advanced Usage Tips](#-advanced-usage-tips)
+7. [🎙️ 7. Native Voice Messages (XTTS v2)](./VOICE.md)
+8. [💡 Advanced Usage Tips](#-advanced-usage-tips)
 
 ---
 
@@ -102,6 +103,14 @@ To avoid inflating the System Prompt on every request with hundreds of static to
 - **Creator Protection (`protected: true`):** Core structural records (such as `creator_info`) are locked against modification or deletion by anyone other than the bot creator.
 - **Granular Control via Environment & Panel:** Access can be individually managed via `.env` (`AI_DB_READ`, `AI_DB_WRITE`, `AI_DB_EDIT`, `AI_DB_DELETE`) or toggled inside the Owner Config Panel (`/config`). Disabling read access automatically cascades to block write, edit, and delete operations.
 - **Open-Source Privacy:** The database file `src/data/ai_database.json` is ignored in `.gitignore`, ensuring personal notes never leak to public repositories.
+
+---
+
+## 🎙️ 7. Native Voice Messages (XTTS v2 Neural Voice)
+
+Hikari supports sending official voice notes in Discord chat with the native microphone player (`flags: 8192`), interactive waveform scrubber, and neural voice synthesis powered by XTTS v2.
+
+- **Full Documentation & Training/Deploy Tutorial**: Check out the dedicated guide at [🎙️ Hikari Neural Voice System](./VOICE.md).
 
 ---
 

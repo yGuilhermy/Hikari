@@ -23,6 +23,7 @@ const { handleMusicSearchAndDownload } = require('./deezerMusicHandler');
 require('dotenv').config();
 const config = require('../config');
 const geminiCooldowns = {};
+const channelVoiceCooldowns = new Map();
 const mcpToolsPath = path.join(__dirname, '../data/mcp_tools.json');
 let ALL_MCP_TOOLS = [];
 function loadMcpTools() {
@@ -145,7 +146,7 @@ function sanitizeToolsForApi(tools) {
     }));
 }
 
-function buildToolsPayload(guildId, userId = null) {
+function buildToolsPayload(guildId, userId = null, options = {}) {
     const disabled = getDisabledTools(guildId);
     const mode = getAutoBlockMode(guildId);
     const automodActive = mode !== 'off';
@@ -157,6 +158,7 @@ function buildToolsPayload(guildId, userId = null) {
     return ALL_MCP_TOOLS
         .filter(t => !disabled.includes(t.function.name))
         .filter(t => {
+            if (t.function.name === 'send_voice_note' && (options.voice === false || config.voiceChatEnabled === false)) return false;
             if (t.function.name === 'db_read' && !readAllowed) return false;
             if (t.function.name === 'db_write' && !writeAllowed) return false;
             if (t.function.name === 'db_edit' && !editAllowed) return false;
@@ -177,7 +179,7 @@ function buildToolsPayload(guildId, userId = null) {
             }
         }));
 }
-function buildToolsDefinition(guildId, userId = null) {
+function buildToolsDefinition(guildId, userId = null, options = {}) {
     const disabled = getDisabledTools(guildId);
     const mode = getAutoBlockMode(guildId);
     const automodActive = mode !== 'off';
@@ -189,6 +191,7 @@ function buildToolsDefinition(guildId, userId = null) {
     const activeTools = ALL_MCP_TOOLS
         .filter(t => !disabled.includes(t.function.name))
         .filter(t => {
+            if (t.function.name === 'send_voice_note' && (options.voice === false || config.voiceChatEnabled === false)) return false;
             if (t.function.name === 'db_read' && !readAllowed) return false;
             if (t.function.name === 'db_write' && !writeAllowed) return false;
             if (t.function.name === 'db_edit' && !editAllowed) return false;
@@ -221,6 +224,7 @@ function buildToolsDefinition(guildId, userId = null) {
         check_steam:     'User: "Elden Ring ta em promo na steam?"\nResponse: { "thought": "User quer saber preço de Elden Ring.", "tool": "check_steam", "args": { "game": "Elden Ring" } }',
         convert_currency:'User: "quanto ta 50 dolares em reais?"\nResponse: { "thought": "User quer converter 50 USD para BRL.", "tool": "convert_currency", "args": { "amount": 50, "from": "USD", "to": "BRL" } }',
         get_current_music:'User: "Hikari, baixe a musica do meu status"\nResponse: { "thought": "User quer baixar música tocando no seu status.", "tool": "get_current_music", "args": { "download": true } }\nUser: "oq eu to escutando no status"\nResponse: { "thought": "User quer saber música do seu status.", "tool": "get_current_music", "args": { "download": true } }',
+        send_voice_note: 'User: "Hikari, me manda um áudio"\nResponse: { "thought": "Enviar mensagem de voz.", "tool": "send_voice_note", "args": { "text": "Oi! Tô por aqui, tudo certo por aí?" } }\nUser: "fala comigo sobre seu criador"\nResponse: { "thought": "Consultar dados do criador antes de falar.", "tool": "db_read", "args": { "key": "creator_info" } }',
         db_read:         'User: "Quem é o seu criador e me fale sobre ele"\nResponse: { "thought": "Consultar dados do criador.", "tool": "db_read", "args": { "key": "creator_info" } }\nUser: "quem te criou?"\nResponse: { "thought": "Consultar criador.", "tool": "db_read", "args": { "key": "creator_info" } }\nUser: "Como é sua aparência física?"\nResponse: { "thought": "Consultar dados da Hikari.", "tool": "db_read", "args": { "key": "hikari_info" } }\nUser: "gere uma imagem sua"\nResponse: { "thought": "Consultar aparência para gerar imagem.", "tool": "db_read", "args": { "key": "hikari_info" } }',
         db_write:        'User: "Lembre-se que o aniversário do servidor é em outubro"\nResponse: { "thought": "Salvar data do aniversário.", "tool": "db_write", "args": { "key": "aniversario_servidor", "content": "Aniversário do servidor é em outubro" } }',
         db_edit:         'User: "Mude a anotação do aniversário para 15 de outubro"\nResponse: { "thought": "Atualizar anotação.", "tool": "db_edit", "args": { "key": "aniversario_servidor", "content": "Aniversário do servidor é 15 de outubro", "append": false } }',
@@ -228,6 +232,7 @@ function buildToolsDefinition(guildId, userId = null) {
     };
     for (const [name, example] of Object.entries(examplesMap)) {
         if (!disabled.includes(name)) {
+            if (name === 'send_voice_note' && (options.voice === false || config.voiceChatEnabled === false)) continue;
             if (name === 'db_read' && !readAllowed) continue;
             if (name === 'db_write' && !writeAllowed) continue;
             if (name === 'db_edit' && !editAllowed) continue;
@@ -972,7 +977,7 @@ async function tryLocal(prompt, systemPrompt, options = {}) {
         stream: true
     };
     if (useMcp && !options.disableTools) {
-        const rawTools = options.radioMCPTools || buildToolsPayload(options.guildId || null, options.userId || null);
+        const rawTools = options.radioMCPTools || buildToolsPayload(options.guildId || null, options.userId || null, options);
         payload.tools = sanitizeToolsForApi(rawTools);
     }
     const cancelSource = axios.CancelToken.source();
@@ -1119,7 +1124,7 @@ async function tryGemini(prompt, systemPrompt, options = {}) {
                     max_tokens: providerSettings.gemini.max_tokens,
                 };
                 if (!options.disableTools) {
-                    const rawTools = options.radioMCPTools || buildToolsPayload(options.guildId || null, options.userId || null);
+                    const rawTools = options.radioMCPTools || buildToolsPayload(options.guildId || null, options.userId || null, options);
                     payload.tools = sanitizeToolsForApi(rawTools);
                 }
                 const response = await axios.post(config.geminiUrl, payload, {
@@ -1318,7 +1323,7 @@ async function generateResponse(prompt, channelId = null, options = {}) {
     ];
     const guildId = options.guildId || options.guild?.id || null;
     const serverCustomPrompt = getServerPrompt(guildId);
-    let baseSystemPrompt = (serverCustomPrompt || config.systemPrompt) + "\n[IMAGEM/VISÃO/VÍDEO]: Você possui capacidade de compreensão visual de imagens: quando usuários enviam imagens no chat, elas são automaticamente analisadas e fornecidas a você no contexto da conversa no formato [Imagem: ...]. Você pode conversar sobre elas, rir de memes, ler textos de prints e comentar o que vê. Porém, você NÃO edita imagens geradas anteriormente nem altera arquivos de imagem existentes — para novas artes, você gera do zero com a ferramenta generate_image. Caso alguém envie ou mencione vídeos ([Vídeo anexado: ...]), explique de forma natural e espontânea que você consegue ver imagens, mas ainda não consegue ver nem entender vídeos.\n[ANTI-REPETIÇÃO]: NUNCA repita a mesma frase ou resposta idêntica em mensagens consecutivas. Se já disse algo parecido antes, reformule completamente usando palavras diferentes. Varie seu vocabulário e estrutura. Respostas repetitivas são proibidas.";
+    let baseSystemPrompt = (serverCustomPrompt || config.systemPrompt) + "\n[MÍDIA/VISÃO/ÁUDIO/ARQUIVOS]: Você possui capacidade de compreensão visual e auditiva: quando usuários enviam imagens, áudios, vídeos ou arquivos no chat, eles são automaticamente analisados e fornecidos a você no contexto no formato [imagem]: ..., [audio transcrito]: ..., [vídeo anexado]: ... e [arquivo anexado]: .... Você pode conversar sobre eles, rir de memes, ler textos de prints, comentar áudios e interagir naturalmente. Porém, você NÃO edita imagens geradas anteriormente nem altera arquivos existentes — para novas artes, você gera do zero com a ferramenta generate_image. Caso alguém envie vídeos ([vídeo anexado]: ...) ou arquivos não suportados, explique de forma natural que você consegue ver imagens e ouvir áudios, mas vídeos ainda não consegue reproduzir.\n[ANTI-REPETIÇÃO]: NUNCA repita a mesma frase ou resposta idêntica em mensagens consecutivas. Se já disse algo parecido antes, reformule completamente usando palavras diferentes. Varie seu vocabulário e estrutura. Respostas repetitivas são proibidas.";
     if (config.sendEnvironmentInfo && (options.guildName || options.channelName)) {
         baseSystemPrompt += `\n[CONTEXTO DO AMBIENTE]: Você está conversando no servidor Discord "${options.guildName || 'DM'}" no canal/chat "#${options.channelName || 'Chat'}".`;
     }
@@ -1405,9 +1410,9 @@ VOCÊ DEVE ADERIR A ESSA NOVA PERSONA ACIMA DE TUDO.\n`;
                 } else if (provider.func === tryLocal && config.lmStudioApiKey) {
                     effectiveSystemPrompt += "\n[SYSTEM NOTICE]: You operate in STRICT TOOL MODE. You MUST ALWAYS call a tool.\n- If the user wants an action (search, download, help), use the specific tool.\n- For EVERYTHING ELSE (chat, math, questions), use the 'generate_reply' tool.\n- DO NOT output plain text. ALWAYS output a tool call.";
                 } else if (provider.func === tryGemini) {
-                    effectiveSystemPrompt += "\n[REGRAS DE FERRAMENTAS (TOOLS)]:\nVocê possui ferramentas poderosas. REGRA CRÍTICA DE OURO: Se o usuário pedir uma AÇÃO que pode ser feita por uma ferramenta, você DEVE chamar a ferramenta imediatamente. NUNCA responda com texto prometendo fazer a ação (ex: PROIBIDO dizer 'blz vou baixar', 'vou procurar', 'ok, buscando' quando houver uma ferramenta aplicável — isso é falso atendimento. Aja ou recuse, nunca prometa).\n- COMANDO UNIVERSAL MCP: Se o usuário citar 'mcp de [ferramenta]' ou 'mcp [ferramenta]' (ex: 'mcp de pesquisa para xxx', 'mcp de musica para xxx', 'mcp de imagem para xxx', 'mcp de jogo para xxx', ou apenas 'mcp de pesquisa' usando o contexto anterior), você DEVE OBRIGATORIAMENTE acionar a ferramenta correspondente em JSON sem hesitar. Se o usuário não fornecer argumento explícito, use o assunto da mensagem anterior como argumento.\n- Pediu para BAIXAR MÚSICA POR NOME/ARTISTA (sem URL)? → OBRIGATÓRIO chamar search_and_download_music com o nome. NUNCA diga que vai baixar sem chamar.\n- Pediu para GERAR/CRIAR/DESENHAR uma imagem? → OBRIGATÓRIO chamar generate_image. Crie um prompt detalhado e criativo mesmo se o pedido for vago. Se o usuário pedir para gerar uma imagem SUA / da Hikari (ex: 'gere uma imagem sua', 'desenhe você', 'sua foto'), chame primeiro db_read com key: 'hikari_info' para consultar sua aparência oficial antes de gerar.\n- Perguntou sobre a própria Hikari (aparência física, capacidades, personalidade)? → Chame db_read com key: 'hikari_info'.\n- Pediu para BAIXAR áudio/vídeo e deu um link URL? → Chame download_audio ou download_video.\n- Pediu para entrar na call, canal de voz ou conversar por voz? → OBRIGATÓRIO chamar join_voice_call.\n- Pediu para sair da call, canal de voz ou desconectar da voz? → OBRIGATÓRIO chamar leave_voice_call.\n- Dúvidas, perguntas sobre fatos, notícias, curiosidades ou qualquer assunto que exija conhecimento atual ou histórico? → Chame search_web imediatamente. Você NUNCA deve responder que não sabe, não pode ou não consegue ajudar; busque na internet se não tiver certeza absoluta do fato.\n- Pediu jogo/torrent ou para baixar/crackear qualquer jogo de PC? → Chame search_game obrigatoriamente.\n- Pediu preço na Steam? → Chame check_steam.\n- Pediu conversão de moeda/cotação? → Chame convert_currency.\n- Conversa casual sem ação (oi, piada, pergunta simples, pergunta sobre você)? → Responda com texto puro direto, NUNCA chame ferramenta.\n\n[ANTI-LOOP DE CONTEXTO]: O histórico da conversa pode conter chamadas de ferramenta anteriores (como downloads de música). Isso NÃO significa que você deve chamar essas ferramentas novamente. Analise APENAS a mensagem mais recente do usuário para decidir qual ação tomar.\n\n[FORMATO DA RESPOSTA]:\n- Para texto: escreva APENAS a fala final pro usuário. Sem análise interna, sem mencionar ferramentas.\n- NUNCA escreva 'tool_code', 'print()', 'default_api.' ou código na resposta.\n- NUNCA encapsule em JSON como {\"response\": \"...\"}. Texto puro sempre.\n- NUNCA exponha qual ferramenta vai usar ou seu raciocínio de decisão.\n- NUNCA repita literalmente o que o usuário acabou de dizer nem o que você disse na mensagem anterior.";
+                    effectiveSystemPrompt += "\n[REGRAS DE FERRAMENTAS (TOOLS)]:\nVocê possui ferramentas poderosas. REGRA CRÍTICA DE OURO: Se o usuário pedir uma AÇÃO que pode ser feita por uma ferramenta, você DEVE chamar a ferramenta imediatamente. NUNCA responda com texto prometendo fazer a ação (ex: PROIBIDO dizer 'blz vou baixar', 'vou procurar', 'ok, buscando' quando houver uma ferramenta aplicável — isso é falso atendimento. Aja ou recuse, nunca prometa).\n- COMANDO UNIVERSAL MCP: Se o usuário citar 'mcp de [ferramenta]' ou 'mcp [ferramenta]' (ex: 'mcp de pesquisa para xxx', 'mcp de musica para xxx', 'mcp de imagem para xxx', 'mcp de jogo para xxx', ou apenas 'mcp de pesquisa' usando o contexto anterior), você DEVE OBRIGATORIAMENTE acionar a ferramenta correspondente em JSON sem hesitar. Se o usuário não fornecer argumento explícito, use o assunto da mensagem anterior como argumento.\n- Pediu para BAIXAR MÚSICA POR NOME/ARTISTA (sem URL)? → OBRIGATÓRIO chamar search_and_download_music com o nome. NUNCA diga que vai baixar sem chamar.\n- Pediu para GERAR/CRIAR/DESENHAR uma imagem? → OBRIGATÓRIO chamar generate_image. Crie um prompt detalhado e criativo mesmo se o pedido for vago. Se o usuário pedir para gerar uma imagem SUA / da Hikari (ex: 'gere uma imagem sua', 'desenhe você', 'sua foto'), chame primeiro db_read com key: 'hikari_info' para consultar sua aparência oficial antes de gerar.\n- Perguntou sobre a própria Hikari (aparência física, capacidades, personalidade)? → Chame db_read com key: 'hikari_info'.\n- Perguntou sobre o criador da Hikari (quem criou, sobre ele, etc.)? → Chame db_read com key: 'creator_info'.\n- CONTEXTO DE BANCO ANTES DE FALAR: Se o usuário pedir para falar por voz/áudio sobre o criador, sobre você mesma ou qualquer assunto guardado no banco de dados, você DEVE chamar SEMPRE 'db_read' PRIMEIRO para obter os dados do banco antes de sintetizar ou enviar a voz.\n- Pediu para falar, mandar áudio ou responder em voz (ou se decidir falar por voz)? → Chame send_voice_note com fala natural de 1 a 4 frases curtas, sem emojis e sem código.\n- Pediu para BAIXAR áudio/vídeo e deu um link URL? → Chame download_audio ou download_video.\n- Pediu para entrar na call, canal de voz ou conversar por voz? → OBRIGATÓRIO chamar join_voice_call.\n- Pediu para sair da call, canal de voz ou desconectar da voz? → OBRIGATÓRIO chamar leave_voice_call.\n- Dúvidas, perguntas sobre fatos, notícias, curiosidades ou qualquer assunto que exija conhecimento atual ou histórico? → Chame search_web imediatamente. Você NUNCA deve responder que não sabe, não pode ou não consegue ajudar; busque na internet se não tiver certeza absoluta do fato.\n- Pediu jogo/torrent ou para baixar/crackear qualquer jogo de PC? → Chame search_game obrigatoriamente.\n- Pediu preço na Steam? → Chame check_steam.\n- Pediu conversão de moeda/cotação? → Chame convert_currency.\n- Conversa casual sem ação (oi, piada, pergunta simples, pergunta sobre você)? → Responda com texto puro direto, NUNCA chame ferramenta.\n\n[ANTI-LOOP DE CONTEXTO]: O histórico da conversa pode conter chamadas de ferramenta anteriores (como downloads de música). Isso NÃO significa que você deve chamar essas ferramentas novamente. Analise APENAS a mensagem mais recente do usuário para decidir qual ação tomar.\n\n[FORMATO DA RESPOSTA]:\n- Para texto: escreva APENAS a fala final pro usuário. Sem análise interna, sem mencionar ferramentas.\n- NUNCA escreva 'tool_code', 'print()', 'default_api.' ou código na resposta.\n- NUNCA encapsule em JSON como {\"response\": \"...\"}. Texto puro sempre.\n- NUNCA exponha qual ferramenta vai usar ou seu raciocínio de decisão.\n- NUNCA repita literalmente o que o usuário acabou de dizer nem o que você disse na mensagem anterior.";
                 } else {
-                    effectiveSystemPrompt += buildToolsDefinition(guildId, options.userId || null);
+                    effectiveSystemPrompt += buildToolsDefinition(guildId, options.userId || null, options);
                 }
             }
             let finalPrompt = prompt;
@@ -1622,6 +1627,9 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
             } catch (err) {
                 console.error('[Queue] Erro ao resolver prompt:', err.message);
             }
+        }
+        if ((options.forceVoice || options.voice === true) && !prompt.includes('INSTRUÇÃO: Responda diretamente')) {
+            prompt = `${prompt}\n\nINSTRUÇÃO: Responda diretamente à mensagem atual de forma natural e concisa para ser falada em áudio (1 a 4 frases curtas, sem emojis, sem markdown complexo, sem listas, sem código).`;
         }
         if (!prompt || prompt.trim().length === 0) {
             await unifiedReply('Oi! Vi sua mensagem, mas não encontrei conteúdo legível para processar.');
@@ -2401,12 +2409,44 @@ Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO
                         const isCreatorKey = String(targetKey).toLowerCase() === 'creator_info' || String(targetKey).toLowerCase().includes('criador');
                         const isHikariKey = String(targetKey).toLowerCase() === 'hikari_info' || String(targetKey).toLowerCase().includes('hikari');
                         const wantsImage = /\b(gera|gere|gerar|cria|crie|criar|faz|faça|fazer|desenha|desenhe|desenhar)\b.{0,30}\b(imagem|foto|arte|ilustra|ilustra[cç][aã]o|desenho|wallpaper|pfp|avatar|banner)\b|\b(desenha|desenhe|desenhar)\s+(voc[eê]|vc|a\s+hikari|sua\s+pr[oó]pria)\b/i.test(prompt);
+                        const wantsVoice = Boolean(options.forceVoice || options.voice === true || /(?:^|[\s,;!?])(?:manda|mande|grava|grave|solta|solte|fala|fale|responda?)\b.{0,30}(?:[aá]udio|voz|nota de voz|audiozinho|falando)(?:$|[\s,;!?])|(?:por|em)\s+([aá]udio|voz)/i.test(prompt));
+                        const canUseVoice = config.voiceChatEnabled !== false && options.voice !== false;
 
                         let contextPrompt;
                         let allowToolsInPass2 = false;
 
                         if (isCreatorKey) {
-                            contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO SOBRE O CRIADOR]:
+                            if (canUseVoice && wantsVoice) {
+                                allowToolsInPass2 = true;
+                                contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO SOBRE O CRIADOR]:
+${dbResult.formatted}
+
+[INSTRUÇÃO CRÍTICA]:
+O usuário perguntou: "${prompt}"
+Você consultou o banco de dados interno e obteve as informações acima sobre o seu criador.
+Como o usuário pediu para falar/responder por áudio (ou a resposta é por voz), você DEVE chamar a ferramenta "send_voice_note" em formato JSON.
+Formule uma fala direta, natural e concisa (1 a 4 frases curtas, sem emojis, sem código) baseada estritamente nas informações acima sobre o seu criador (Guilhermy, 20 anos, tecnologia/programação, gentil, gosta de jogos, tsundere).
+FORMATO OBRIGATÓRIO (JSON):
+{
+  "thought": "responder por voz sobre o criador",
+  "tool": "send_voice_note",
+  "args": {
+    "text": "..."
+  }
+}`;
+                            } else if (canUseVoice) {
+                                allowToolsInPass2 = true;
+                                contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO SOBRE O CRIADOR]:
+${dbResult.formatted}
+
+[INSTRUÇÃO CRÍTICA]:
+O usuário perguntou: "${prompt}"
+Você consultou o banco de dados interno e obteve as informações acima sobre o seu criador.
+Agora formule a sua resposta no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; SEM EMOJIS; sem ser robótica; nunca repita a fala do usuário).
+Sua resposta DEVE ser construída utilizando estritamente as informações recuperadas acima do banco de dados, reformulando todos os pontos e observações contidos nos dados de maneira descontraída e natural.
+Você pode responder diretamente em texto puro OU, se você mesma escolher responder falando por mensagem de voz oficial, chame a ferramenta "send_voice_note" em formato JSON com 1 a 4 frases curtas sem emojis.`;
+                            } else {
+                                contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO SOBRE O CRIADOR]:
 ${dbResult.formatted}
 
 [INSTRUÇÃO CRÍTICA]:
@@ -2415,6 +2455,7 @@ Você consultou o banco de dados interno e obteve as informações acima sobre o
 Agora formule a sua resposta final para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; SEM EMOJIS; sem ser robótica; nunca repita a fala do usuário).
 Sua resposta DEVE ser construída utilizando estritamente as informações recuperadas acima do banco de dados, reformulando todos os pontos e observações contidos nos dados de maneira descontraída e natural.
 Responda APENAS com o texto da sua fala final para o usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque tags de código nem IDs numéricos.`;
+                            }
                         } else if (isHikariKey && wantsImage) {
                             allowToolsInPass2 = true;
                             contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO - IDENTIDADE DA HIKARI]:
@@ -2438,7 +2479,39 @@ FORMATO OBRIGATÓRIO (JSON):
                             const headerInfo = dbResult.count && dbResult.count > 1
                                 ? `Foram encontrados ${dbResult.count} registros correlacionados sobre "${dbResult.key}". Analise e combine todos eles na resposta.`
                                 : `Chave: "${dbResult.key}"`;
-                            contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO]:
+                            if (canUseVoice && wantsVoice) {
+                                allowToolsInPass2 = true;
+                                contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO]:
+${headerInfo}
+Conteúdo:
+${dbResult.formatted}
+
+[INSTRUÇÃO CRÍTICA]:
+O usuário perguntou: "${prompt}"
+Você consultou o banco de dados interno e obteve as informações acima.
+Como o usuário pediu para falar/responder por áudio (ou a resposta é por voz), você DEVE chamar a ferramenta "send_voice_note" em formato JSON.
+Formule uma fala direta, natural e concisa (1 a 4 frases curtas, sem emojis, sem código) utilizando os dados recuperados do banco.
+FORMATO OBRIGATÓRIO (JSON):
+{
+  "thought": "responder por voz com dados do banco",
+  "tool": "send_voice_note",
+  "args": {
+    "text": "..."
+  }
+}`;
+                            } else if (canUseVoice) {
+                                allowToolsInPass2 = true;
+                                contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO]:
+${headerInfo}
+Conteúdo:
+${dbResult.formatted}
+
+[INSTRUÇÃO]:
+O usuário perguntou: "${prompt}"
+Utilize todos os dados acima recuperados do banco de dados para responder ao usuário de forma completa, natural e na sua personalidade (SEM EMOJIS).
+Você pode responder diretamente em texto puro OU, se escolher responder falando por mensagem de voz oficial, chame a ferramenta "send_voice_note" em formato JSON com 1 a 4 frases curtas sem emojis.`;
+                            } else {
+                                contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO]:
 ${headerInfo}
 Conteúdo:
 ${dbResult.formatted}
@@ -2446,6 +2519,7 @@ ${dbResult.formatted}
 [INSTRUÇÃO]:
 O usuário perguntou: "${prompt}"
 Utilize todos os dados acima recuperados do banco de dados para responder ao usuário de forma completa, natural e na sua personalidade (SEM EMOJIS). Responda apenas com a sua fala direta, sem JSON.`;
+                            }
                         }
 
                         const pass2Response = await generateResponse(contextPrompt, channelId, {
@@ -2993,6 +3067,53 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                         }
                     }
                 }
+                if (toolData.tool === 'send_voice_note') {
+                    if (config.voiceChatEnabled === false || options.voice === false) {
+                        processedResponse = 'Minha função de voz está temporariamente desativada.';
+                    } else {
+                        const { generateAndSendVoiceMessage } = require('../services/ttsService');
+                        const { registerBotAudio } = require('./audioTranscriptionHandler');
+                        const spokenText = toolData.args ? (toolData.args.text || toolData.args.texto || toolData.args.content || toolData.args.mensagem) : null;
+                        const cleanSpoken = spokenText ? String(spokenText).trim() : 'Oi!';
+                        const maxChars = config.voiceMaxChars || 350;
+                        const cappedSpoken = cleanSpoken.length > maxChars ? cleanSpoken.substring(0, maxChars) : cleanSpoken;
+                        try {
+                            await unifiedReply('🎙️ **Gravando voz...**');
+                            const targetChannel = interaction.channel;
+                            const replyTargetId = (type === 'mention' && interaction.id) ? interaction.id : null;
+                            const voiceResult = await generateAndSendVoiceMessage(cappedSpoken, targetChannel, replyTargetId);
+                            if (voiceResult && voiceResult.message) {
+                                registerBotAudio(voiceResult.message.id, voiceResult.cleanText);
+                                if (voiceResult.message.attachments) {
+                                    for (const att of voiceResult.message.attachments) {
+                                        registerBotAudio(att.id, voiceResult.cleanText);
+                                    }
+                                }
+                                if (replyMessage && typeof replyMessage.delete === 'function') {
+                                    try { await replyMessage.delete(); } catch (_) {}
+                                } else if (interaction && typeof interaction.deleteReply === 'function') {
+                                    try { await interaction.deleteReply(); } catch (_) {}
+                                }
+                                savePromptToHistory(prompt, userTag, userId, `[TOOL: SEND_VOICE_NOTE - "${voiceResult.cleanText}"]`, interaction);
+                                addToHistory(channelId, 'user', (options.searchPrompt || prompt).substring(0, 300));
+                                addToHistory(channelId, 'assistant', voiceResult.cleanText);
+                                console.log(`[AI/LLM] Mensagem de voz enviada via Tool: send_voice_note (${duration})`);
+                                return;
+                            } else {
+                                processedResponse = cleanSpoken;
+                                if (options.forceVoice || options.voice === true) {
+                                    processedResponse += '\n-# 🎙️ Houve uma falha na voz.';
+                                }
+                            }
+                        } catch (voiceErr) {
+                            console.error('[SendVoiceNote] Erro ao enviar mensagem de voz:', voiceErr.message);
+                            processedResponse = cleanSpoken;
+                            if (options.forceVoice || options.voice === true) {
+                                processedResponse += '\n-# 🎙️ Houve uma falha na voz.';
+                            }
+                        }
+                    }
+                }
             }
         } catch (e) {
             console.error('[TOOL_EXECUTION_ERROR]', e);
@@ -3163,7 +3284,68 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
             }
             const cleanResponseForHistory = processedResponse.replace(/\n-# .*$/, '');
             addToHistory(channelId, 'assistant', cleanResponseForHistory);
-            await unifiedReply(processedResponse);
+
+            let sentViaVoice = false;
+            const isVoiceAllowed = config.voiceChatEnabled !== false && options.voice !== false;
+            const forceVoice = Boolean((options && options.forceVoice) || options.voice === true);
+            let shouldSendSpontaneous = false;
+            if (isVoiceAllowed && !forceVoice && !options.radioMode && config.voiceSpontaneousEnabled !== false) {
+                const now = Date.now();
+                const cdMs = (config.voiceCooldownMinutes || 15) * 60 * 1000;
+                const lastTime = channelVoiceCooldowns.get(channelId) || 0;
+                const maxChars = config.voiceMaxChars || 350;
+                const textLen = cleanResponseForHistory.length;
+                const isCleanText = textLen >= 10 && textLen <= maxChars && !cleanResponseForHistory.includes('```') && !/https?:\/\//i.test(cleanResponseForHistory);
+                if (now - lastTime >= cdMs && isCleanText) {
+                    const chance = (config.voiceSpontaneousChance || 5) / 100;
+                    if (Math.random() < chance) {
+                        shouldSendSpontaneous = true;
+                    }
+                }
+            }
+
+            if (isVoiceAllowed && (forceVoice || shouldSendSpontaneous)) {
+                try {
+                    await unifiedReply('🎙️ **Gravando voz...**');
+                    const { generateAndSendVoiceMessage } = require('../services/ttsService');
+                    const { registerBotAudio } = require('./audioTranscriptionHandler');
+                    const targetChannel = interaction.channel;
+                    const replyTargetId = (type === 'mention' && interaction.id) ? interaction.id : null;
+                    const maxChars = config.voiceMaxChars || 350;
+                    const textToVoice = cleanResponseForHistory.length > maxChars ? cleanResponseForHistory.substring(0, maxChars) : cleanResponseForHistory;
+                    const voiceResult = await generateAndSendVoiceMessage(textToVoice, targetChannel, replyTargetId);
+                    if (voiceResult && voiceResult.message) {
+                        registerBotAudio(voiceResult.message.id, voiceResult.cleanText);
+                        if (voiceResult.message.attachments) {
+                            for (const att of voiceResult.message.attachments) {
+                                registerBotAudio(att.id, voiceResult.cleanText);
+                            }
+                        }
+                        if (replyMessage && typeof replyMessage.delete === 'function') {
+                            try { await replyMessage.delete(); } catch (_) {}
+                        } else if (interaction && typeof interaction.deleteReply === 'function') {
+                            try { await interaction.deleteReply(); } catch (_) {}
+                        }
+                        if (shouldSendSpontaneous) {
+                            channelVoiceCooldowns.set(channelId, Date.now());
+                        }
+                        sentViaVoice = true;
+                        console.log(`[AI/LLM] Resposta enviada como Discord Voice Message oficial (${duration}) [forceVoice=${forceVoice}, spontaneous=${shouldSendSpontaneous}]`);
+                    }
+                } catch (vErr) {
+                    console.warn('[AI/LLM] Falha ao enviar por mensagem de voz nativa, fallback para texto:', vErr.message);
+                }
+            }
+
+            if (!sentViaVoice) {
+                if (forceVoice || options.voice === true) {
+                    const failNotice = '-# 🎙️ Houve uma falha na voz.';
+                    if (!processedResponse.includes(failNotice)) {
+                        processedResponse += `\n${failNotice}`;
+                    }
+                }
+                await unifiedReply(processedResponse);
+            }
             console.log(`[HISTORICO] Resposta IA (${duration}):\n${processedResponse}`);
             savePromptToHistory(prompt, userTag, userId, processedResponse, interaction);
 

@@ -14,6 +14,10 @@ async function buildMessagePrompt(message, client, options = {}) {
     if (isMention) {
         currentUserPrompt = currentUserPrompt.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
     }
+    if (options.forceVoice) {
+        currentUserPrompt = currentUserPrompt.replace(/^<@!?\d+>\s*/, '').trim();
+        currentUserPrompt = currentUserPrompt.replace(/^!+\s*/, '').trim();
+    }
     currentUserPrompt = resolveMentions(currentUserPrompt, client);
     const history = [];
     let repliedMessage = null;
@@ -52,7 +56,7 @@ async function buildMessagePrompt(message, client, options = {}) {
             content = 'erro da ia';
         }
         if (isBot) {
-            content = content.replace(/^-# .*$/gm, '').replace(/🧠 \*\*Processando\.\.\.\*\*/g, '').trim();
+            content = content.replace(/^-# .*$/gm, '').replace(/🧠 \*\*Processando\.\.\.\*\*/g, '').replace(/🎙️ \*\*Gravando voz\.\.\.\*\*/g, '').trim();
         }
         if (content.trim().length === 0) continue;
         if (content.length > 500) content = content.substring(0, 500) + '...';
@@ -63,9 +67,11 @@ async function buildMessagePrompt(message, client, options = {}) {
     if (config.sendEnvironmentInfo) {
         envInfo = `Servidor: ${message.guild?.name || 'DM'} | Canal: #${message.channel?.name || 'Chat'}\n`;
     }
-    const instruction = isChatter
-        ? 'INSTRUÇÃO: Entre na conversa espontaneamente sem repetir o que foi dito.'
-        : 'INSTRUÇÃO: Responda diretamente à mensagem atual.';
+    const instruction = options.forceVoice
+        ? 'INSTRUÇÃO: Responda diretamente à mensagem atual de forma natural e concisa para ser falada em áudio (1 a 4 frases curtas, sem emojis, sem markdown complexo, sem listas, sem código).'
+        : isChatter
+            ? 'INSTRUÇÃO: Entre na conversa espontaneamente sem repetir o que foi dito.'
+            : 'INSTRUÇÃO: Responda diretamente à mensagem atual.';
     const finalPrompt = `--- CONTEXTO ---\nData: ${currentDate}\n${envInfo}${history.join('\n')}\n--- MENSAGEM ATUAL ---\n${message.author.username}: "${currentUserPrompt}"\n${instruction}`;
     return { prompt: finalPrompt, searchPrompt: currentUserPrompt };
 }
@@ -108,6 +114,22 @@ module.exports = {
             }
             return;
         }
+        let isReplyToBot = false;
+        if (message.reference && message.reference.messageId) {
+            if (message.mentions.repliedUser && message.mentions.repliedUser.id === client.user.id) {
+                isReplyToBot = true;
+            } else {
+                let refMsg = message.channel.messages?.cache?.get(message.reference.messageId);
+                if (!refMsg && message.channel.messages?.fetch) {
+                    try {
+                        refMsg = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
+                    } catch (_) {}
+                }
+                if (refMsg && refMsg.author && refMsg.author.id === client.user.id) {
+                    isReplyToBot = true;
+                }
+            }
+        }
         if (message.guildId) {
             const { isServerAccepted, sendTermsOfService } = require('../handlers/tosHandler');
             if (!isServerAccepted(message.guildId)) {
@@ -117,15 +139,6 @@ module.exports = {
                 const botName = config.botName || 'Hikari';
                 const nameRegex = new RegExp(`\\b${botName}\\b`, 'i');
                 const hasHikariName = nameRegex.test(message.content);
-                let isReplyToBot = false;
-                if (message.reference && message.reference.messageId) {
-                    try {
-                        const refMsg = message.channel.messages.cache.get(message.reference.messageId);
-                        if (refMsg && refMsg.author && refMsg.author.id === client.user.id) {
-                            isReplyToBot = true;
-                        }
-                    } catch (e) {}
-                }
                 const settings = getChannelSettings(message.channelId);
                 const isChatterActive = settings?.chatter?.active || false;
                 if (isMention || hasHikariName || isReplyToBot || isChatterActive) {
@@ -140,7 +153,13 @@ module.exports = {
         const botName = config.botName || 'Hikari';
         const nameRegex = new RegExp(`\\b${botName}\\b`, 'i');
         const hasHikariName = nameRegex.test(message.content);
-        if (isMention || hasHikariName) {
+        const isTargetingBot = Boolean(isMention || hasHikariName || isReplyToBot);
+        const isOwnerUser = config.isOwner(message.author.id);
+        const trimmedRaw = (message.content || '').trim();
+        const contentWithoutBotMention = trimmedRaw.replace(new RegExp(`^<@!?${client.user.id}>\\s*`), '').trim();
+        const startsWithExclamation = trimmedRaw.startsWith('!') || contentWithoutBotMention.startsWith('!');
+        const forceVoiceByOwner = Boolean(isOwnerUser && startsWithExclamation && isTargetingBot);
+        if (isTargetingBot) {
             if (message.guildId && message.channelId) {
                 const { setServerLastChannel } = require('../handlers/llmHandler');
                 setServerLastChannel(message.guildId, message.channelId);
@@ -152,9 +171,12 @@ module.exports = {
             if (isMention) {
                 rawClean = rawClean.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
             }
+            if (forceVoiceByOwner) {
+                rawClean = rawClean.replace(/^!+\s*/, '').trim();
+            }
             rawClean = resolveMentions(rawClean, client).trim();
             if (!hasAttachments && rawClean.length === 0) {
-                message.reply('Oi! Vi que me marcou, mas não entendi o que você precisa.');
+                message.reply('Oi! Vi que me chamou, mas não entendi o que você precisa.');
                 return;
             }
             if (message.channel && typeof message.channel.sendTyping === 'function') {
@@ -165,7 +187,8 @@ module.exports = {
                 allowSearch: true,
                 searchPrompt: initialSearchPrompt,
                 guildId: message.guildId,
-                resolvePrompt: () => buildMessagePrompt(message, client, { isMention })
+                forceVoice: forceVoiceByOwner,
+                resolvePrompt: () => buildMessagePrompt(message, client, { isMention, forceVoice: forceVoiceByOwner })
             });
         } else {
             const settings = getChannelSettings(message.channelId);

@@ -182,6 +182,7 @@ async function resolveMessageVisualContent(msg, currentText = '') {
         return text;
     }
 
+    const { isAudioAttachment } = require('./audioTranscriptionHandler');
     const visualItems = [];
     for (const [, attachment] of msg.attachments) {
         if (isImageAttachment(attachment)) {
@@ -191,14 +192,17 @@ async function resolveMessageVisualContent(msg, currentText = '') {
                 description = await describeImageAttachment(cacheKey, attachment.url, attachment.name);
             }
             if (description) {
-                visualItems.push(`[Imagem: ${description}]`);
+                visualItems.push(`[imagem]: ${description}`);
             } else {
                 const fileName = attachment.name || 'imagem.png';
-                visualItems.push(`[Imagem anexada: ${fileName}]`);
+                visualItems.push(`[imagem anexada]: "${fileName}"`);
             }
         } else if (isVideoAttachment(attachment)) {
             const fileName = attachment.name || 'video.mp4';
-            visualItems.push(`[Vídeo anexado: "${fileName}"]`);
+            visualItems.push(`[vídeo anexado]: "${fileName}"`);
+        } else if (!isAudioAttachment(attachment)) {
+            const fileName = attachment.name || 'arquivo';
+            visualItems.push(`[arquivo anexado]: "${fileName}"`);
         }
     }
 

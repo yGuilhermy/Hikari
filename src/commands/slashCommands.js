@@ -37,6 +37,10 @@ const commands = [
                         { name: 'Sim (Público)', value: 'public' },
                         { name: 'Não (Privado)', value: 'private' }
                     ))
+            .addBooleanOption(option =>
+                option.setName('voice')
+                    .setDescription('Responder em mensagem de voz oficial (áudio neural)?')
+                    .setRequired(false))
     ),
     setGlobalContext(
         new SlashCommandBuilder()
