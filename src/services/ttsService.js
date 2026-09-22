@@ -250,81 +250,86 @@ function extractWaveformAndDuration(wavBuffer) {
 }
 
 async function sendVoiceMessage(channel, oggBuffer, durationSecs, waveform, replyToMessageId = null) {
-    const token = config.discordToken;
-    const authHeaders = {
-        Authorization: `Bot ${token}`,
-        'Content-Type': 'application/json'
-    };
+    const isDm = channel?.isDMBased?.() || channel?.type === 1 || !channel?.guild;
+    if (!isDm) {
+        try {
+            const token = config.discordToken;
+            const authHeaders = {
+                Authorization: `Bot ${token}`,
+                'Content-Type': 'application/json'
+            };
 
-    const attachRes = await fetch(`https://discord.com/api/v10/channels/${channel.id}/attachments`, {
-        method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify({
-            files: [
-                {
-                    filename: 'voice-message.ogg',
-                    file_size: oggBuffer.length,
-                    id: '0'
+            const attachRes = await fetch(`https://discord.com/api/v10/channels/${channel.id}/attachments`, {
+                method: 'POST',
+                headers: authHeaders,
+                body: JSON.stringify({
+                    files: [
+                        {
+                            filename: 'voice-message.ogg',
+                            file_size: oggBuffer.length,
+                            id: '0'
+                        }
+                    ]
+                })
+            });
+
+            if (attachRes.ok) {
+                const attachData = await attachRes.json();
+                const uploadFile = attachData?.attachments?.[0];
+                if (uploadFile && uploadFile.upload_url) {
+                    const putRes = await fetch(uploadFile.upload_url, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'audio/ogg' },
+                        body: oggBuffer
+                    });
+
+                    if (putRes.ok) {
+                        const messagePayload = {
+                            flags: 8192,
+                            attachments: [
+                                {
+                                    id: '0',
+                                    filename: 'voice-message.ogg',
+                                    uploaded_filename: uploadFile.upload_filename,
+                                    duration_secs: durationSecs,
+                                    waveform
+                                }
+                            ]
+                        };
+
+                        if (replyToMessageId) {
+                            messagePayload.message_reference = {
+                                message_id: replyToMessageId,
+                                fail_if_not_exists: false
+                            };
+                        }
+
+                        const msgRes = await fetch(`https://discord.com/api/v10/channels/${channel.id}/messages`, {
+                            method: 'POST',
+                            headers: authHeaders,
+                            body: JSON.stringify(messagePayload)
+                        });
+
+                        if (msgRes.ok) {
+                            return await msgRes.json();
+                        }
+                    }
                 }
-            ]
-        })
-    });
-
-    if (!attachRes.ok) {
-        throw new Error(`Falha ao solicitar upload em /attachments: ${attachRes.status}`);
-    }
-
-    const attachData = await attachRes.json();
-    const uploadFile = attachData?.attachments?.[0];
-    if (!uploadFile || !uploadFile.upload_url) {
-        throw new Error('Upload URL ausente na resposta do Discord');
-    }
-
-    const putRes = await fetch(uploadFile.upload_url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'audio/ogg' },
-        body: oggBuffer
-    });
-
-    if (!putRes.ok) {
-        throw new Error(`Falha no upload binário para o Discord: ${putRes.status}`);
-    }
-
-    const messagePayload = {
-        flags: 8192,
-        attachments: [
-            {
-                id: '0',
-                filename: 'voice-message.ogg',
-                uploaded_filename: uploadFile.upload_filename,
-                duration_secs: durationSecs,
-                waveform
             }
-        ]
-    };
+        } catch (_) {}
+    }
 
+    const { AttachmentBuilder } = require('discord.js');
+    const attachment = new AttachmentBuilder(oggBuffer, { name: 'voice-message.ogg' });
+    const fallbackPayload = { files: [attachment] };
     if (replyToMessageId) {
-        messagePayload.message_reference = {
-            message_id: replyToMessageId,
-            fail_if_not_exists: false
-        };
+        fallbackPayload.reply = { messageReference: replyToMessageId, failIfNotExists: false };
     }
-
-    const msgRes = await fetch(`https://discord.com/api/v10/channels/${channel.id}/messages`, {
-        method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify(messagePayload)
-    });
-
-    if (!msgRes.ok) {
-        const errorDetails = await msgRes.text();
-        throw new Error(`Erro ao postar mensagem de voz no Discord (${msgRes.status}): ${errorDetails}`);
-    }
-
-    return await msgRes.json();
+    const fallbackMsg = await channel.send(fallbackPayload);
+    return fallbackMsg;
 }
 
-async function generateAndSendVoiceMessage(text, channel, replyToMessageId = null, options = {}) {
+async function synthesizeVoiceAudio(text, options = {}) {
     const cleanText = cleanForTts(text);
     if (!cleanText) return null;
 
@@ -335,19 +340,35 @@ async function generateAndSendVoiceMessage(text, channel, replyToMessageId = nul
     if (!oggBuffer) return null;
 
     const { durationSecs, waveform } = extractWaveformAndDuration(wavBuffer);
-    const sentMsgData = await sendVoiceMessage(channel, oggBuffer, durationSecs, waveform, replyToMessageId);
+    return {
+        cleanText,
+        wavBuffer,
+        oggBuffer,
+        durationSecs,
+        waveform
+    };
+}
+
+async function generateAndSendVoiceMessage(text, channel, replyToMessageId = null, options = {}) {
+    const voiceData = await synthesizeVoiceAudio(text, options);
+    if (!voiceData) return null;
+
+    const sentMsgData = await sendVoiceMessage(channel, voiceData.oggBuffer, voiceData.durationSecs, voiceData.waveform, replyToMessageId);
     return {
         message: sentMsgData,
-        cleanText,
-        durationSecs
+        cleanText: voiceData.cleanText,
+        durationSecs: voiceData.durationSecs,
+        oggBuffer: voiceData.oggBuffer
     };
 }
 
 module.exports = {
     cleanForTts,
     synthesizeAudio,
+    synthesizeVoiceAudio,
     convertWavToOggOpus,
     extractWaveformAndDuration,
     sendVoiceMessage,
     generateAndSendVoiceMessage
 };
+

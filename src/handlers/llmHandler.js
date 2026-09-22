@@ -3071,38 +3071,68 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                     if (config.voiceChatEnabled === false || options.voice === false) {
                         processedResponse = 'Minha função de voz está temporariamente desativada.';
                     } else {
-                        const { generateAndSendVoiceMessage } = require('../services/ttsService');
+                        const { generateAndSendVoiceMessage, synthesizeVoiceAudio } = require('../services/ttsService');
                         const { registerBotAudio } = require('./audioTranscriptionHandler');
+                        const { AttachmentBuilder } = require('discord.js');
                         const spokenText = toolData.args ? (toolData.args.text || toolData.args.texto || toolData.args.content || toolData.args.mensagem) : null;
                         const cleanSpoken = spokenText ? String(spokenText).trim() : 'Oi!';
                         const maxChars = config.voiceMaxChars || 350;
                         const cappedSpoken = cleanSpoken.length > maxChars ? cleanSpoken.substring(0, maxChars) : cleanSpoken;
                         try {
                             await unifiedReply('🎙️ **Gravando voz...**');
-                            const targetChannel = interaction.channel;
-                            const replyTargetId = (type === 'mention' && interaction.id) ? interaction.id : null;
-                            const voiceResult = await generateAndSendVoiceMessage(cappedSpoken, targetChannel, replyTargetId);
-                            if (voiceResult && voiceResult.message) {
-                                registerBotAudio(voiceResult.message.id, voiceResult.cleanText);
-                                if (voiceResult.message.attachments) {
-                                    for (const att of voiceResult.message.attachments) {
-                                        registerBotAudio(att.id, voiceResult.cleanText);
+                            const isPrivate = (type !== 'mention' && (options.public === false || interaction.ephemeral)) || !interaction.guildId || !interaction.guild;
+
+                            if (isPrivate) {
+                                const voiceData = await synthesizeVoiceAudio(cappedSpoken);
+                                if (voiceData && voiceData.oggBuffer) {
+                                    const attachment = new AttachmentBuilder(voiceData.oggBuffer, { name: 'voice-message.ogg' });
+                                    const sentMsg = await unifiedReply('', [attachment]);
+                                    if (sentMsg) {
+                                        registerBotAudio(sentMsg.id, voiceData.cleanText);
+                                        if (sentMsg.attachments) {
+                                            const attList = sentMsg.attachments.values ? Array.from(sentMsg.attachments.values()) : sentMsg.attachments;
+                                            for (const att of attList) {
+                                                registerBotAudio(att.id, voiceData.cleanText);
+                                            }
+                                        }
+                                    }
+                                    savePromptToHistory(prompt, userTag, userId, `[TOOL: SEND_VOICE_NOTE - "${voiceData.cleanText}"]`, interaction);
+                                    addToHistory(channelId, 'user', (options.searchPrompt || prompt).substring(0, 300));
+                                    addToHistory(channelId, 'assistant', voiceData.cleanText);
+                                    console.log(`[AI/LLM] Mensagem de voz enviada privadamente/DM via Tool: send_voice_note (${duration})`);
+                                    return;
+                                } else {
+                                    processedResponse = cleanSpoken;
+                                    if (options.forceVoice || options.voice === true) {
+                                        processedResponse += '\n-# 🎙️ Houve uma falha na voz.';
                                     }
                                 }
-                                if (replyMessage && typeof replyMessage.delete === 'function') {
-                                    try { await replyMessage.delete(); } catch (_) {}
-                                } else if (interaction && typeof interaction.deleteReply === 'function') {
-                                    try { await interaction.deleteReply(); } catch (_) {}
-                                }
-                                savePromptToHistory(prompt, userTag, userId, `[TOOL: SEND_VOICE_NOTE - "${voiceResult.cleanText}"]`, interaction);
-                                addToHistory(channelId, 'user', (options.searchPrompt || prompt).substring(0, 300));
-                                addToHistory(channelId, 'assistant', voiceResult.cleanText);
-                                console.log(`[AI/LLM] Mensagem de voz enviada via Tool: send_voice_note (${duration})`);
-                                return;
                             } else {
-                                processedResponse = cleanSpoken;
-                                if (options.forceVoice || options.voice === true) {
-                                    processedResponse += '\n-# 🎙️ Houve uma falha na voz.';
+                                const targetChannel = interaction.channel;
+                                const replyTargetId = (type === 'mention' && interaction.id) ? interaction.id : null;
+                                const voiceResult = await generateAndSendVoiceMessage(cappedSpoken, targetChannel, replyTargetId);
+                                if (voiceResult && voiceResult.message) {
+                                    registerBotAudio(voiceResult.message.id, voiceResult.cleanText);
+                                    if (voiceResult.message.attachments) {
+                                        for (const att of voiceResult.message.attachments) {
+                                            registerBotAudio(att.id, voiceResult.cleanText);
+                                        }
+                                    }
+                                    if (replyMessage && typeof replyMessage.delete === 'function') {
+                                        try { await replyMessage.delete(); } catch (_) {}
+                                    } else if (interaction && typeof interaction.deleteReply === 'function') {
+                                        try { await interaction.deleteReply(); } catch (_) {}
+                                    }
+                                    savePromptToHistory(prompt, userTag, userId, `[TOOL: SEND_VOICE_NOTE - "${voiceResult.cleanText}"]`, interaction);
+                                    addToHistory(channelId, 'user', (options.searchPrompt || prompt).substring(0, 300));
+                                    addToHistory(channelId, 'assistant', voiceResult.cleanText);
+                                    console.log(`[AI/LLM] Mensagem de voz enviada via Tool: send_voice_note (${duration})`);
+                                    return;
+                                } else {
+                                    processedResponse = cleanSpoken;
+                                    if (options.forceVoice || options.voice === true) {
+                                        processedResponse += '\n-# 🎙️ Houve uma falha na voz.';
+                                    }
                                 }
                             }
                         } catch (voiceErr) {
@@ -3307,30 +3337,55 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
             if (isVoiceAllowed && (forceVoice || shouldSendSpontaneous)) {
                 try {
                     await unifiedReply('🎙️ **Gravando voz...**');
-                    const { generateAndSendVoiceMessage } = require('../services/ttsService');
+                    const { generateAndSendVoiceMessage, synthesizeVoiceAudio } = require('../services/ttsService');
                     const { registerBotAudio } = require('./audioTranscriptionHandler');
-                    const targetChannel = interaction.channel;
-                    const replyTargetId = (type === 'mention' && interaction.id) ? interaction.id : null;
+                    const { AttachmentBuilder } = require('discord.js');
                     const maxChars = config.voiceMaxChars || 350;
                     const textToVoice = cleanResponseForHistory.length > maxChars ? cleanResponseForHistory.substring(0, maxChars) : cleanResponseForHistory;
-                    const voiceResult = await generateAndSendVoiceMessage(textToVoice, targetChannel, replyTargetId);
-                    if (voiceResult && voiceResult.message) {
-                        registerBotAudio(voiceResult.message.id, voiceResult.cleanText);
-                        if (voiceResult.message.attachments) {
-                            for (const att of voiceResult.message.attachments) {
-                                registerBotAudio(att.id, voiceResult.cleanText);
+                    const isPrivate = (type !== 'mention' && (options.public === false || interaction.ephemeral)) || !interaction.guildId || !interaction.guild;
+
+                    if (isPrivate) {
+                        const voiceData = await synthesizeVoiceAudio(textToVoice);
+                        if (voiceData && voiceData.oggBuffer) {
+                            const attachment = new AttachmentBuilder(voiceData.oggBuffer, { name: 'voice-message.ogg' });
+                            const sentMsg = await unifiedReply('', [attachment]);
+                            if (sentMsg) {
+                                registerBotAudio(sentMsg.id, voiceData.cleanText);
+                                if (sentMsg.attachments) {
+                                    const attList = sentMsg.attachments.values ? Array.from(sentMsg.attachments.values()) : sentMsg.attachments;
+                                    for (const att of attList) {
+                                        registerBotAudio(att.id, voiceData.cleanText);
+                                    }
+                                }
                             }
+                            if (shouldSendSpontaneous) {
+                                channelVoiceCooldowns.set(channelId, Date.now());
+                            }
+                            sentViaVoice = true;
+                            console.log(`[AI/LLM] Resposta de voz enviada privadamente/DM (${duration}) [forceVoice=${forceVoice}, spontaneous=${shouldSendSpontaneous}]`);
                         }
-                        if (replyMessage && typeof replyMessage.delete === 'function') {
-                            try { await replyMessage.delete(); } catch (_) {}
-                        } else if (interaction && typeof interaction.deleteReply === 'function') {
-                            try { await interaction.deleteReply(); } catch (_) {}
+                    } else {
+                        const targetChannel = interaction.channel;
+                        const replyTargetId = (type === 'mention' && interaction.id) ? interaction.id : null;
+                        const voiceResult = await generateAndSendVoiceMessage(textToVoice, targetChannel, replyTargetId);
+                        if (voiceResult && voiceResult.message) {
+                            registerBotAudio(voiceResult.message.id, voiceResult.cleanText);
+                            if (voiceResult.message.attachments) {
+                                for (const att of voiceResult.message.attachments) {
+                                    registerBotAudio(att.id, voiceResult.cleanText);
+                                }
+                            }
+                            if (replyMessage && typeof replyMessage.delete === 'function') {
+                                try { await replyMessage.delete(); } catch (_) {}
+                            } else if (interaction && typeof interaction.deleteReply === 'function') {
+                                try { await interaction.deleteReply(); } catch (_) {}
+                            }
+                            if (shouldSendSpontaneous) {
+                                channelVoiceCooldowns.set(channelId, Date.now());
+                            }
+                            sentViaVoice = true;
+                            console.log(`[AI/LLM] Resposta enviada como Discord Voice Message oficial (${duration}) [forceVoice=${forceVoice}, spontaneous=${shouldSendSpontaneous}]`);
                         }
-                        if (shouldSendSpontaneous) {
-                            channelVoiceCooldowns.set(channelId, Date.now());
-                        }
-                        sentViaVoice = true;
-                        console.log(`[AI/LLM] Resposta enviada como Discord Voice Message oficial (${duration}) [forceVoice=${forceVoice}, spontaneous=${shouldSendSpontaneous}]`);
                     }
                 } catch (vErr) {
                     console.warn('[AI/LLM] Falha ao enviar por mensagem de voz nativa, fallback para texto:', vErr.message);
