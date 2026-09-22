@@ -19,10 +19,33 @@ function getTempImagePath(ext = 'png', seed = 'na') {
     return path.join(tempDir, `image_${Date.now()}_${seed}.${ext}`);
 }
 
+async function translateToEnglish(text) {
+    if (!text || typeof text !== 'string') return text;
+    const trimmed = text.trim();
+    if (!trimmed) return text;
+    try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=auto&tl=en&dt=t&q=${encodeURIComponent(trimmed)}`;
+        const res = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            },
+            signal: AbortSignal.timeout(6000)
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data?.[0])) {
+                const translated = data[0].map(item => item?.[0]).filter(Boolean).join('');
+                if (translated && translated.trim()) return translated.trim();
+            }
+        }
+    } catch (_) {}
+    return trimmed;
+}
+
 async function tryFluxSpace(prompt, negativePrompt, width, height) {
     const hfToken = config.hfToken;
     if (!hfToken) throw new Error('HF_TOKEN não configurado');
-    console.log('[Image 1/3] Tentando FLUX.1 Oficial (HuggingFace Space)...');
+    console.log('[Image 3/3] Tentando FLUX.1 Oficial (HuggingFace Space)...');
     const { Client } = await import('@gradio/client');
     const client = await Client.connect('black-forest-labs/FLUX.1-schnell', { hf_token: hfToken });
     const seed = Math.floor(Math.random() * 1_000_000_000);
@@ -42,14 +65,14 @@ async function tryFluxSpace(prompt, negativePrompt, width, height) {
     const buffer = Buffer.from(await imageResponse.arrayBuffer());
     const localFilePath = getTempImagePath('webp', actualSeed);
     fs.writeFileSync(localFilePath, buffer);
-    console.log(`[Image 1/3] FLUX.1 imagem salva: ${localFilePath}`);
+    console.log(`[Image 3/3] FLUX.1 imagem salva: ${localFilePath}`);
     return { imageUrl: null, localFilePath, actualSeed, modelName: 'FLUX.1-schnell (Official Space)' };
 }
 
 async function tryPollinations(prompt, negativePrompt, width, height, customModel = null) {
     const isAnimePrompt = /anime|manga|kawaii|hikari|waifu|illustration|chibi|2d/i.test(prompt);
     const model = customModel || (isAnimePrompt ? 'flux-anime' : 'flux');
-    console.log(`[Image 2/3] Tentando Pollinations AI (${model})...`);
+    console.log(`[Image 1/3] Tentando Pollinations AI (${model})...`);
     const encodedPrompt = encodeURIComponent(prompt);
     const encodedNegative = encodeURIComponent(negativePrompt || '');
     const seed = Math.floor(Math.random() * 1e9);
@@ -73,7 +96,7 @@ async function tryPollinations(prompt, negativePrompt, width, height, customMode
             if (!buffer.length) throw new Error('Buffer vazio recebido');
             const localFilePath = getTempImagePath('png', seed);
             fs.writeFileSync(localFilePath, buffer);
-            console.log(`[Image 2/3] Pollinations imagem salva: ${localFilePath}`);
+            console.log(`[Image 1/3] Pollinations imagem salva: ${localFilePath}`);
             return { imageUrl: null, localFilePath, actualSeed: seed, modelName: `Pollinations (${model})` };
         } catch (err) {
             if (attempt === 2 || err.name === 'TimeoutError') throw err;
@@ -85,7 +108,7 @@ async function tryPollinations(prompt, negativePrompt, width, height, customMode
 
 async function tryStableHorde(prompt, negativePrompt, width, height) {
     const apiKey = config.hordeImageApiKey || '0000000000';
-    console.log('[Image 3/3] Tentando Stable Horde...');
+    console.log('[Image 2/3] Tentando Stable Horde...');
     const submitRes = await fetch('https://stablehorde.net/api/v2/generate/async', {
         method: 'POST',
         headers: {
@@ -118,7 +141,7 @@ async function tryStableHorde(prompt, negativePrompt, width, height) {
     }
     const { id } = await submitRes.json();
     if (!id) throw new Error('Stable Horde não retornou ID de job');
-    console.log(`[Image 3/3] Stable Horde job ID: ${id} — aguardando...`);
+    console.log(`[Image 2/3] Stable Horde job ID: ${id} — aguardando...`);
 
     for (let attempt = 0; attempt < 14; attempt++) {
         await new Promise(r => setTimeout(r, 3000));
@@ -147,7 +170,7 @@ async function tryStableHorde(prompt, negativePrompt, width, height) {
                 const seed = generation?.seed || Math.floor(Math.random() * 1e9);
                 const localFilePath = getTempImagePath('png', seed);
                 fs.writeFileSync(localFilePath, buffer);
-                console.log(`[Image 3/3] Stable Horde imagem salva: ${localFilePath}`);
+                console.log(`[Image 2/3] Stable Horde imagem salva: ${localFilePath}`);
                 return { imageUrl: null, localFilePath, actualSeed: seed, modelName: `${hordeModel} (Stable Horde)` };
             }
             throw new Error('Stable Horde não retornou imagem válida');
@@ -159,12 +182,14 @@ async function tryStableHorde(prompt, negativePrompt, width, height) {
 
 async function generateImage(prompt, negativePrompt = '', width = 1024, height = 1024, options = {}) {
     const { provider = 'auto', bypassSafety = false } = options;
-    console.log(`[LOG] Geração de Imagem | Provedor: ${provider} | Prompt: "${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}"`);
-    const finalNegative = bypassSafety ? negativePrompt : enforceSafetyNegative(negativePrompt);
+    const translatedPrompt = await translateToEnglish(prompt);
+    const translatedNegative = negativePrompt ? await translateToEnglish(negativePrompt) : '';
+    console.log(`[LOG] Geração de Imagem | Provedor: ${provider} | Prompt: "${prompt}" -> "${translatedPrompt}"`);
+    const finalNegative = bypassSafety ? translatedNegative : enforceSafetyNegative(translatedNegative);
     const allProviders = [
-        { id: 'flux', name: 'FLUX.1 Oficial (HuggingFace)', fn: tryFluxSpace },
         { id: 'pollinations', name: 'Pollinations AI', fn: tryPollinations },
         { id: 'stablehorde', name: 'Stable Horde', fn: tryStableHorde },
+        { id: 'flux', name: 'FLUX.1 Oficial (HuggingFace)', fn: tryFluxSpace },
     ];
     let providersToTry = allProviders;
     if (provider && provider !== 'auto') {
@@ -173,7 +198,7 @@ async function generateImage(prompt, negativePrompt = '', width = 1024, height =
     }
     for (const p of providersToTry) {
         try {
-            const result = await p.fn(prompt, finalNegative, width, height);
+            const result = await p.fn(translatedPrompt, finalNegative, width, height);
             if (result) {
                 console.log(`[ImageHandler] ✅ Sucesso via ${p.name}`);
                 return result;

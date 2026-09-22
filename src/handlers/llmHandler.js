@@ -223,7 +223,7 @@ function buildToolsDefinition(guildId, userId = null, options = {}) {
         generate_image:  'User: "gera uma imagem de um gato spacial"\nResponse: { "thought": "User quer uma imagem gerada por IA.", "tool": "generate_image", "args": { "prompt": "a space cat floating in galaxy, cinematic, detailed fur, neon lights", "negative_prompt": "nsfw, nude, explicit, gore, violence, blood, adult content, 18+, pornographic, sexual, disturbing, hentai, r18" } }',
         check_steam:     'User: "Elden Ring ta em promo na steam?"\nResponse: { "thought": "User quer saber preço de Elden Ring.", "tool": "check_steam", "args": { "game": "Elden Ring" } }',
         convert_currency:'User: "quanto ta 50 dolares em reais?"\nResponse: { "thought": "User quer converter 50 USD para BRL.", "tool": "convert_currency", "args": { "amount": 50, "from": "USD", "to": "BRL" } }',
-        get_current_music:'User: "Hikari, baixe a musica do meu status"\nResponse: { "thought": "User quer baixar música tocando no seu status.", "tool": "get_current_music", "args": { "download": true } }\nUser: "oq eu to escutando no status"\nResponse: { "thought": "User quer saber música do seu status.", "tool": "get_current_music", "args": { "download": true } }',
+        get_current_music:'User: "Hikari, baixe a musica do meu status"\nResponse: { "thought": "User quer baixar música tocando no seu status.", "tool": "get_current_music", "args": { "download": true } }\nUser: "baixa a musica que o @fulano tá ouvindo"\nResponse: { "thought": "Baixar música do status de fulano.", "tool": "get_current_music", "args": { "download": true, "user": "<@fulano_id>" } }\nUser: "oq eu to escutando no status"\nResponse: { "thought": "User quer saber música do seu status.", "tool": "get_current_music", "args": { "download": true } }',
         send_voice_note: 'User: "Hikari, me manda um áudio"\nResponse: { "thought": "Enviar mensagem de voz.", "tool": "send_voice_note", "args": { "text": "Oi! Tô por aqui, tudo certo por aí?" } }\nUser: "fala comigo sobre seu criador"\nResponse: { "thought": "Consultar dados do criador antes de falar.", "tool": "db_read", "args": { "key": "creator_info" } }',
         db_read:         'User: "Quem é o seu criador e me fale sobre ele"\nResponse: { "thought": "Consultar dados do criador.", "tool": "db_read", "args": { "key": "creator_info" } }\nUser: "quem te criou?"\nResponse: { "thought": "Consultar criador.", "tool": "db_read", "args": { "key": "creator_info" } }\nUser: "Como é sua aparência física?"\nResponse: { "thought": "Consultar dados da Hikari.", "tool": "db_read", "args": { "key": "hikari_info" } }\nUser: "gere uma imagem sua"\nResponse: { "thought": "Consultar aparência para gerar imagem.", "tool": "db_read", "args": { "key": "hikari_info" } }',
         db_write:        'User: "Lembre-se que o aniversário do servidor é em outubro"\nResponse: { "thought": "Salvar data do aniversário.", "tool": "db_write", "args": { "key": "aniversario_servidor", "content": "Aniversário do servidor é em outubro" } }',
@@ -414,6 +414,25 @@ function clearHistory(channelId) {
         console.log(`[HISTORY] Histórico do canal ${channelId} resetado por comando.`);
     }
 }
+function isHikariSelfPortraitIntent(userText, imagePrompt = '') {
+    const rawUser = (userText || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/<@!?\d+>/g, '')
+        .replace(/^!+\s*/, '')
+        .trim();
+    const withoutBotName = rawUser.replace(/\bhikari\b/g, '').trim();
+    const isSelfSubjectInUserText =
+        /\b(?:sua|seu|propria)\s+(?:foto|imagem|arte|ilustracao|desenho|wallpaper|avatar|pfp|retrato)\b/i.test(withoutBotName) ||
+        /\b(?:foto|imagem|arte|ilustracao|desenho|wallpaper|avatar|pfp|retrato)\s+(?:sua|seu|de\s+voce|de\s+vc|da\s+hikari|sua\s+propria)\b/i.test(rawUser) ||
+        /\b(?:desenha|desenhe|desenhar|gera|gere|gerar|cria|crie|criar|faz|faca|fazer|pinta|pinte|pintar)\s+(?:voce|vc|a\s+hikari|voce\s+mesma|vc\s+mesma|a\s+si\s+mesma)\b/i.test(rawUser);
+    const rawImage = (imagePrompt || '').toLowerCase();
+    const isSelfSubjectInImagePrompt =
+        /\b(?:portrait\s+of\s+hikari|drawing\s+of\s+hikari|anime\s+girl\s+hikari|hikari\s+herself|the\s+character\s+hikari)\b/i.test(rawImage) ||
+        /^(?:hikari|hikari\s+anime\s+girl)(?:,\s*.*)?$/i.test(rawImage.trim());
+    return isSelfSubjectInUserText || isSelfSubjectInImagePrompt;
+}
 function extractMcpTargetAndArgs(userText, channelId, fullPrompt) {
     if (!userText || !/\bmcp\b/i.test(userText)) return null;
     const cleanText = userText.trim();
@@ -448,6 +467,13 @@ function extractMcpTargetAndArgs(userText, channelId, fullPrompt) {
     }
     const query = explicitArg || getFallbackQuery();
     const urlInQuery = query.match(/https?:\/\/\S+/i)?.[0] || userText.match(/https?:\/\/\S+/i)?.[0] || '';
+    if (['status', 'status_musica', 'musica_status', 'get_current_music', 'current_music'].includes(rawToolKey) ||
+        (['musica', 'música', 'baixar', 'ouvir', 'escutar'].includes(rawToolKey) && (/\b(?:status|spotify|ouvindo|escutando)\b/i.test(cleanText) || /<@!?\d+>/.test(cleanText)))) {
+        const userMatch = cleanText.match(/<@!?(\d{17,20})>/) || explicitArg.match(/(?:de|do|da|user|usuario)\s+([^\s]+)/i) || (explicitArg && !/\b(?:musica|música|audio|áudio|status|que|estou|to|tá|ta)\b/i.test(explicitArg) ? explicitArg.match(/\b([a-z0-9_]+)\b/i) : null);
+        const selfWords = /\b(meu|minha|eu|comigo|estou|t[oô]|me)\b/i.test(cleanText);
+        const targetUser = (!selfWords && userMatch) ? (userMatch[1] || userMatch[0]).replace(/^[<@!>]+|[>]+$/g, '') : null;
+        return { tool: 'get_current_music', args: { download: true, user: targetUser } };
+    }
     if (['pesquisa', 'pesquisar', 'busca', 'buscar', 'web', 'google', 'search', 'search_web'].includes(rawToolKey)) {
         return { tool: 'search_web', args: { query: query || 'notícias' } };
     }
@@ -1410,7 +1436,7 @@ VOCÊ DEVE ADERIR A ESSA NOVA PERSONA ACIMA DE TUDO.\n`;
                 } else if (provider.func === tryLocal && config.lmStudioApiKey) {
                     effectiveSystemPrompt += "\n[SYSTEM NOTICE]: You operate in STRICT TOOL MODE. You MUST ALWAYS call a tool.\n- If the user wants an action (search, download, help), use the specific tool.\n- For EVERYTHING ELSE (chat, math, questions), use the 'generate_reply' tool.\n- DO NOT output plain text. ALWAYS output a tool call.";
                 } else if (provider.func === tryGemini) {
-                    effectiveSystemPrompt += "\n[REGRAS DE FERRAMENTAS (TOOLS)]:\nVocê possui ferramentas poderosas. REGRA CRÍTICA DE OURO: Se o usuário pedir uma AÇÃO que pode ser feita por uma ferramenta, você DEVE chamar a ferramenta imediatamente. NUNCA responda com texto prometendo fazer a ação (ex: PROIBIDO dizer 'blz vou baixar', 'vou procurar', 'ok, buscando' quando houver uma ferramenta aplicável — isso é falso atendimento. Aja ou recuse, nunca prometa).\n- COMANDO UNIVERSAL MCP: Se o usuário citar 'mcp de [ferramenta]' ou 'mcp [ferramenta]' (ex: 'mcp de pesquisa para xxx', 'mcp de musica para xxx', 'mcp de imagem para xxx', 'mcp de jogo para xxx', ou apenas 'mcp de pesquisa' usando o contexto anterior), você DEVE OBRIGATORIAMENTE acionar a ferramenta correspondente em JSON sem hesitar. Se o usuário não fornecer argumento explícito, use o assunto da mensagem anterior como argumento.\n- Pediu para BAIXAR MÚSICA POR NOME/ARTISTA (sem URL)? → OBRIGATÓRIO chamar search_and_download_music com o nome. NUNCA diga que vai baixar sem chamar.\n- Pediu para GERAR/CRIAR/DESENHAR uma imagem? → OBRIGATÓRIO chamar generate_image. Crie um prompt detalhado e criativo mesmo se o pedido for vago. Se o usuário pedir para gerar uma imagem SUA / da Hikari (ex: 'gere uma imagem sua', 'desenhe você', 'sua foto'), chame primeiro db_read com key: 'hikari_info' para consultar sua aparência oficial antes de gerar.\n- Perguntou sobre a própria Hikari (aparência física, capacidades, personalidade)? → Chame db_read com key: 'hikari_info'.\n- Perguntou sobre o criador da Hikari (quem criou, sobre ele, etc.)? → Chame db_read com key: 'creator_info'.\n- CONTEXTO DE BANCO ANTES DE FALAR: Se o usuário pedir para falar por voz/áudio sobre o criador, sobre você mesma ou qualquer assunto guardado no banco de dados, você DEVE chamar SEMPRE 'db_read' PRIMEIRO para obter os dados do banco antes de sintetizar ou enviar a voz.\n- Pediu para falar, mandar áudio ou responder em voz (ou se decidir falar por voz)? → Chame send_voice_note com fala natural de 1 a 4 frases curtas, sem emojis e sem código.\n- Pediu para BAIXAR áudio/vídeo e deu um link URL? → Chame download_audio ou download_video.\n- Pediu para entrar na call, canal de voz ou conversar por voz? → OBRIGATÓRIO chamar join_voice_call.\n- Pediu para sair da call, canal de voz ou desconectar da voz? → OBRIGATÓRIO chamar leave_voice_call.\n- Dúvidas, perguntas sobre fatos, notícias, curiosidades ou qualquer assunto que exija conhecimento atual ou histórico? → Chame search_web imediatamente. Você NUNCA deve responder que não sabe, não pode ou não consegue ajudar; busque na internet se não tiver certeza absoluta do fato.\n- Pediu jogo/torrent ou para baixar/crackear qualquer jogo de PC? → Chame search_game obrigatoriamente.\n- Pediu preço na Steam? → Chame check_steam.\n- Pediu conversão de moeda/cotação? → Chame convert_currency.\n- Conversa casual sem ação (oi, piada, pergunta simples, pergunta sobre você)? → Responda com texto puro direto, NUNCA chame ferramenta.\n\n[ANTI-LOOP DE CONTEXTO]: O histórico da conversa pode conter chamadas de ferramenta anteriores (como downloads de música). Isso NÃO significa que você deve chamar essas ferramentas novamente. Analise APENAS a mensagem mais recente do usuário para decidir qual ação tomar.\n\n[FORMATO DA RESPOSTA]:\n- Para texto: escreva APENAS a fala final pro usuário. Sem análise interna, sem mencionar ferramentas.\n- NUNCA escreva 'tool_code', 'print()', 'default_api.' ou código na resposta.\n- NUNCA encapsule em JSON como {\"response\": \"...\"}. Texto puro sempre.\n- NUNCA exponha qual ferramenta vai usar ou seu raciocínio de decisão.\n- NUNCA repita literalmente o que o usuário acabou de dizer nem o que você disse na mensagem anterior.";
+                    effectiveSystemPrompt += "\n[REGRAS DE FERRAMENTAS (TOOLS)]:\nVocê possui ferramentas poderosas. REGRA CRÍTICA DE OURO: Se o usuário pedir uma AÇÃO que pode ser feita por uma ferramenta, você DEVE chamar a ferramenta imediatamente. NUNCA responda com texto prometendo fazer a ação (ex: PROIBIDO dizer 'blz vou baixar', 'vou procurar', 'ok, buscando' quando houver uma ferramenta aplicável — isso é falso atendimento. Aja ou recuse, nunca prometa).\n- COMANDO UNIVERSAL MCP: Se o usuário citar 'mcp de [ferramenta]' ou 'mcp [ferramenta]' (ex: 'mcp de pesquisa para xxx', 'mcp de musica para xxx', 'mcp de imagem para xxx', 'mcp de jogo para xxx', ou apenas 'mcp de pesquisa' usando o contexto anterior), você DEVE OBRIGATORIAMENTE acionar a ferramenta correspondente em JSON sem hesitar. Se o usuário não fornecer argumento explícito, use o assunto da mensagem anterior como argumento.\n- Pediu para BAIXAR MÚSICA POR NOME/ARTISTA (sem URL)? → OBRIGATÓRIO chamar search_and_download_music com o nome. NUNCA diga que vai baixar sem chamar.\n- Pediu para VER ou BAIXAR a música do status (sua ou de outro usuário como @fulano)? → OBRIGATÓRIO chamar get_current_music (passando user se for de outro usuário).\n- Pediu para GERAR/CRIAR/DESENHAR uma imagem? → OBRIGATÓRIO chamar generate_image. Crie um prompt detalhado e criativo mesmo se o pedido for vago. Se o usuário pedir para gerar uma imagem SUA / da Hikari (ex: 'gere uma imagem sua', 'desenhe você', 'sua foto'), chame primeiro db_read com key: 'hikari_info' para consultar sua aparência oficial antes de gerar.\n- Perguntou sobre a própria Hikari (aparência física, capacidades, personalidade)? → Chame db_read com key: 'hikari_info'.\n- Perguntou sobre o criador da Hikari (quem criou, sobre ele, etc.)? → Chame db_read com key: 'creator_info'.\n- CONTEXTO DE BANCO ANTES DE FALAR: Se o usuário pedir para falar por voz/áudio sobre o criador, sobre você mesma ou qualquer assunto guardado no banco de dados, você DEVE chamar SEMPRE 'db_read' PRIMEIRO para obter os dados do banco antes de sintetizar ou enviar a voz.\n- Pediu para falar, mandar áudio ou responder em voz (ou se decidir falar por voz)? → Chame send_voice_note com fala natural de 1 a 4 frases curtas, sem emojis e sem código.\n- Pediu para BAIXAR áudio/vídeo e deu um link URL? → Chame download_audio ou download_video.\n- Pediu para entrar na call, canal de voz ou conversar por voz? → OBRIGATÓRIO chamar join_voice_call.\n- Pediu para sair da call, canal de voz ou desconectar da voz? → OBRIGATÓRIO chamar leave_voice_call.\n- Dúvidas, perguntas sobre fatos, notícias, curiosidades ou qualquer assunto que exija conhecimento atual ou histórico? → Chame search_web imediatamente. Você NUNCA deve responder que não sabe, não pode ou não consegue ajudar; busque na internet se não tiver certeza absoluta do fato.\n- Pediu jogo/torrent ou para baixar/crackear qualquer jogo de PC? → Chame search_game obrigatoriamente.\n- Pediu preço na Steam? → Chame check_steam.\n- Pediu conversão de moeda/cotação? → Chame convert_currency.\n- Conversa casual sem ação (oi, piada, pergunta simples, pergunta sobre você)? → Responda com texto puro direto, NUNCA chame ferramenta.\n\n[ANTI-LOOP DE CONTEXTO]: O histórico da conversa pode conter chamadas de ferramenta anteriores (como downloads de música). Isso NÃO significa que você deve chamar essas ferramentas novamente. Analise APENAS a mensagem mais recente do usuário para decidir qual ação tomar.\n\n[FORMATO DA RESPOSTA]:\n- Para texto: escreva APENAS a fala final pro usuário. Sem análise interna, sem mencionar ferramentas.\n- NUNCA escreva 'tool_code', 'print()', 'default_api.' ou código na resposta.\n- NUNCA encapsule em JSON como {\"response\": \"...\"}. Texto puro sempre.\n- NUNCA exponha qual ferramenta vai usar ou seu raciocínio de decisão.\n- NUNCA repita literalmente o que o usuário acabou de dizer nem o que você disse na mensagem anterior.";
                 } else {
                     effectiveSystemPrompt += buildToolsDefinition(guildId, options.userId || null, options);
                 }
@@ -1782,8 +1808,19 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                     args: () => ({ url: urlInPrompt })
                 },
                 {
+                    tool: 'get_current_music',
+                    test: () => !hasUrl && /\b(?:status|spotify|que\s+(?:eu|<@!?\d+>|\w+)\s+t[aá]\s+(?:ouvindo|escutando)|estou\s+ouvindo|to\s+ouvindo|ta\s+ouvindo)\b/i.test(lowerSearchPrompt),
+                    args: () => {
+                        const src = options.searchPrompt || prompt;
+                        const mentionMatch = src.match(/<@!?(\d{17,20})>/);
+                        const selfWords = /\b(meu|minha|eu|comigo|estou|t[oô]|me)\b/i.test(src);
+                        const user = (mentionMatch && !selfWords) ? mentionMatch[1] : null;
+                        return { download: true, user };
+                    }
+                },
+                {
                     tool: 'search_and_download_music',
-                    test: () => !hasUrl && /\b(baixa|baixe|download|quero|me manda)\b.{0,30}\b(música|musica|music|song|faixa)\b|\b(música|musica|music|song)\b.{0,30}\b(baixa|baixe|download)\b/i.test(lowerSearchPrompt),
+                    test: () => !hasUrl && !/\b(status|spotify|ouvindo|escutando)\b/i.test(lowerSearchPrompt) && (/\b(baixa|baixe|download|quero|me manda)\b.{0,30}\b(música|musica|music|song|faixa)\b|\b(música|musica|music|song)\b.{0,30}\b(baixa|baixe|download)\b/i.test(lowerSearchPrompt)),
                     args: () => {
                         const src = options.searchPrompt || prompt;
                         const m = src.match(/(?:baixa|baixe|baixar|download|quero|me manda)[^:]*?(?:música|musica|music|song|faixa)?[:\s]+(.+)/i)
@@ -1804,7 +1841,7 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                     tool: 'generate_image',
                     test: () => {
                         const hasImage = /\b(gera|gere|gerar|cria|crie|criar|faz|faca|fazer|desenha|desenhe|desenhar)\b.{0,30}\b(imagem|foto|arte|ilustra|ilustracao|desenho|wallpaper|pfp|avatar|banner)\b|\b(desenha|desenhe|desenhar)\s+(voce|vc|a\s+hikari|sua\s+propria)\b/i.test(normSearchPrompt);
-                        const isSelf = /\b(sua|seu|voce|vc|voce\s+mesma|vc\s+mesma|hikari|de\s+voce|de\s+vc|da\s+hikari|sua\s+propria)\b/i.test(normSearchPrompt);
+                        const isSelf = isHikariSelfPortraitIntent(options.searchPrompt || prompt);
                         return hasImage && !isSelf;
                     },
                     args: () => {
@@ -1832,7 +1869,7 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                     tool: 'db_read',
                     test: () => {
                         const hasImage = /\b(gera|gere|gerar|cria|crie|criar|faz|faca|fazer|desenha|desenhe|desenhar)\b.{0,30}\b(imagem|foto|arte|ilustra|ilustracao|desenho|wallpaper|pfp|avatar|banner)\b|\b(desenha|desenhe|desenhar)\s+(voce|vc|a\s+hikari|sua\s+propria)\b/i.test(normSearchPrompt);
-                        const isSelf = /\b(sua|seu|voce|vc|voce\s+mesma|vc\s+mesma|hikari|de\s+voce|de\s+vc|da\s+hikari|sua\s+propria)\b/i.test(normSearchPrompt);
+                        const isSelf = isHikariSelfPortraitIntent(options.searchPrompt || prompt);
                         if (hasImage && isSelf) return true;
                         return /\b(qual\s+(?:e\s+)?(?:a\s+)?sua\s+aparencia|como\s+voce\s+e\s+fisicamente|como\s+voce\s+e\b|como\s+e\s+voce|como\s+e\s+sua\s+aparencia|descreva\s+(?:a\s+)?sua\s+aparencia|como\s+e\s+seu\s+(?:rosto|cabelo|corpo|olho|olhos)|sua\s+aparencia\s+fisica|me\s+fale\s+sobre\s+voce|fale\s+sobre\s+voce|o\s+que\s+voce\s+pode\s+fazer|o\s+que\s+voce\s+sabe\s+fazer|quais\s+sao\s+suas\s+capacidades|quais\s+sao\s+suas\s+funcoes|quem\s+e\s+a\s+hikari|quem\s+e\s+voce|me\s+fale\s+sobre\s+a\s+hikari|fale\s+sobre\s+a\s+hikari)\b/i.test(normSearchPrompt);
                     },
@@ -1992,22 +2029,39 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                     if (toolData.tool === 'get_current_music') {
                         const { getCurrentMusicFromUser } = require('../services/activityMusicService');
                         const discordClient = getDiscordClient();
-                        const musicInfo = await getCurrentMusicFromUser(userId, discordClient);
+                        let targetUser = toolData.args?.user || toolData.args?.user_id || toolData.args?.target;
+                        if (!targetUser) {
+                            const mentionMatch = (options.searchPrompt || prompt).match(/<@!?(\d{17,20})>/);
+                            const selfWords = /\b(meu|minha|eu|comigo|estou|t[oô]|me)\b/i.test(options.searchPrompt || prompt);
+                            if (mentionMatch && !selfWords) {
+                                targetUser = mentionMatch[1];
+                            } else {
+                                targetUser = userId;
+                            }
+                        }
+                        const currentGuildId = options.guildId || interaction?.guildId || null;
+                        const musicInfo = await getCurrentMusicFromUser(targetUser, discordClient, currentGuildId);
                         if (!musicInfo.success) {
                             let msg = `🎵 ${musicInfo.message}`;
-                            if (musicInfo.helpInstructions || musicInfo.reason === 'no_presence') {
+                            if (musicInfo.isOffline) {
+                                msg += '\n\n> 💡 **Dica:** Para exibir músicas no status, o usuário precisa estar **Online** com a opção **"Exibir atividade atual como mensagem de status"** ativa no Discord.';
+                            } else if (musicInfo.helpInstructions || musicInfo.reason === 'no_presence') {
                                 msg += '\n\n> **Como ativar:**\n> Vá em **Configurações do Discord → Privacidade e Segurança → Atividade de Status** e ative a opção **"Exibir atividade atual como mensagem de status"**.';
                             }
                             await unifiedReply(msg);
                             savePromptToHistory(prompt, userTag, userId, `[TOOL: GET_CURRENT_MUSIC - FAIL:${musicInfo.reason}]`, interaction);
                             return;
                         }
+                        const isTargetOther = musicInfo.targetUser && musicInfo.targetUser.id !== userId;
                         const infoEmbed = new EmbedBuilder()
                             .setColor(0x1DB954)
                             .setTitle(`${musicInfo.platformEmoji} Música Identificada`)
                             .setDescription(`**${musicInfo.title}**\n🎤 ${musicInfo.artist}${musicInfo.album ? `\n💿 ${musicInfo.album}` : ''}`)
-                            .addFields({ name: 'Plataforma', value: musicInfo.platformLabel, inline: true })
-                            .setFooter({ text: `Hikari Music • ${musicInfo.platformLabel}` })
+                            .addFields({ name: 'Plataforma', value: musicInfo.platformLabel, inline: true });
+                        if (isTargetOther) {
+                            infoEmbed.addFields({ name: 'Usuário', value: `<@${musicInfo.targetUser.id}>`, inline: true });
+                        }
+                        infoEmbed.setFooter({ text: `Hikari Music • ${musicInfo.platformLabel}` })
                             .setTimestamp();
                         if (musicInfo.coverUrl) infoEmbed.setThumbnail(musicInfo.coverUrl);
                         const musicUserId = userId;
@@ -2408,7 +2462,7 @@ Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO
                     } else {
                         const isCreatorKey = String(targetKey).toLowerCase() === 'creator_info' || String(targetKey).toLowerCase().includes('criador');
                         const isHikariKey = String(targetKey).toLowerCase() === 'hikari_info' || String(targetKey).toLowerCase().includes('hikari');
-                        const wantsImage = /\b(gera|gere|gerar|cria|crie|criar|faz|faça|fazer|desenha|desenhe|desenhar)\b.{0,30}\b(imagem|foto|arte|ilustra|ilustra[cç][aã]o|desenho|wallpaper|pfp|avatar|banner)\b|\b(desenha|desenhe|desenhar)\s+(voc[eê]|vc|a\s+hikari|sua\s+pr[oó]pria)\b/i.test(prompt);
+                        const wantsImage = isHikariSelfPortraitIntent(options.searchPrompt || prompt);
                         const wantsVoice = Boolean(options.forceVoice || options.voice === true || /(?:^|[\s,;!?])(?:manda|mande|grava|grave|solta|solte|fala|fale|responda?)\b.{0,30}(?:[aá]udio|voz|nota de voz|audiozinho|falando)(?:$|[\s,;!?])|(?:por|em)\s+([aá]udio|voz)/i.test(prompt));
                         const canUseVoice = config.voiceChatEnabled !== false && options.voice !== false;
 
@@ -2893,8 +2947,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                 if (toolData.tool === 'generate_image') {
                     let imagePrompt = toolData.args.prompt || '';
                     let imageNegative = toolData.args.negative_prompt || '';
-                    const isSelfPortrait = /\b(hikari|sua|seu|voc[eê]|vc|de\s+voc[eê]|de\s+vc|da\s+hikari|sua\s+pr[oó]pria)\b/i.test(imagePrompt) ||
-                                           /\b(hikari|sua|seu|voc[eê]|vc|de\s+voc[eê]|de\s+vc|da\s+hikari|sua\s+pr[oó]pria)\b/i.test(prompt);
+                    const isSelfPortrait = isHikariSelfPortraitIntent(options.searchPrompt || prompt, imagePrompt);
                     const hasFullDetails = imagePrompt.toLowerCase().includes('silver-haired') || imagePrompt.toLowerCase().includes('ice-blue');
                     if (isSelfPortrait && !hasFullDetails) {
                         try {
@@ -3202,31 +3255,44 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
         const hasUrl = /https?:\/\//i.test(cleanPromptLower);
         const isAskingHikari = /(?:voc[eê]|vc|hikari|bot)\s+t[aá]\s+(?:me\s+)?(escutando|ouvindo)|t[aá]\s+me\s+(escutando|ouvindo)|t[aá]\s+ouvindo\s+(?:a\s+gente|n[oó]s)/i.test(cleanPromptLower);
         const isCurrentMusicIntent = !hasUrl && !isAskingHikari && (
-            /(?:oq|o\s+que|qual\s+m[uú]sica|baixa|puxa|identifica|salva)\s+.*(?:eu\s+t[oô]|eu\s+estou)\s+(escutando|ouvindo)/i.test(cleanPromptLower) ||
-            /(?:oq|o\s+que|qual\s+m[uú]sica)\s+(?:eu\s+)?t[oô]\s+(escutando|ouvindo)/i.test(cleanPromptLower) ||
-            /baixa\s+.*(?:do\s+meu\s+status|do\s+meu\s+spotify|que\s+eu\s+t[oô]\s+(?:escutando|ouvindo))/i.test(cleanPromptLower) ||
-            /(?:minha\s+m[uú]sica\s+do\s+status|m[uú]sica\s+do\s+meu\s+status)/i.test(cleanPromptLower)
+            /(?:oq|o\s+que|qual\s+m[uú]sica|baixa|baixe|baixar|puxa|puxe|puxar|identifica|identificar|salva|salvar|toca|toque|tocar)\s+.*?(?:eu|<@!?\d+>|[a-z0-9_]+)?\s*(?:t[oô]|estou|t[aá]|est[aá])\s+(?:escutando|ouvindo)/i.test(cleanPromptLower) ||
+            /(?:oq|o\s+que|qual\s+m[uú]sica)\s+(?:que\s+)?(?:eu|<@!?\d+>|[a-z0-9_]+)?\s*(?:t[oô]|t[aá]|est[aá]|estou)\s*(?:escutando|ouvindo)/i.test(cleanPromptLower) ||
+            /\b(?:baixa|baixe|baixar|puxa|puxe|puxar|pega|pegue|pegar|toca|toque|tocar)\b.*?(?:m[uú]sica|som|faixa)?.*?(?:do\s+(?:meu|seu|\w+|<@!?\d+>)\s+(?:status|spotify)|que\s+(?:eu|<@!?\d+>|\w+)?\s*(?:t[oô]|estou|t[aá]|est[aá])\s+(?:escutando|ouvindo))/i.test(cleanPromptLower) ||
+            /(?:m[uú]sica\s+do\s+(?:meu|status|spotify)|m[uú]sica\s+de\s+<@!?\d+>)/i.test(cleanPromptLower)
         );
 
         if (isCurrentMusicIntent) {
             const { getCurrentMusicFromUser } = require('../services/activityMusicService');
             const discordClient = getDiscordClient();
-            const musicInfo = await getCurrentMusicFromUser(userId, discordClient);
+            let targetUser = userId;
+            const mentionMatch = (options.searchPrompt || prompt).match(/<@!?(\d{17,20})>/);
+            const selfWords = /\b(meu|minha|eu|comigo|estou|t[oô]|me)\b/i.test(options.searchPrompt || prompt);
+            if (mentionMatch && !selfWords) {
+                targetUser = mentionMatch[1];
+            }
+            const currentGuildId = options.guildId || interaction?.guildId || null;
+            const musicInfo = await getCurrentMusicFromUser(targetUser, discordClient, currentGuildId);
             if (!musicInfo.success) {
                 let msg = `🎵 ${musicInfo.message}`;
-                if (musicInfo.helpInstructions || musicInfo.reason === 'no_presence') {
+                if (musicInfo.isOffline) {
+                    msg += '\n\n> 💡 **Dica:** Para exibir músicas no status, o usuário precisa estar **Online** com a opção **"Exibir atividade atual como mensagem de status"** ativa no Discord.';
+                } else if (musicInfo.helpInstructions || musicInfo.reason === 'no_presence') {
                     msg += '\n\n> **Como ativar:**\n> Vá em **Configurações do Discord → Privacidade e Segurança → Atividade de Status** e ative a opção **"Exibir atividade atual como mensagem de status"**.';
                 }
                 await unifiedReply(msg);
                 savePromptToHistory(prompt, userTag, userId, `[TOOL: DETERMINISTIC_GET_CURRENT_MUSIC - FAIL:${musicInfo.reason}]`, interaction);
                 return;
             }
+            const isTargetOther = musicInfo.targetUser && musicInfo.targetUser.id !== userId;
             const infoEmbed = new EmbedBuilder()
                 .setColor(0x1DB954)
                 .setTitle(`${musicInfo.platformEmoji} Música Identificada`)
                 .setDescription(`**${musicInfo.title}**\n🎤 ${musicInfo.artist}${musicInfo.album ? `\n💿 ${musicInfo.album}` : ''}`)
-                .addFields({ name: 'Plataforma', value: musicInfo.platformLabel, inline: true })
-                .setFooter({ text: `Hikari Music • ${musicInfo.platformLabel}` })
+                .addFields({ name: 'Plataforma', value: musicInfo.platformLabel, inline: true });
+            if (isTargetOther) {
+                infoEmbed.addFields({ name: 'Usuário', value: `<@${musicInfo.targetUser.id}>`, inline: true });
+            }
+            infoEmbed.setFooter({ text: `Hikari Music • ${musicInfo.platformLabel}` })
                 .setTimestamp();
             if (musicInfo.coverUrl) infoEmbed.setThumbnail(musicInfo.coverUrl);
             const musicUserId = userId;

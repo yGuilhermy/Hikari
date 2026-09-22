@@ -442,20 +442,28 @@ module.exports = {
                 return interaction.respond(filtered);
             }
             if (interaction.commandName === 'baixar_musica_atual') {
-                const focused = interaction.options.getFocused().toLowerCase();
-                const members = interaction.guild ? Array.from(interaction.guild.members.cache.values()) : [];
+                const focused = (interaction.options.getFocused() || '').toLowerCase();
+                let members = [];
+                if (interaction.guild) {
+                    try {
+                        const fetched = await interaction.guild.members.fetch({ query: focused, limit: 20 });
+                        members = Array.from(fetched.values());
+                    } catch (_) {
+                        members = Array.from(interaction.guild.members.cache.values());
+                    }
+                }
                 const choices = members
-                    .filter(m => !m.user.bot)
+                    .filter(m => !m.user?.bot)
                     .map(m => {
-                        const name = m.displayName || m.user.globalName || m.user.username;
+                        const name = m.displayName || m.user?.globalName || m.user?.username;
                         return {
-                            name: `${name} (@${m.user.username})`,
-                            value: m.user.id
+                            name: `${name} (@${m.user?.username})`.substring(0, 100),
+                            value: m.user?.id || m.id
                         };
                     })
-                    .filter(c => c.name.toLowerCase().includes(focused) || c.value.toLowerCase().includes(focused))
+                    .filter(c => c.name.toLowerCase().includes(focused) || c.value.includes(focused))
                     .slice(0, 25);
-                return interaction.respond(choices);
+                return interaction.respond(choices).catch(() => {});
             }
             return;
         }
@@ -921,7 +929,9 @@ module.exports = {
                 const musicInfo = await getCurrentMusicFromUser(targetInput, client, interaction.guildId);
                 if (!musicInfo.success) {
                     let msg = `🎵 ${musicInfo.message}`;
-                    if (musicInfo.helpInstructions || musicInfo.reason === 'no_presence') {
+                    if (musicInfo.isOffline) {
+                        msg += '\n\n> 💡 **Dica:** Para exibir músicas no status, o usuário precisa estar **Online** com a opção **"Exibir atividade atual como mensagem de status"** ativa no Discord.';
+                    } else if (musicInfo.helpInstructions || musicInfo.reason === 'no_presence') {
                         msg += '\n\n> **Como ativar:**\n> Vá em **Configurações do Discord → Privacidade e Segurança → Atividade de Status** e ative **"Exibir atividade atual como mensagem de status"**.';
                     }
                     return await interaction.editReply({ content: msg });

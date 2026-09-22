@@ -120,7 +120,7 @@ async function describeWithGemini(buffer, mimeType) {
                         ]
                     }],
                     generationConfig: {
-                        maxOutputTokens: 350,
+                        maxOutputTokens: 450,
                         temperature: 0.2
                     }
                 };
@@ -168,7 +168,7 @@ async function describeWithGemini(buffer, mimeType) {
                         ]
                     }
                 ],
-                max_tokens: 350,
+                max_tokens: 450,
                 temperature: 0.2
             };
 
