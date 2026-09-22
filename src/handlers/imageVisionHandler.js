@@ -10,13 +10,23 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 let imageDescriptionCache = new Map();
 const inFlightRequests = new Map();
 
+function formatCompactDescription(text) {
+    if (!text || typeof text !== 'string') return '';
+    return text
+        .replace(/[*_#`~>]/g, '')
+        .replace(/(^|\n)[\s-•*]+/g, ' ')
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
 function loadCache() {
     try {
         if (fs.existsSync(cacheFilePath)) {
             const raw = fs.readFileSync(cacheFilePath, 'utf8');
             const data = JSON.parse(raw);
             if (data && typeof data === 'object') {
-                const entries = Object.entries(data);
+                const entries = Object.entries(data).map(([k, v]) => [k, formatCompactDescription(v)]);
                 const recentEntries = entries.slice(-MAX_CACHE_ENTRIES);
                 imageDescriptionCache = new Map(recentEntries);
             }
@@ -95,7 +105,7 @@ async function describeWithGemini(buffer, mimeType) {
     }
 
     const base64Data = buffer.toString('base64');
-    const promptText = 'Analise e descreva detalhadamente esta imagem em português com riqueza de detalhes: identifique o sujeito principal, cenário, cores, iluminação, objetos secundários, ações, estilo visual e ambientação. Se houver textos, placas, documentos, prints, código ou elementos gráficos, transcreva ou resuma com precisão o conteúdo textual. Se for um meme, anime ou jogo, identifique o contexto, personagens e a piada/situação com clareza. Seja completo, descritivo e natural.';
+    const promptText = 'Descreva esta imagem em português de forma detalhada, rica em elementos e compacta. Identifique o sujeito principal, cenário, objetos, cores, personagens ou pessoas, ações e transcreva ou resuma textos legíveis importantes. OBRIGATÓRIO: Responda em no máximo UM ÚNICO PARÁGRAFO contínuo, sem nenhuma quebra de linha, sem tópicos, sem listas e SEM FORMATAÇÃO MARKDOWN (não use asteriscos, negrito nem títulos).';
 
     for (let i = 0; i < keys.length; i++) {
         const key = keys[i];
@@ -110,8 +120,8 @@ async function describeWithGemini(buffer, mimeType) {
                         ]
                     }],
                     generationConfig: {
-                        maxOutputTokens: 2000,
-                        temperature: 0.3
+                        maxOutputTokens: 350,
+                        temperature: 0.2
                     }
                 };
 
@@ -123,7 +133,7 @@ async function describeWithGemini(buffer, mimeType) {
                 const candidate = response.data?.candidates?.[0];
                 const text = candidate?.content?.parts?.[0]?.text;
                 if (typeof text === 'string' && text.trim().length > 10) {
-                    const cleaned = text.trim().replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+                    const cleaned = formatCompactDescription(text);
                     console.log(`[Vision] Imagem descrita com sucesso via chave ${i + 1}/${keys.length} (${model}).`);
                     return cleaned;
                 }
@@ -158,8 +168,8 @@ async function describeWithGemini(buffer, mimeType) {
                         ]
                     }
                 ],
-                max_tokens: 2000,
-                temperature: 0.3
+                max_tokens: 350,
+                temperature: 0.2
             };
 
             const compatResponse = await axios.post(config.geminiUrl, compatPayload, {
@@ -172,7 +182,7 @@ async function describeWithGemini(buffer, mimeType) {
 
             const text = compatResponse.data?.choices?.[0]?.message?.content;
             if (typeof text === 'string' && text.trim().length > 10) {
-                const cleaned = text.trim().replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+                const cleaned = formatCompactDescription(text);
                 console.log(`[Vision] Imagem descrita com sucesso via fallback OpenAI na chave ${i + 1}/${keys.length}.`);
                 return cleaned;
             }
@@ -204,13 +214,14 @@ async function describeImageAttachment(attachmentId, attachmentUrl, attachmentNa
             let description = await describeWithGemini(buffer, mimeType);
 
             if (description) {
-                imageDescriptionCache.set(attachmentId, description);
+                const compact = formatCompactDescription(description);
+                imageDescriptionCache.set(attachmentId, compact);
                 if (imageDescriptionCache.size > MAX_CACHE_ENTRIES) {
                     const firstKey = imageDescriptionCache.keys().next().value;
                     imageDescriptionCache.delete(firstKey);
                 }
                 saveCache();
-                return description;
+                return compact;
             }
             return null;
         } catch (err) {
@@ -242,7 +253,8 @@ async function resolveMessageVisualContent(msg, currentText = '') {
                 description = await describeImageAttachment(cacheKey, attachment.url, attachment.name);
             }
             if (description) {
-                visualItems.push(`[imagem]: ${description}`);
+                const compact = formatCompactDescription(description);
+                visualItems.push(`[imagem]: ${compact}`);
             } else {
                 const fileName = attachment.name || 'imagem.png';
                 visualItems.push(`[imagem anexada]: "${fileName}"`);
@@ -272,5 +284,7 @@ module.exports = {
     isVideoAttachment,
     describeImageAttachment,
     resolveMessageVisualContent,
-    loadCache
+    formatCompactDescription,
+    loadCache,
+    saveCache
 };
