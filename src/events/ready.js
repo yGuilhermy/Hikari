@@ -44,6 +44,18 @@ module.exports = {
             logger.error('SECURITY', 'Erro ao verificar servidores banidos no startup', e);
         }
 
+        const fs = require('fs');
+        const path = require('path');
+        const communityPath = path.join(__dirname, '../community');
+        if (fs.existsSync(communityPath)) {
+            try {
+                const community = require(communityPath);
+                community.init(client);
+            } catch (commErr) {
+                logger.error('SYSTEM', 'Falha ao inicializar modulo comunitario', commErr);
+            }
+        }
+
         updateBotActivity(client, 0);
     },
 };
