@@ -327,7 +327,7 @@ async function handleTosInteraction(interaction) {
                 const updatesEmbed = new EmbedBuilder()
                     .setColor(0x7C3AED)
                     .setTitle('📢 Central de Updates Configurada')
-                    .setDescription(`O canal <#${targetUpdateChannel.id}> foi registrado para receber as novidades e atualizações da Hikari.\n\nCaso um administrador queira alterar este canal, utilize o comando:\n\`/chat_updates [canal]\``);
+                    .setDescription(`O canal <#${targetUpdateChannel.id}> foi registrado para receber as novidades e atualizações da Hikari.\n\nCaso um administrador queira alterar este canal, utilize o menu em:\n\`/config_servidor\``);
                 await targetUpdateChannel.send({ embeds: [updatesEmbed] }).catch(() => {});
             }
             return true;

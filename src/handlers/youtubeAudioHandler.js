@@ -1,4 +1,4 @@
-const { exec, spawn } = require('child_process');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -15,13 +15,46 @@ const YOUTUBE_VIDEO_REGEX = /^(?:https?:\/\/)?(?:www\.)?(?:m\.)?(?:youtube\.com|
 const YOUTUBE_MUSIC_REGEX = /^(?:https?:\/\/)?(?:www\.)?music\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11,})(?:\S+)?$/;
 const YOUTUBE_PLAYLIST_REGEX = /(?:youtube\.com|youtu\.be)\/playlist\?list=|youtube\.com\/watch\?v=[a-zA-Z0-9_-]{11,}&list=([a-zA-Z0-9_-]+)|music\.youtube\.com\/playlist\?list=|music\.youtube\.com\/watch\?v=[a-zA-Z0-9_-]{11,}&list=/;
 const YOUTUBE_SHORTS_REGEX = /^(?:https?:\/\/)?(?:www\.)?(?:m\.)?(?:youtube\.com|youtu\.be)\/shorts\/([a-zA-Z0-9_-]{11,})(?:\S+)?$/;
-const INSTAGRAM_REGEX = /^(?:https?:\/\/)?(?:www\.)?instagram\.com\/(?:reel|reels)\/([a-zA-Z0-9_-]+)/;
-const TIKTOK_REGEX = /^(?:https?:\/\/)?(?:[a-z0-9-]+\.)?tiktok\.com\/.+/;
+const INSTAGRAM_REGEX = /^(?:https?:\/\/)?(?:www\.)?instagram\.com\/(?:reel|reels)\/([a-zA-Z0-9_-]+)(?:\/|\?.*)?$/;
+const TIKTOK_REGEX = /^(?:https?:\/\/)?(?:[a-z0-9-]+\.)?tiktok\.com\/(?:@[a-zA-Z0-9_.-]+\/video\/\d+|t\/[a-zA-Z0-9]+|[a-zA-Z0-9_.-]+)(?:\/|\?.*)?$/;
+
+function isSafeUrl(url) {
+    if (typeof url !== 'string') return false;
+    if (/[\r\n\0"'`$|;&<>\\]/.test(url)) return false;
+    try {
+        const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
+
+function execYtdlp(args) {
+    return new Promise((resolve, reject) => {
+        const proc = spawn('yt-dlp', args);
+        let stdout = '';
+        let stderr = '';
+        proc.stdout.on('data', (d) => { stdout += d.toString(); });
+        proc.stderr.on('data', (d) => { stderr += d.toString(); });
+        proc.on('error', (err) => reject(err));
+        proc.on('close', (code) => {
+            if (code !== 0) {
+                const err = new Error(`yt-dlp exited with code ${code}`);
+                err.stdout = stdout;
+                err.stderr = stderr;
+                return reject(err);
+            }
+            resolve({ stdout, stderr });
+        });
+    });
+}
 
 const activeUserProcesses = new Set();
 let isCompressing = false;
 const compressionQueue = [];
-const pendingVideoFiles = new Map();function logMediaAction(type, platform, url, context, status, extra = '') {
+const pendingVideoFiles = new Map();
+
+function logMediaAction(type, platform, url, context, status, extra = '') {
     let source = 'Desconhecido';
     let userStr = 'N/A';
     let localStr = 'DM';
@@ -120,22 +153,26 @@ function buildYtdlpAudioFlags(outputPath, url) {
     const flags = ['--no-playlist', '-x', '--audio-format', 'mp3'];
     const cookiesPath = config.ytdlpCookiesPath;
     if (cookiesPath && fs.existsSync(cookiesPath)) {
-        flags.push('--cookies', `"${cookiesPath}"`);
+        flags.push('--cookies', cookiesPath);
     }
-    flags.push(...config.ytdlpExtraFlags);
-    flags.push('-o', `"${outputPath}"`, '--print-json', `"${url}"`);
-    return flags.join(' ');
+    if (Array.isArray(config.ytdlpExtraFlags)) {
+        flags.push(...config.ytdlpExtraFlags);
+    }
+    flags.push('-o', outputPath, '--print-json', url);
+    return flags;
 }
 
 function buildYtdlpVideoFlags(outputPath, url) {
     const flags = ['--no-playlist', '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'];
     const cookiesPath = config.ytdlpCookiesPath;
     if (cookiesPath && fs.existsSync(cookiesPath)) {
-        flags.push('--cookies', `"${cookiesPath}"`);
+        flags.push('--cookies', cookiesPath);
     }
-    flags.push(...config.ytdlpExtraFlags);
-    flags.push('-o', `"${outputPath}"`, '--print-json', `"${url}"`);
-    return flags.join(' ');
+    if (Array.isArray(config.ytdlpExtraFlags)) {
+        flags.push(...config.ytdlpExtraFlags);
+    }
+    flags.push('-o', outputPath, '--print-json', url);
+    return flags;
 }
 
 function isUserBusy(userId) {
@@ -232,10 +269,15 @@ async function downloadTikTokMedia(url, isAudioOnly, targetFilePath) {
                     const tempRawPath = targetFilePath + '.tmp';
                     fs.writeFileSync(tempRawPath, Buffer.from(downloadRes.data));
                     await new Promise((resolve, reject) => {
-                        exec(`ffmpeg -y -i "${tempRawPath}" -vn -ab 192k -ar 44100 "${targetFilePath}"`, (err) => {
+                        const proc = spawn('ffmpeg', ['-y', '-i', tempRawPath, '-vn', '-ab', '192k', '-ar', '44100', targetFilePath]);
+                        proc.on('close', (code) => {
                             try { fs.unlinkSync(tempRawPath); } catch (e) {}
-                            if (err) return reject(err);
+                            if (code !== 0) return reject(new Error(`ffmpeg falhou com código ${code}`));
                             resolve();
+                        });
+                        proc.on('error', (err) => {
+                            try { fs.unlinkSync(tempRawPath); } catch (e) {}
+                            reject(err);
                         });
                     });
                 } else {
@@ -266,10 +308,15 @@ async function downloadTikTokMedia(url, isAudioOnly, targetFilePath) {
                 const tempRawPath = targetFilePath + '.tmp.mp4';
                 fs.writeFileSync(tempRawPath, Buffer.from(downloadRes.data));
                 await new Promise((resolve, reject) => {
-                    exec(`ffmpeg -y -i "${tempRawPath}" -vn -ab 192k -ar 44100 "${targetFilePath}"`, (err) => {
+                    const proc = spawn('ffmpeg', ['-y', '-i', tempRawPath, '-vn', '-ab', '192k', '-ar', '44100', targetFilePath]);
+                    proc.on('close', (code) => {
                         try { fs.unlinkSync(tempRawPath); } catch (e) {}
-                        if (err) return reject(err);
+                        if (code !== 0) return reject(new Error(`ffmpeg falhou com código ${code}`));
                         resolve();
+                    });
+                    proc.on('error', (err) => {
+                        try { fs.unlinkSync(tempRawPath); } catch (e) {}
+                        reject(err);
                     });
                 });
             } else {
@@ -285,6 +332,11 @@ async function downloadTikTokMedia(url, isAudioOnly, targetFilePath) {
 
 async function downloadAudio(videoUrl, context = null) {
     return new Promise((resolve, reject) => {
+        if (!isSafeUrl(videoUrl)) {
+            const err = new Error("URL_INVALID: A URL fornecida contém caracteres inválidos.");
+            logMediaAction('Download Áudio', 'desconhecido', videoUrl, context, 'Erro', `Detalhe: ${err.message}`);
+            return reject(err);
+        }
         const platform = detectPlatform(videoUrl);
         if (!platform) {
             const err = new Error("URL_INVALID: A URL fornecida não é de uma plataforma suportada (YouTube, Instagram ou TikTok).");
@@ -324,7 +376,7 @@ async function downloadAudio(videoUrl, context = null) {
             }
         };
 
-        const runYtdlp = () => {
+        const runYtdlp = async () => {
             let processedUrl = videoUrl;
             if (platform === 'youtube_music') {
                 const match = videoUrl.match(YOUTUBE_MUSIC_REGEX);
@@ -332,27 +384,29 @@ async function downloadAudio(videoUrl, context = null) {
                     processedUrl = `https://www.youtube.com/watch?v=${match[1]}`;
                 }
             }
-            const command = `yt-dlp ${buildYtdlpAudioFlags(tempOutputFilePath, processedUrl)}`;
+            const args = buildYtdlpAudioFlags(tempOutputFilePath, processedUrl);
             logMediaAction('Download Áudio', platform, videoUrl, context, 'Iniciado');
-            exec(command, { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`[MediaHandler] FALHA NO YT-DLP (Áudio):\nSTDOUT: ${stdout}\nSTDERR: ${stderr}\nERROR: ${error.message}`);
-                    let errObj = error;
-                    if (stderr.includes("Private video") || stdout.includes("Private video")) {
-                        errObj = new Error("VIDEO_PRIVATE: Este vídeo é privado ou não está disponível.");
-                    } else if (stderr.includes("age-restricted") || stdout.includes("age-restricted")) {
-                        errObj = new Error("VIDEO_AGE_RESTRICTED: Este vídeo é restrito por idade.");
-                    } else if (stderr.includes("no appropriate format") || stdout.includes("no appropriate format")) {
-                        errObj = new Error("FORMAT_UNAVAILABLE: Não foi encontrado um formato de áudio adequado.");
-                    } else {
-                        errObj = new Error(`lib do ytdlp desatualizada, peça o <@${config.ownerId}> para atualizar na host`);
-                    }
-                    logMediaAction('Download Áudio', platform, videoUrl, context, 'Erro', `Detalhe: ${errObj.message}`);
-                    return reject(errObj);
-                }
+            try {
+                const { stdout } = await execYtdlp(args);
                 const videoMetadata = parseMetadata(stdout, videoId);
                 resolveAudioFile(videoMetadata);
-            });
+            } catch (error) {
+                const stdout = error.stdout || '';
+                const stderr = error.stderr || '';
+                console.error(`[MediaHandler] FALHA NO YT-DLP (Áudio):\nSTDOUT: ${stdout}\nSTDERR: ${stderr}\nERROR: ${error.message}`);
+                let errObj = error;
+                if (stderr.includes("Private video") || stdout.includes("Private video")) {
+                    errObj = new Error("VIDEO_PRIVATE: Este vídeo é privado ou não está disponível.");
+                } else if (stderr.includes("age-restricted") || stdout.includes("age-restricted")) {
+                    errObj = new Error("VIDEO_AGE_RESTRICTED: Este vídeo é restrito por idade.");
+                } else if (stderr.includes("no appropriate format") || stdout.includes("no appropriate format")) {
+                    errObj = new Error("FORMAT_UNAVAILABLE: Não foi encontrado um formato de áudio adequado.");
+                } else {
+                    errObj = new Error(`lib do ytdlp desatualizada, peça o <@${config.ownerId}> para atualizar na host`);
+                }
+                logMediaAction('Download Áudio', platform, videoUrl, context, 'Erro', `Detalhe: ${errObj.message}`);
+                return reject(errObj);
+            }
         };
 
         if (platform === 'tiktok') {
@@ -372,6 +426,11 @@ async function downloadAudio(videoUrl, context = null) {
 
 async function downloadVideo(videoUrl, context = null) {
     return new Promise((resolve, reject) => {
+        if (!isSafeUrl(videoUrl)) {
+            const err = new Error("URL_INVALID: A URL fornecida contém caracteres inválidos.");
+            logMediaAction('Download Vídeo', 'desconhecido', videoUrl, context, 'Erro', `Detalhe: ${err.message}`);
+            return reject(err);
+        }
         const platform = detectPlatform(videoUrl);
         if (!platform) {
             const err = new Error("URL_INVALID: A URL fornecida não é de uma plataforma suportada.");
@@ -420,26 +479,28 @@ async function downloadVideo(videoUrl, context = null) {
             }
         };
 
-        const runYtdlp = () => {
-            const command = `yt-dlp ${buildYtdlpVideoFlags(tempOutputFilePath, videoUrl)}`;
+        const runYtdlp = async () => {
+            const args = buildYtdlpVideoFlags(tempOutputFilePath, videoUrl);
             logMediaAction('Download Vídeo', platform, videoUrl, context, 'Iniciado');
-            exec(command, { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`[MediaHandler] FALHA NO YT-DLP (Vídeo):\nSTDOUT: ${stdout}\nSTDERR: ${stderr}\nERROR: ${error.message}`);
-                    let errObj = error;
-                    if (stderr.includes("Private video") || stdout.includes("Private video")) {
-                        errObj = new Error("VIDEO_PRIVATE: Este vídeo é privado ou não está disponível.");
-                    } else if (stderr.includes("age-restricted") || stdout.includes("age-restricted")) {
-                        errObj = new Error("VIDEO_AGE_RESTRICTED: Este vídeo é restrito por idade.");
-                    } else {
-                        errObj = new Error(`lib do ytdlp desatualizada, peça o <@${config.ownerId}> para atualizar na host`);
-                    }
-                    logMediaAction('Download Vídeo', platform, videoUrl, context, 'Erro', `Detalhe: ${errObj.message}`);
-                    return reject(errObj);
-                }
+            try {
+                const { stdout } = await execYtdlp(args);
                 const videoMetadata = parseMetadata(stdout, videoId);
                 resolveVideoFile(videoMetadata);
-            });
+            } catch (error) {
+                const stdout = error.stdout || '';
+                const stderr = error.stderr || '';
+                console.error(`[MediaHandler] FALHA NO YT-DLP (Vídeo):\nSTDOUT: ${stdout}\nSTDERR: ${stderr}\nERROR: ${error.message}`);
+                let errObj = error;
+                if (stderr.includes("Private video") || stdout.includes("Private video")) {
+                    errObj = new Error("VIDEO_PRIVATE: Este vídeo é privado ou não está disponível.");
+                } else if (stderr.includes("age-restricted") || stdout.includes("age-restricted")) {
+                    errObj = new Error("VIDEO_AGE_RESTRICTED: Este vídeo é restrito por idade.");
+                } else {
+                    errObj = new Error(`lib do ytdlp desatualizada, peça o <@${config.ownerId}> para atualizar na host`);
+                }
+                logMediaAction('Download Vídeo', platform, videoUrl, context, 'Erro', `Detalhe: ${errObj.message}`);
+                return reject(errObj);
+            }
         };
 
         if (platform === 'tiktok') {

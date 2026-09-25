@@ -42,7 +42,9 @@ function saveCache() {
         const dir = path.dirname(cacheFilePath);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
         const obj = Object.fromEntries(imageDescriptionCache);
-        fs.writeFileSync(cacheFilePath, JSON.stringify(obj, null, 2), 'utf8');
+        const tmpPath = `${cacheFilePath}.tmp`;
+        fs.writeFileSync(tmpPath, JSON.stringify(obj, null, 2), 'utf8');
+        fs.renameSync(tmpPath, cacheFilePath);
     } catch (_) {}
 }
 

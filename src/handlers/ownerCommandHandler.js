@@ -118,7 +118,6 @@ async function handleVoice(message, client, argsText) {
     }
 
     const { addToQueue } = require('./llmHandler');
-    const { buildMessagePrompt } = require('./messagePromptBuilder') || {};
 
     const initialSearchPrompt = promptText || (hasAttachments ? 'analise do anexo' : 'voz');
     const messageEvent = require('../events/messageCreate');

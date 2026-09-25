@@ -57,8 +57,14 @@ module.exports = {
         }
 
         const telemetryLogger = require('../utils/telemetryLogger');
-        const { CHANNELS } = require('../community/constants');
-        telemetryLogger.init(client, process.env.DEFAULT_CHANNEL_ID || CHANNELS.HIKARI_LOGS);
+        let defaultLogsChannel = process.env.DEFAULT_CHANNEL_ID || process.env.HIKARI_LOGS_CHANNEL_ID;
+        if (!defaultLogsChannel && fs.existsSync(communityPath)) {
+            try {
+                const { CHANNELS } = require('../community/constants');
+                defaultLogsChannel = CHANNELS?.HIKARI_LOGS;
+            } catch (_) {}
+        }
+        telemetryLogger.init(client, defaultLogsChannel);
         telemetryLogger.system(`Bot inicializado (${client.guilds.cache.size} servidores)`);
 
         updateBotActivity(client, 0);

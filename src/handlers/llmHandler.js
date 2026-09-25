@@ -51,7 +51,9 @@ function loadServerTools() {
 }
 function saveServerTools() {
     try {
-        fs.writeFileSync(serverToolsPath, JSON.stringify(serverToolsConfig, null, 2));
+        const tmpPath = `${serverToolsPath}.tmp`;
+        fs.writeFileSync(tmpPath, JSON.stringify(serverToolsConfig, null, 2));
+        fs.renameSync(tmpPath, serverToolsPath);
     } catch (error) {
         console.error('[MCP] Erro ao salvar server_tools.json:', error);
     }
@@ -270,7 +272,9 @@ function loadChannelSettings() {
 }
 function saveChannelSettings() {
     try {
-        fs.writeFileSync(channelSettingsPath, JSON.stringify(channelSettings, null, 2));
+        const tmpPath = `${channelSettingsPath}.tmp`;
+        fs.writeFileSync(tmpPath, JSON.stringify(channelSettings, null, 2));
+        fs.renameSync(tmpPath, channelSettingsPath);
     } catch (error) {
         console.error('Erro ao salvar channel_settings.json:', error);
     }
@@ -290,7 +294,9 @@ function loadServerPrompts() {
 }
 function saveServerPrompts() {
     try {
-        fs.writeFileSync(serverPromptsPath, JSON.stringify(serverPrompts, null, 2));
+        const tmpPath = `${serverPromptsPath}.tmp`;
+        fs.writeFileSync(tmpPath, JSON.stringify(serverPrompts, null, 2));
+        fs.renameSync(tmpPath, serverPromptsPath);
     } catch (error) {
         console.error('Erro ao salvar server_prompts.json:', error);
     }
@@ -325,7 +331,9 @@ function loadServerSettings() {
 
 function saveServerSettings() {
     try {
-        fs.writeFileSync(serverSettingsPath, JSON.stringify(serverSettings, null, 2));
+        const tmpPath = `${serverSettingsPath}.tmp`;
+        fs.writeFileSync(tmpPath, JSON.stringify(serverSettings, null, 2));
+        fs.renameSync(tmpPath, serverSettingsPath);
     } catch (error) {
         console.error('Erro ao salvar server_settings.json:', error);
     }

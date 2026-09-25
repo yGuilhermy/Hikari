@@ -1,7 +1,8 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
+const crypto = require('crypto');
+const { spawn } = require('child_process');
 require('dotenv').config();
 
 const TEMP_AUDIO_DIR = path.join(__dirname, '../data/temp_audio');
@@ -55,13 +56,32 @@ async function searchDeezerTracks(query) {
 function downloadDeezerTrack(trackUrlOrId) {
     return new Promise((resolve, reject) => {
         const arl = process.env.DEEZER_ARL || process.env.DEEMIX_ARL || '';
-        const link = String(trackUrlOrId).startsWith('http') ? trackUrlOrId : `https://www.deezer.com/track/${trackUrlOrId}`;
-        const outputFolder = TEMP_AUDIO_DIR;
+        const raw = String(trackUrlOrId || '').trim();
+        if (/[\r\n\0"'`$|;&<>\\]/.test(raw)) {
+            return reject(new Error('Entrada inválida para download do Deezer.'));
+        }
+        const link = raw.startsWith('http') ? raw : `https://www.deezer.com/track/${raw}`;
+        const jobId = crypto.randomUUID().slice(0, 10);
+        const jobFolder = path.join(TEMP_AUDIO_DIR, `dz_${jobId}`);
+        if (!fs.existsSync(jobFolder)) {
+            fs.mkdirSync(jobFolder, { recursive: true });
+        }
         const scriptPath = path.join(__dirname, 'download_deezer.py');
         const pythonBin = process.env.PYTHON_PATH || (process.platform === 'win32' ? 'python' : 'python3');
-        const cmd = `${pythonBin} "${scriptPath}" "${link}" "${outputFolder}" "${arl}"`;
+        
+        const proc = spawn(pythonBin, [scriptPath, link, jobFolder], {
+            env: {
+                ...process.env,
+                DEEZER_ARL: arl
+            }
+        });
 
-        exec(cmd, (error, stdout, stderr) => {
+        let stdout = '';
+        let stderr = '';
+        proc.stdout.on('data', (d) => { stdout += d.toString(); });
+        proc.stderr.on('data', (d) => { stderr += d.toString(); });
+
+        proc.on('close', (code) => {
             const match = stdout.match(/DOWNLOADED_FILE:(.+)/);
             if (match && match[1]) {
                 const targetPath = match[1].trim();
@@ -70,20 +90,26 @@ function downloadDeezerTrack(trackUrlOrId) {
                 }
             }
 
-            const files = fs.readdirSync(outputFolder).filter(f => f.endsWith('.mp3') || f.endsWith('.flac'));
-            if (files.length > 0) {
-                const latestFile = files.map(f => ({
-                    name: f,
-                    time: fs.statSync(path.join(outputFolder, f)).mtimeMs
-                })).sort((a, b) => b.time - a.time)[0];
+            if (fs.existsSync(jobFolder)) {
+                const files = fs.readdirSync(jobFolder).filter(f => f.endsWith('.mp3') || f.endsWith('.flac'));
+                if (files.length > 0) {
+                    const latestFile = files.map(f => ({
+                        name: f,
+                        time: fs.statSync(path.join(jobFolder, f)).mtimeMs
+                    })).sort((a, b) => b.time - a.time)[0];
 
-                return resolve(path.join(outputFolder, latestFile.name));
+                    return resolve(path.join(jobFolder, latestFile.name));
+                }
             }
 
-            if (error) {
-                return reject(new Error(`Falha ao baixar faixa via deemix: ${stderr || error.message}`));
+            if (code !== 0) {
+                return reject(new Error(`Falha ao baixar faixa via deemix: ${stderr || `exit code ${code}`}`));
             }
             reject(new Error('Nenhum arquivo baixado pelo deemix.'));
+        });
+
+        proc.on('error', (err) => {
+            reject(new Error(`Falha ao iniciar processo Python: ${err.message}`));
         });
     });
 }
@@ -92,6 +118,10 @@ function cleanupTempAudio(filePath) {
     if (filePath && fs.existsSync(filePath)) {
         try {
             fs.unlinkSync(filePath);
+            const parentDir = path.dirname(filePath);
+            if (path.basename(parentDir).startsWith('dz_')) {
+                fs.rmdirSync(parentDir, { recursive: true });
+            }
         } catch (err) {
             console.error('[DeezerService] Erro ao limpar arquivo temporário:', err.message);
         }

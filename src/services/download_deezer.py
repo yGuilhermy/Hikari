@@ -9,7 +9,7 @@ from deemix.settings import load as loadSettings
 start_time = time.time()
 url = sys.argv[1]
 output_folder = os.path.abspath(sys.argv[2])
-arl = sys.argv[3] if len(sys.argv) > 3 else ""
+arl = os.environ.get('DEEZER_ARL') or os.environ.get('DEEMIX_ARL') or (sys.argv[3] if len(sys.argv) > 3 else "")
 
 dz = Deezer()
 if arl:

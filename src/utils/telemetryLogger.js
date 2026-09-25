@@ -76,6 +76,7 @@ function getTimeString() {
 function sanitize(text) {
   if (typeof text !== 'string') text = String(text || '');
   return text
+    .replace(/```/g, '`\u200b`\u200b`')
     .replace(/<@!?\d+>/g, '[USER]')
     .replace(/<@&\d+>/g, '[ROLE]')
     .replace(/<#\d+>/g, '[CHANNEL]')

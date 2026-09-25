@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const { searchDeezerTracks, calculateConfidenceScore } = require('../services/deezerMusicService');
@@ -100,10 +100,21 @@ async function resolveYouTubeTrack(url) {
     return new Promise((resolve) => {
         const config = require('../config');
         const cookiesPath = config.ytdlpCookiesPath;
-        const cookieFlag = (cookiesPath && fs.existsSync(cookiesPath)) ? `--cookies "${cookiesPath}"` : '';
-        const cmd = `yt-dlp --no-warnings --no-update ${cookieFlag} -j "${cleanUrl}"`;
+        const args = ['--no-warnings', '--no-update'];
+        if (cookiesPath && fs.existsSync(cookiesPath)) {
+            args.push('--cookies', cookiesPath);
+        }
+        args.push('-j', cleanUrl);
 
-        exec(cmd, { maxBuffer: 10 * 1024 * 1024, timeout: 15000 }, (err, stdout) => {
+        const proc = spawn('yt-dlp', args);
+        let stdout = '';
+        const timer = setTimeout(() => {
+            proc.kill();
+        }, 15000);
+
+        proc.stdout.on('data', (d) => { stdout += d.toString(); });
+        proc.on('close', () => {
+            clearTimeout(timer);
             let m = {};
             if (stdout) {
                 try {
@@ -127,6 +138,19 @@ async function resolveYouTubeTrack(url) {
                 album: '',
                 duration,
                 cover,
+                link: cleanUrl,
+                source: 'youtube'
+            });
+        });
+        proc.on('error', () => {
+            clearTimeout(timer);
+            resolve({
+                id: videoId || `yt_${Date.now()}`,
+                title: oembedData?.title || 'Vídeo do YouTube',
+                artist: oembedData?.author_name || 'YouTube',
+                album: '',
+                duration: 0,
+                cover: oembedData?.thumbnail_url || (videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : ''),
                 link: cleanUrl,
                 source: 'youtube'
             });
@@ -161,10 +185,21 @@ function resolveYouTubePlaylist(url) {
         const cleanUrl = extractUrl(url);
         const config = require('../config');
         const cookiesPath = config.ytdlpCookiesPath;
-        const cookieFlag = (cookiesPath && fs.existsSync(cookiesPath)) ? `--cookies "${cookiesPath}"` : '';
-        const cmd = `yt-dlp --no-warnings --no-update ${cookieFlag} --flat-playlist --playlist-end 100 -j "${cleanUrl}"`;
+        const args = ['--no-warnings', '--no-update'];
+        if (cookiesPath && fs.existsSync(cookiesPath)) {
+            args.push('--cookies', cookiesPath);
+        }
+        args.push('--flat-playlist', '--playlist-end', '100', '-j', cleanUrl);
 
-        exec(cmd, { maxBuffer: 10 * 1024 * 1024, timeout: 35000 }, (err, stdout) => {
+        const proc = spawn('yt-dlp', args);
+        let stdout = '';
+        const timer = setTimeout(() => {
+            proc.kill();
+        }, 35000);
+
+        proc.stdout.on('data', (d) => { stdout += d.toString(); });
+        proc.on('close', () => {
+            clearTimeout(timer);
             if (!stdout) return resolve([]);
             const tracks = [];
             const lines = stdout.split('\n');
@@ -212,6 +247,10 @@ function resolveYouTubePlaylist(url) {
 
             resolve(tracks);
         });
+        proc.on('error', () => {
+            clearTimeout(timer);
+            resolve([]);
+        });
     });
 }
 
@@ -220,13 +259,31 @@ function searchYouTubeTrack(query) {
         if (!query || !query.trim()) return resolve(null);
         const config = require('../config');
         const cookiesPath = config.ytdlpCookiesPath;
-        const cookieFlag = (cookiesPath && fs.existsSync(cookiesPath)) ? `--cookies "${cookiesPath}"` : '';
-        const extraFlags = (config.ytdlpExtraFlags || []).join(' ');
-        const cleanQuery = query.replace(/["\\]/g, '').trim();
-        const cmd = `yt-dlp ${cookieFlag} ${extraFlags} --default-search "ytsearch1" --print "%(id)s:::%(title)s:::%(uploader)s:::%(duration)s:::%(thumbnail)s" --no-warnings --no-playlist "ytsearch1:${cleanQuery}"`;
+        const args = [];
+        if (cookiesPath && fs.existsSync(cookiesPath)) {
+            args.push('--cookies', cookiesPath);
+        }
+        if (Array.isArray(config.ytdlpExtraFlags)) {
+            args.push(...config.ytdlpExtraFlags);
+        }
+        args.push(
+            '--default-search', 'ytsearch1',
+            '--print', '%(id)s:::%(title)s:::%(uploader)s:::%(duration)s:::%(thumbnail)s',
+            '--no-warnings',
+            '--no-playlist',
+            `ytsearch1:${query.trim()}`
+        );
 
-        exec(cmd, { maxBuffer: 5 * 1024 * 1024, timeout: 25000 }, (err, stdout) => {
-            if (err || !stdout) return resolve(null);
+        const proc = spawn('yt-dlp', args);
+        let stdout = '';
+        const timer = setTimeout(() => {
+            proc.kill();
+        }, 25000);
+
+        proc.stdout.on('data', (d) => { stdout += d.toString(); });
+        proc.on('close', (code) => {
+            clearTimeout(timer);
+            if (code !== 0 || !stdout) return resolve(null);
             const line = stdout.split('\n').map(l => l.trim()).find(l => l.includes(':::'));
             if (!line) return resolve(null);
             const parts = line.split(':::');
@@ -246,6 +303,10 @@ function searchYouTubeTrack(query) {
                 link: `https://www.youtube.com/watch?v=${id}`,
                 source: 'youtube'
             });
+        });
+        proc.on('error', () => {
+            clearTimeout(timer);
+            resolve(null);
         });
     });
 }
@@ -317,9 +378,21 @@ function downloadTrackToDisk(track, context = null) {
 
         if (track.source === 'deezer') {
             const link = track.link || `https://www.deezer.com/track/${track.id}`;
-            const cmd = `${pythonBin} "${scriptPath}" "${link}" "${TEMP_RADIO_DIR}" "${arl}"`;
+            const proc = spawn(pythonBin, [scriptPath, link, TEMP_RADIO_DIR], {
+                env: {
+                    ...process.env,
+                    DEEZER_ARL: arl
+                }
+            });
 
-            exec(cmd, { maxBuffer: 10 * 1024 * 1024, timeout: 60000 }, async (error, stdout) => {
+            let stdout = '';
+            const timer = setTimeout(() => {
+                proc.kill();
+            }, 60000);
+
+            proc.stdout.on('data', (d) => { stdout += d.toString(); });
+            proc.on('close', async () => {
+                clearTimeout(timer);
                 const match = stdout?.match(/DOWNLOADED_FILE:(.+)/);
                 if (match && match[1]) {
                     const p = match[1].trim();
@@ -346,6 +419,10 @@ function downloadTrackToDisk(track, context = null) {
                 }
 
                 reject(new Error('Falha ao baixar faixa via deemix'));
+            });
+            proc.on('error', () => {
+                clearTimeout(timer);
+                reject(new Error('Falha ao executar processo Python'));
             });
         } else if (track.source === 'youtube') {
             if (track.preDownloadedPath && fs.existsSync(track.preDownloadedPath)) {

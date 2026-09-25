@@ -9,8 +9,33 @@ function formatTime(seconds) {
     return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
+function isSafeExternalUrl(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== 'string') return false;
+    try {
+        const parsed = new URL(rawUrl);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+        const hostname = parsed.hostname.toLowerCase();
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '0.0.0.0') return false;
+        if (hostname.endsWith('.local') || hostname.endsWith('.internal')) return false;
+        if (/^127\./.test(hostname)) return false;
+        if (/^10\./.test(hostname)) return false;
+        if (/^192\.168\./.test(hostname)) return false;
+        if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)) return false;
+        if (/^169\.254\./.test(hostname)) return false;
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
 async function getAnimeSource(imageUrl) {
     try {
+        if (!isSafeExternalUrl(imageUrl)) {
+            const err = new Error('URL inválida ou não permitida para verificação de imagem.');
+            err.isUserFacing = true;
+            throw err;
+        }
+
         let imageBuffer = null;
         let contentType = 'image/jpeg';
 

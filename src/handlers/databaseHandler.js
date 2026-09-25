@@ -29,7 +29,9 @@ function loadDatabase() {
 
 function saveDatabase() {
     try {
-        fs.writeFileSync(dbPath, JSON.stringify(database, null, 2), 'utf8');
+        const tmpPath = `${dbPath}.tmp`;
+        fs.writeFileSync(tmpPath, JSON.stringify(database, null, 2), 'utf8');
+        fs.renameSync(tmpPath, dbPath);
         return true;
     } catch (e) {
         return false;
@@ -271,6 +273,13 @@ function writeDb(key, data, guildId = null, isOwner = false, meta = {}) {
             message: 'Chave inválida fornecida para gravação.'
         };
     }
+    if (['__proto__', 'constructor', 'prototype'].includes(cleanKey)) {
+        return {
+            success: false,
+            error: 'reserved_key',
+            message: 'Chave reservada inválida.'
+        };
+    }
     const existing = database[cleanKey];
     if (existing && existing.protected && !isOwner) {
         return {
@@ -331,6 +340,13 @@ function editDb(key, newContent, options = {}, guildId = null, userContext = {},
             success: false,
             error: 'invalid_key',
             message: 'Chave inválida fornecida para edição.'
+        };
+    }
+    if (['__proto__', 'constructor', 'prototype'].includes(cleanKey)) {
+        return {
+            success: false,
+            error: 'reserved_key',
+            message: 'Chave reservada inválida.'
         };
     }
     const resolvedKey = findMatchingKey(cleanKey);
@@ -431,6 +447,13 @@ function deleteDb(key, guildId = null, userContext = {}) {
     }
     loadDatabase();
     const cleanKey = String(key || '').trim().toLowerCase();
+    if (!cleanKey || ['__proto__', 'constructor', 'prototype'].includes(cleanKey)) {
+        return {
+            success: false,
+            error: 'invalid_key',
+            message: 'Chave inválida fornecida para exclusão.'
+        };
+    }
     const resolvedKey = findMatchingKey(cleanKey);
     if (!resolvedKey || !database[resolvedKey]) {
         return {

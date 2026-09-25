@@ -215,6 +215,14 @@ function splitIntoDiscordChunks(lines, maxLen = 1850) {
     return chunks;
 }
 
+function sanitizePaths(text) {
+    if (typeof text !== 'string') return text;
+    return text
+        .replace(/[A-Za-z]:\\[Uu]sers\\[^\\]+/g, 'C:\\Users\\***')
+        .replace(/\/home\/[^\/]+/g, '/home/***')
+        .replace(/```/g, '`\u200b`\u200b`');
+}
+
 async function flushLogsToWebhook() {
     flushTimeout = null;
     if (isFlushing || !logQueue.length || !webhookUrl) return;
@@ -228,12 +236,14 @@ async function flushLogsToWebhook() {
         for (const log of batch) {
             const timePart = `${DISCORD_ANSI.white}[${log.time}]${DISCORD_ANSI.reset}`;
             const tagPart = `${log.category.discColor}[${log.category.tag.padEnd(9)}]${DISCORD_ANSI.reset}`;
-            const msgPart = log.level === 'ERROR' ? `${DISCORD_ANSI.red}${log.text}${DISCORD_ANSI.reset}` : `${DISCORD_ANSI.white}${log.text}${DISCORD_ANSI.reset}`;
+            const cleanText = sanitizePaths(log.text);
+            const msgPart = log.level === 'ERROR' ? `${DISCORD_ANSI.red}${cleanText}${DISCORD_ANSI.reset}` : `${DISCORD_ANSI.white}${cleanText}${DISCORD_ANSI.reset}`;
 
             discordLines.push(`${timePart} ${tagPart} ${msgPart}`);
 
             if (log.errorStack) {
-                discordLines.push(`${DISCORD_ANSI.red}${log.errorStack}${DISCORD_ANSI.reset}`);
+                const cleanStack = sanitizePaths(log.errorStack);
+                discordLines.push(`${DISCORD_ANSI.red}${cleanStack}${DISCORD_ANSI.reset}`);
             }
         }
 
@@ -362,6 +372,12 @@ const logger = {
     search(message, meta) {
         const text = meta ? `${message} ${typeof meta === 'object' ? JSON.stringify(meta) : meta}` : message;
         enqueueLog(CATEGORIES.SEARCH, 'INFO', text);
+    },
+
+    debug(categoryName, message, meta) {
+        const cat = CATEGORIES[String(categoryName).toUpperCase()] || CATEGORIES.INFO;
+        const text = meta ? `${message} ${typeof meta === 'object' ? JSON.stringify(meta) : meta}` : message;
+        enqueueLog(cat, 'INFO', text);
     },
 
     info(categoryName, message, meta) {
