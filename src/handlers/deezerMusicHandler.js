@@ -1,6 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
 const { searchDeezerTracks, calculateConfidenceScore, downloadDeezerTrack, cleanupTempAudio } = require('../services/deezerMusicService');
 const { checkBan } = require('./banHandler');
+const telemetryLogger = require('../utils/telemetryLogger');
 
 const musicSessions = new Map();
 
@@ -114,9 +115,11 @@ async function handleMusicSearchAndDownload(query, selectedIndex = null, context
 }
 
 async function executeDownloadAndPackage(track) {
+    const startTime = Date.now();
     try {
         const filePath = await downloadDeezerTrack(track.id || track.link);
         const attachment = new AttachmentBuilder(filePath, { name: `${sanitizeFilename(track.title)}.mp3` });
+        telemetryLogger.media({ type: 'Deezer MP3 HQ', durationMs: Date.now() - startTime });
 
         return {
             success: true,
@@ -126,6 +129,7 @@ async function executeDownloadAndPackage(track) {
             cleanup: () => cleanupTempAudio(filePath)
         };
     } catch (error) {
+        telemetryLogger.warn(`Falha download de midia: ${error.message}`);
         return { error: `Erro ao baixar a música: ${error.message}` };
     }
 }

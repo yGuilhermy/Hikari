@@ -20,7 +20,8 @@ const {
     setChannelChatter,
     setServerEveryoneMention,
     setServerUpdateChannel,
-    setServerLastChannel
+    setServerLastChannel,
+    isChannelDisabled
 } = require('../handlers/llmHandler');
 const { generateImage } = require('../handlers/imageHandler');
 const {
@@ -84,6 +85,23 @@ module.exports = {
                         return;
                     }
                 }
+            }
+        }
+        if (interaction.guildId && isChannelDisabled(interaction.guildId, interaction.channelId) && !config.isOwner(interaction.user.id)) {
+            const isSrvConfig = (interaction.isCommand() && interaction.commandName === 'config_servidor') ||
+                                (interaction.customId && interaction.customId.startsWith('srvcfg_'));
+            if (!isSrvConfig) {
+                if (interaction.isAutocomplete()) {
+                    return interaction.respond([]).catch(() => {});
+                }
+                const disabledEmbed = new EmbedBuilder()
+                    .setColor(0xE11D48)
+                    .setTitle('🔇 Canal Desativado')
+                    .setDescription('A Hikari foi completamente desativada neste canal pela administração do servidor.\nPara interagir com ela, utilize um dos outros canais autorizados.');
+                if (interaction.isRepliable()) {
+                    return interaction.reply({ embeds: [disabledEmbed], ephemeral: true }).catch(() => {});
+                }
+                return;
             }
         }
         if (interaction.customId) {

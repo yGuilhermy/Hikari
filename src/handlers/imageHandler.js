@@ -181,10 +181,14 @@ async function tryStableHorde(prompt, negativePrompt, width, height) {
 }
 
 async function generateImage(prompt, negativePrompt = '', width = 1024, height = 1024, options = {}) {
+    const startTime = Date.now();
     const { provider = 'auto', bypassSafety = false } = options;
     const translatedPrompt = await translateToEnglish(prompt);
     const translatedNegative = negativePrompt ? await translateToEnglish(negativePrompt) : '';
-    console.log(`[LOG] Geração de Imagem | Provedor: ${provider} | Prompt: "${prompt}" -> "${translatedPrompt}"`);
+    console.log(`[IMAGE/FULL_PROMPT]: "${prompt}"`);
+    console.log(`[IMAGE/TRANSLATED]: "${translatedPrompt}"`);
+    console.log(`[IMAGE/NEGATIVE]: "${translatedNegative}"`);
+    console.log(`[IMAGE/PARAMS]: Provedor: ${provider} | Resolução: ${width}x${height}`);
     const finalNegative = bypassSafety ? translatedNegative : enforceSafetyNegative(translatedNegative);
     const allProviders = [
         { id: 'pollinations', name: 'Pollinations AI', fn: tryPollinations },
@@ -200,7 +204,17 @@ async function generateImage(prompt, negativePrompt = '', width = 1024, height =
         try {
             const result = await p.fn(translatedPrompt, finalNegative, width, height);
             if (result) {
-                console.log(`[ImageHandler] ✅ Sucesso via ${p.name}`);
+                const durationMs = Date.now() - startTime;
+                console.log(`[ImageHandler] ✅ Sucesso via ${p.name} em ${durationMs}ms | Seed: ${result.actualSeed} | Arquivo: ${result.localFilePath}`);
+                const telemetryLogger = require('../utils/telemetryLogger');
+                telemetryLogger.image({
+                    model: result.modelName || p.name,
+                    provider: p.name,
+                    width,
+                    height,
+                    durationMs,
+                    status: '200 OK'
+                });
                 return result;
             }
         } catch (err) {
@@ -208,6 +222,11 @@ async function generateImage(prompt, negativePrompt = '', width = 1024, height =
         }
     }
     console.error(`[ImageHandler] CRITICAL: Fallback failed para lista de provedores (${providersToTry.map(p => p.id).join(', ')}).`);
+    const telemetryLogger = require('../utils/telemetryLogger');
+    telemetryLogger.error({
+        category: 'IMAGE',
+        message: `Falha na geração de imagem (${width}x${height}) após tentar provedores`
+    });
     return null;
 }
 

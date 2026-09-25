@@ -1,7 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { checkBan } = require('../handlers/banHandler');
 const { resolveMentions } = require('../utils/mentions');
-const { addToQueue, getChannelSettings, getServerSettings } = require('../handlers/llmHandler');
+const { addToQueue, getChannelSettings, getServerSettings, isChannelDisabled } = require('../handlers/llmHandler');
 const config = require('../config');
 
 async function buildMessagePrompt(message, client, options = {}) {
@@ -106,6 +106,10 @@ module.exports = {
         }
 
         if (isBotPaused()) {
+            return;
+        }
+
+        if (message.guildId && isChannelDisabled(message.guildId, message.channelId) && !isOwnerUser) {
             return;
         }
 

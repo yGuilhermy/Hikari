@@ -20,6 +20,7 @@ const { generateImage } = require('./imageHandler');
 const { getSteamGameInfo } = require('./steamHandler');
 const { convertCurrency, formatCurrencyNumber, parseCurrencyQuery } = require('./currencyHandler');
 const { handleMusicSearchAndDownload } = require('./deezerMusicHandler');
+const telemetryLogger = require('../utils/telemetryLogger');
 require('dotenv').config();
 const config = require('../config');
 const geminiCooldowns = {};
@@ -351,6 +352,78 @@ function setServerLastChannel(guildId, channelId) {
     if (!serverSettings[guildId]) serverSettings[guildId] = {};
     serverSettings[guildId].lastChannelId = channelId;
     saveServerSettings();
+}
+
+function isChannelDisabled(guildId, channelId) {
+    if (!guildId || !channelId) return false;
+    const settings = serverSettings[guildId];
+    if (!settings || !Array.isArray(settings.disabledChannels)) return false;
+    return settings.disabledChannels.includes(channelId);
+}
+
+function setChannelDisabled(guildId, channelId, disabled) {
+    if (!guildId || !channelId) return;
+    if (!serverSettings[guildId]) serverSettings[guildId] = {};
+    if (!Array.isArray(serverSettings[guildId].disabledChannels)) {
+        serverSettings[guildId].disabledChannels = [];
+    }
+    const list = serverSettings[guildId].disabledChannels;
+    const index = list.indexOf(channelId);
+    if (disabled && index === -1) {
+        list.push(channelId);
+    } else if (!disabled && index !== -1) {
+        list.splice(index, 1);
+    }
+    saveServerSettings();
+}
+
+function setMultipleChannelsDisabled(guildId, channelIds, disabled) {
+    if (!guildId || !Array.isArray(channelIds) || channelIds.length === 0) return;
+    if (!serverSettings[guildId]) serverSettings[guildId] = {};
+    if (!Array.isArray(serverSettings[guildId].disabledChannels)) {
+        serverSettings[guildId].disabledChannels = [];
+    }
+    const list = serverSettings[guildId].disabledChannels;
+    for (const channelId of channelIds) {
+        const index = list.indexOf(channelId);
+        if (disabled && index === -1) {
+            list.push(channelId);
+        } else if (!disabled && index !== -1) {
+            list.splice(index, 1);
+        }
+    }
+    saveServerSettings();
+}
+
+function clearAllDisabledChannels(guildId) {
+    if (!guildId || !serverSettings[guildId]) return;
+    serverSettings[guildId].disabledChannels = [];
+    saveServerSettings();
+}
+
+function blockAllGuildChannels(guild, preserveChannelId = null) {
+    if (!guild) return 0;
+    if (!serverSettings[guild.id]) serverSettings[guild.id] = {};
+    if (!Array.isArray(serverSettings[guild.id].disabledChannels)) {
+        serverSettings[guild.id].disabledChannels = [];
+    }
+    const list = serverSettings[guild.id].disabledChannels;
+    let addedCount = 0;
+    guild.channels.cache.forEach(channel => {
+        if (channel.isTextBased() && channel.id !== preserveChannelId) {
+            if (!list.includes(channel.id)) {
+                list.push(channel.id);
+                addedCount++;
+            }
+        }
+    });
+    saveServerSettings();
+    return addedCount;
+}
+
+function getDisabledChannels(guildId) {
+    if (!guildId || !serverSettings[guildId]) return [];
+    return serverSettings[guildId].disabledChannels || [];
 }
 
 loadServerSettings();
@@ -1486,13 +1559,22 @@ ${prompt}
             }
             const history = getHistory(channelId);
             const historyOptions = { ...options, history };
+            const providerStartTime = Date.now();
             const result = await provider.func(finalPrompt, effectiveSystemPrompt, historyOptions);
+            const providerDurationMs = Date.now() - providerStartTime;
             if (!result || !result.text || result.text.trim().length === 0) throw new Error('Resposta vazia');
-            console.log(`[IA] Sucesso! Provedor: ${result.modelName}`);
+            console.log(`[IA] Sucesso! Provedor: ${result.modelName} (${providerDurationMs}ms)`);
+            console.log(`[IA] Prompt completo:\n${finalPrompt}`);
+            console.log(`[IA] Resposta bruta da IA:\n${result.text}`);
             result.text = stripThinking(result.text);
             if (!result.text) throw new Error('Resposta vazia após remoção de thinking block');
             let finalOutput = result.text.trim();
             const cleanModelName = result.modelName.replace(/\(Stream\)$/, '').trim();
+            telemetryLogger.ai({
+                model: cleanModelName,
+                durationMs: providerDurationMs,
+                tokens: result.tokens || result.usage?.total_tokens || null
+            });
             let showModelFooter = true;
             if (channelId) {
                 if (lastModelByChannel[channelId] === cleanModelName) {
@@ -1515,11 +1597,13 @@ ${prompt}
         } catch (error) {
             let errorDetails = error.response?.data?.error?.message || error.response?.data?.error || error.message;
             if (typeof errorDetails === 'object') errorDetails = JSON.stringify(errorDetails);
-            console.warn(`[IA] Falha no provedor. Motivo: ${errorDetails.substring(0, 100)}...`);
+            console.warn(`[IA] Falha no provedor. Motivo completo:\n${errorDetails}`);
+            telemetryLogger.warn(`Falha provedor IA: ${error.message || 'desconhecido'}`);
             lastError = errorDetails;
         }
     }
-    console.error('[IA] ERRO CRÍTICO: Todos os 5 provedores falharam.');
+    console.error('[IA] ERRO CRÍTICO: Todos os 5 provedores falharam. Último erro:\n' + lastError);
+    telemetryLogger.error('Todos os provedores de IA falharam');
     return `⚡ **Limites de Processamento Atingidos:** Todos os nossos provedores de IA atingiram a cota temporária de tokens ou estão temporariamente indisponíveis. Tente interagir novamente daqui algumas horas! ✨`;
 }
 async function processQueue() {
@@ -1795,10 +1879,10 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                 );
                 if (!isValidToolOrResponseJson && (rawResponse.includes('[Tool Use:') || thoughtLeakRegex.test(rawResponse) || /tool_code[\s\n]*(?:```)?/i.test(rawResponse))) {
                     isBlocked = true;
-                    console.error('[SECURITY BLOCK] Bloqueado vazamento de Tool Use/JSON Raw/tool_code:', rawResponse.substring(0, 200));
+                    console.error('[SECURITY BLOCK] Bloqueado vazamento de Tool Use/JSON Raw/tool_code:\n', rawResponse);
                 } else if (rawResponse.includes('{') && !parsedJsonCheck) {
                     isBlocked = true;
-                    console.error('[PARSER ERROR] JSON malformado detectado na resposta da IA:', rawResponse.substring(0, 200));
+                    console.error('[PARSER ERROR] JSON malformado detectado na resposta da IA:\n', rawResponse);
                 }
             }
             if (isBlocked) {
@@ -2003,6 +2087,7 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                     if (toolData.thought) {
                         console.log(`[AI THOUGHT] ${toolData.thought}`);
                     }
+                    telemetryLogger.tool({ name: toolData.tool });
                     if (options && options.radioMode && toolData.tool && toolData.tool.startsWith('radio_')) {
                         const { handleRadioMCPCall } = require('../music/radioMCPHandler');
                         const radioGuildId = options.guildId || interaction.guildId;
@@ -2995,8 +3080,8 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                     const lowerImagePrompt = imagePrompt.toLowerCase();
                     const hasNsfwRequest = NSFW_POSITIVE_KEYWORDS.some(kw => lowerImagePrompt.includes(kw));
                     if (hasNsfwRequest) {
-                        console.warn(`[GenerateImage] Bloqueado pedido NSFW: "${imagePrompt.substring(0, 80)}"`);
-                        const scoldPrompt = `O usuário te pediu para gerar uma imagem com conteúdo NSFW/impróprio: "${imagePrompt.substring(0, 100)}". Dê uma bronca curta e natural nele, na sua personalidade Hikari, sem gerar a imagem. Seja direta, sem rodeios, pode ser um pouco irônica.`;
+                        console.warn(`[GenerateImage] Bloqueado pedido NSFW: "${imagePrompt}"`);
+                        const scoldPrompt = `O usuário te pediu para gerar uma imagem com conteúdo NSFW/impróprio: "${imagePrompt}". Dê uma bronca curta e natural nele, na sua personalidade Hikari, sem gerar a imagem. Seja direta, sem rodeios, pode ser um pouco irônica.`;
                         const scoldResponse = await generateResponse(scoldPrompt, channelId, { allowSearch: false, disableTools: true, guildId });
                         processedResponse = scoldResponse;
                     } else {
@@ -3022,7 +3107,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                             if (imageData && (imageData.imageUrl || imageData.localFilePath)) {
                                 let hikariComment = 'olha, ficou bem interessante isso daí...';
                                 try {
-                                    console.log(`[ImageHandler] Pedindo comentário para Hikari sobre: "${imagePrompt.substring(0, 40)}..."`);
+                                    console.log(`[ImageHandler] Pedindo comentário para Hikari sobre: "${imagePrompt}"`);
                                     const commentPrompt = `Você (Hikari) acabou de gerar uma imagem com o prompt: "${imagePrompt}". Faça um comentário MUITO CURTO (máximo 15 palavras), natural e casual sobre essa ideia/resultado. NÃO use JSON. NÃO use ferramentas. Apenas texto puro. Seja direta e use seu estilo de fala.`;
                                     const rawComment = await generateResponse(commentPrompt, channelId, {
                                         allowSearch: false,
@@ -3619,6 +3704,12 @@ module.exports = {
     setServerEveryoneMention,
     setServerUpdateChannel,
     setServerLastChannel,
+    isChannelDisabled,
+    setChannelDisabled,
+    setMultipleChannelsDisabled,
+    clearAllDisabledChannels,
+    blockAllGuildChannels,
+    getDisabledChannels,
     clearHistory,
     clearProcessingQueue,
     abortCurrentGeneration,

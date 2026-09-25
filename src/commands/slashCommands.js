@@ -144,6 +144,8 @@ const commands = [
             .addIntegerOption(opt => opt.setName('espontaneo_porcentagem').setDescription('Porcentagem exata de respostas (0-100%).').setMinValue(0).setMaxValue(100).setRequired(false))
             .addChannelOption(opt => opt.setName('canal_updates').setDescription('Canal de texto para receber avisos de atualizações.').addChannelTypes(ChannelType.GuildText).setRequired(false))
             .addBooleanOption(opt => opt.setName('mencoes_ativo').setDescription('Responder a marcações de @everyone e @here?').setRequired(false))
+            .addChannelOption(opt => opt.setName('canal_alvo').setDescription('Canal alvo para aplicar configurações (padrão: canal atual).').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.GuildVoice, ChannelType.GuildStageVoice).setRequired(false))
+            .addStringOption(opt => opt.setName('canal_status').setDescription('Ativar ou desativar completamente a Hikari no canal alvo.').addChoices({ name: '🟢 Ativar Hikari', value: 'enable' }, { name: '🔴 Desativar Hikari', value: 'disable' }).setRequired(false))
     ),
     setGlobalContext(
         new SlashCommandBuilder()

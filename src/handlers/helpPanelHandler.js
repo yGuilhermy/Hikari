@@ -24,7 +24,7 @@ const COMMAND_DETAILS = {
         name: '/config_servidor',
         category: '⚙️ Administração de Servidor',
         permission: '🛡️ Administrador do Servidor (Gerenciar Servidor)',
-        description: 'Abre o Painel Gráfico de Administração do Servidor para configurar comportamento, espontâneo, updates, menções e ferramentas MCP.',
+        description: 'Abre o Painel Gráfico de Administração do Servidor para bloquear/liberar chats, configurar humor, falas espontâneas, updates, menções e ferramentas MCP.',
         syntax: '/config_servidor',
         options: [],
         examples: [

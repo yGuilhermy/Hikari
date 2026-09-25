@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const config = require('../config');
+const telemetryLogger = require('../utils/telemetryLogger');
 
 const cacheFilePath = path.join(__dirname, '../data/image_descriptions.json');
 const MAX_CACHE_ENTRIES = 1000;
@@ -201,6 +202,7 @@ async function describeImageAttachment(attachmentId, attachmentUrl, attachmentNa
     }
 
     const task = (async () => {
+        const startTime = Date.now();
         try {
             if (!attachmentUrl) return null;
             console.log(`[Vision] Baixando anexo: ${attachmentName || attachmentId}...`);
@@ -214,6 +216,8 @@ async function describeImageAttachment(attachmentId, attachmentUrl, attachmentNa
             let description = await describeWithGemini(buffer, mimeType);
 
             if (description) {
+                const durationMs = Date.now() - startTime;
+                telemetryLogger.vision({ durationMs, status: '200 OK' });
                 const compact = formatCompactDescription(description);
                 imageDescriptionCache.set(attachmentId, compact);
                 if (imageDescriptionCache.size > MAX_CACHE_ENTRIES) {
@@ -226,6 +230,7 @@ async function describeImageAttachment(attachmentId, attachmentUrl, attachmentNa
             return null;
         } catch (err) {
             console.warn(`[Vision] Erro geral ao processar anexo ${attachmentId}:`, err.message);
+            telemetryLogger.warn(`Falha na análise de visão: ${err.message || 'desconhecido'}`);
             return null;
         } finally {
             inFlightRequests.delete(attachmentId);
