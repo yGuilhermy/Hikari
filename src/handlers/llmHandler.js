@@ -227,7 +227,7 @@ function buildToolsDefinition(guildId, userId = null, options = {}) {
         check_steam:     'User: "Elden Ring ta em promo na steam?"\nResponse: { "thought": "User quer saber preço de Elden Ring.", "tool": "check_steam", "args": { "game": "Elden Ring" } }',
         convert_currency:'User: "quanto ta 50 dolares em reais?"\nResponse: { "thought": "User quer converter 50 USD para BRL.", "tool": "convert_currency", "args": { "amount": 50, "from": "USD", "to": "BRL" } }',
         get_current_music:'User: "Hikari, baixe a musica do meu status"\nResponse: { "thought": "User quer baixar música tocando no seu status.", "tool": "get_current_music", "args": { "download": true } }\nUser: "baixa a musica que o @fulano tá ouvindo"\nResponse: { "thought": "Baixar música do status de fulano.", "tool": "get_current_music", "args": { "download": true, "user": "<@fulano_id>" } }\nUser: "oq eu to escutando no status"\nResponse: { "thought": "User quer saber música do seu status.", "tool": "get_current_music", "args": { "download": true } }',
-        send_voice_note: 'User: "Hikari, me manda um áudio"\nResponse: { "thought": "Enviar mensagem de voz.", "tool": "send_voice_note", "args": { "text": "Oi! Tô por aqui, tudo certo por aí?" } }\nUser: "fala comigo sobre seu criador"\nResponse: { "thought": "Consultar dados do criador antes de falar.", "tool": "db_read", "args": { "key": "creator_info" } }',
+        send_voice_note: 'User: "Hikari, me manda um áudio"\nResponse: { "thought": "Enviar mensagem de voz.", "tool": "send_voice_note", "args": { "text": "Oi! Tô por aqui, tudo certo por aí?" } }',
         db_read:         'User: "Quem é o seu criador e me fale sobre ele"\nResponse: { "thought": "Consultar dados do criador.", "tool": "db_read", "args": { "key": "creator_info" } }\nUser: "quem te criou?"\nResponse: { "thought": "Consultar criador.", "tool": "db_read", "args": { "key": "creator_info" } }\nUser: "Como é sua aparência física?"\nResponse: { "thought": "Consultar dados da Hikari.", "tool": "db_read", "args": { "key": "hikari_info" } }\nUser: "gere uma imagem sua"\nResponse: { "thought": "Consultar aparência para gerar imagem.", "tool": "db_read", "args": { "key": "hikari_info" } }',
         db_write:        'User: "Lembre-se que o aniversário do servidor é em outubro"\nResponse: { "thought": "Salvar data do aniversário.", "tool": "db_write", "args": { "key": "aniversario_servidor", "content": "Aniversário do servidor é em outubro" } }',
         db_edit:         'User: "Mude a anotação do aniversário para 15 de outubro"\nResponse: { "thought": "Atualizar anotação.", "tool": "db_edit", "args": { "key": "aniversario_servidor", "content": "Aniversário do servidor é 15 de outubro", "append": false } }',
@@ -1538,7 +1538,7 @@ VOCÊ DEVE ADERIR A ESSA NOVA PERSONA ACIMA DE TUDO.\n`;
                 } else if (provider.func === tryLocal && config.lmStudioApiKey) {
                     effectiveSystemPrompt += "\n[SYSTEM NOTICE]: You operate in STRICT TOOL MODE. You MUST ALWAYS call a tool.\n- If the user wants an action (search, download, help), use the specific tool.\n- For EVERYTHING ELSE (chat, math, questions), use the 'generate_reply' tool.\n- DO NOT output plain text. ALWAYS output a tool call.";
                 } else if (provider.func === tryGemini) {
-                    effectiveSystemPrompt += "\n[REGRAS DE FERRAMENTAS (TOOLS)]:\nVocê possui ferramentas poderosas. REGRA CRÍTICA DE OURO: Se o usuário pedir uma AÇÃO que pode ser feita por uma ferramenta, você DEVE chamar a ferramenta imediatamente. NUNCA responda com texto prometendo fazer a ação (ex: PROIBIDO dizer 'blz vou baixar', 'vou procurar', 'ok, buscando' quando houver uma ferramenta aplicável — isso é falso atendimento. Aja ou recuse, nunca prometa).\n- COMANDO UNIVERSAL MCP: Se o usuário citar 'mcp de [ferramenta]' ou 'mcp [ferramenta]' (ex: 'mcp de pesquisa para xxx', 'mcp de musica para xxx', 'mcp de imagem para xxx', 'mcp de jogo para xxx', ou apenas 'mcp de pesquisa' usando o contexto anterior), você DEVE OBRIGATORIAMENTE acionar a ferramenta correspondente em JSON sem hesitar. Se o usuário não fornecer argumento explícito, use o assunto da mensagem anterior como argumento.\n- Pediu para BAIXAR MÚSICA POR NOME/ARTISTA (sem URL)? → OBRIGATÓRIO chamar search_and_download_music com o nome. NUNCA diga que vai baixar sem chamar.\n- Pediu para VER ou BAIXAR a música do status (sua ou de outro usuário como @fulano)? → OBRIGATÓRIO chamar get_current_music (passando user se for de outro usuário).\n- Pediu para GERAR/CRIAR/DESENHAR uma imagem? → OBRIGATÓRIO chamar generate_image. Crie um prompt detalhado e criativo mesmo se o pedido for vago. Se o usuário pedir para gerar uma imagem SUA / da Hikari (ex: 'gere uma imagem sua', 'desenhe você', 'sua foto'), chame primeiro db_read com key: 'hikari_info' para consultar sua aparência oficial antes de gerar.\n- Perguntou sobre a própria Hikari (aparência física, capacidades, personalidade)? → Chame db_read com key: 'hikari_info'.\n- Perguntou sobre o criador da Hikari (quem criou, sobre ele, etc.)? → Chame db_read com key: 'creator_info'.\n- CONTEXTO DE BANCO ANTES DE FALAR: Se o usuário pedir para falar por voz/áudio sobre o criador, sobre você mesma ou qualquer assunto guardado no banco de dados, você DEVE chamar SEMPRE 'db_read' PRIMEIRO para obter os dados do banco antes de sintetizar ou enviar a voz.\n- Pediu para falar, mandar áudio ou responder em voz (ou se decidir falar por voz)? → Chame send_voice_note com fala natural de 1 a 4 frases curtas, sem emojis e sem código.\n- Pediu para BAIXAR áudio/vídeo e deu um link URL? → Chame download_audio ou download_video.\n- Pediu para entrar na call, canal de voz ou conversar por voz? → OBRIGATÓRIO chamar join_voice_call.\n- Pediu para sair da call, canal de voz ou desconectar da voz? → OBRIGATÓRIO chamar leave_voice_call.\n- Dúvidas, perguntas sobre fatos, notícias, curiosidades ou qualquer assunto que exija conhecimento atual ou histórico? → Chame search_web imediatamente. Você NUNCA deve responder que não sabe, não pode ou não consegue ajudar; busque na internet se não tiver certeza absoluta do fato.\n- Pediu jogo/torrent ou para baixar/crackear qualquer jogo de PC? → Chame search_game obrigatoriamente.\n- Pediu preço na Steam? → Chame check_steam.\n- Pediu conversão de moeda/cotação? → Chame convert_currency.\n- Conversa casual sem ação (oi, piada, pergunta simples, pergunta sobre você)? → Responda com texto puro direto, NUNCA chame ferramenta.\n\n[ANTI-LOOP DE CONTEXTO]: O histórico da conversa pode conter chamadas de ferramenta anteriores (como downloads de música). Isso NÃO significa que você deve chamar essas ferramentas novamente. Analise APENAS a mensagem mais recente do usuário para decidir qual ação tomar.\n\n[FORMATO DA RESPOSTA]:\n- Para texto: escreva APENAS a fala final pro usuário. Sem análise interna, sem mencionar ferramentas.\n- NUNCA escreva 'tool_code', 'print()', 'default_api.' ou código na resposta.\n- NUNCA encapsule em JSON como {\"response\": \"...\"}. Texto puro sempre.\n- NUNCA exponha qual ferramenta vai usar ou seu raciocínio de decisão.\n- NUNCA repita literalmente o que o usuário acabou de dizer nem o que você disse na mensagem anterior.";
+                    effectiveSystemPrompt += "\n[REGRAS DE FERRAMENTAS (TOOLS)]:\nVocê possui ferramentas poderosas. REGRA CRÍTICA DE OURO: Se o usuário pedir uma AÇÃO que pode ser feita por uma ferramenta, você DEVE chamar a ferramenta imediatamente. NUNCA responda com texto prometendo fazer a ação (ex: PROIBIDO dizer 'blz vou baixar', 'vou procurar', 'ok, buscando' quando houver uma ferramenta aplicável — isso é falso atendimento. Aja ou recuse, nunca prometa).\n- COMANDO UNIVERSAL MCP: Se o usuário citar 'mcp de [ferramenta]' ou 'mcp [ferramenta]' (ex: 'mcp de pesquisa para xxx', 'mcp de musica para xxx', 'mcp de imagem para xxx', 'mcp de jogo para xxx', ou apenas 'mcp de pesquisa' usando o contexto anterior), você DEVE OBRIGATORIAMENTE acionar a ferramenta correspondente em JSON sem hesitar. Se o usuário não fornecer argumento explícito, use o assunto da mensagem anterior como argumento.\n- Pediu para BAIXAR MÚSICA POR NOME/ARTISTA (sem URL)? → OBRIGATÓRIO chamar search_and_download_music com o nome. NUNCA diga que vai baixar sem chamar.\n- Pediu para VER ou BAIXAR a música do status (sua ou de outro usuário como @fulano)? → OBRIGATÓRIO chamar get_current_music (passando user se for de outro usuário).\n- Pediu para GERAR/CRIAR/DESENHAR uma imagem? → OBRIGATÓRIO chamar generate_image. Crie um prompt detalhado e criativo mesmo se o pedido for vago. Se o usuário pedir para gerar uma imagem SUA / da Hikari (ex: 'gere uma imagem sua', 'desenhe você', 'sua foto'), chame primeiro db_read com key: 'hikari_info' para consultar sua aparência oficial antes de gerar.\n- Perguntou sobre a própria Hikari (aparência física, capacidades, personalidade)? → Chame db_read com key: 'hikari_info'.\n- Perguntou sobre o criador da Hikari (quem criou, sobre ele, etc.)? → Chame db_read com key: 'creator_info'.\n- CONTEXTO DE BANCO ANTES DE FALAR: Se o usuário pedir para falar por voz/áudio sobre o criador, sobre você mesma ou qualquer assunto guardado no banco de dados, você DEVE chamar SEMPRE 'db_read' PRIMEIRO para obter os dados do banco antes de sintetizar ou enviar a voz. Se o usuário perguntar em texto normal sem pedir áudio, responda normalmente em texto puro após consultar o banco.\n- Pediu para falar, mandar áudio ou responder em voz (ou se você mesma preferir e decidir espontaneamente responder por áudio/voz, tipo 'ah vou mandar um áudio dessa vez')? → Chame send_voice_note com fala natural de 1 a 4 frases curtas, sem emojis e sem código.\n- Pediu para BAIXAR áudio/vídeo e deu um link URL? → Chame download_audio ou download_video.\n- Pediu para entrar na call, canal de voz ou conversar por voz? → OBRIGATÓRIO chamar join_voice_call.\n- Pediu para sair da call, canal de voz ou desconectar da voz? → OBRIGATÓRIO chamar leave_voice_call.\n- Dúvidas, perguntas sobre fatos, notícias, curiosidades ou qualquer assunto que exija conhecimento atual ou histórico? → Chame search_web imediatamente. Você NUNCA deve responder que não sabe, não pode ou não consegue ajudar; busque na internet se não tiver certeza absoluta do fato.\n- Pediu jogo/torrent ou para baixar/crackear qualquer jogo de PC? → Chame search_game obrigatoriamente.\n- Pediu preço na Steam? → Chame check_steam.\n- Pediu conversão de moeda/cotação? → Chame convert_currency.\n- Conversa casual sem ação (oi, piada, pergunta simples, pergunta sobre você)? → Responda com texto puro direto, NUNCA chame ferramenta.\n\n[ANTI-LOOP DE CONTEXTO]: O histórico da conversa pode conter chamadas de ferramenta anteriores (como downloads de música). Isso NÃO significa que você deve chamar essas ferramentas novamente. Analise APENAS a mensagem mais recente do usuário para decidir qual ação tomar.\n\n[FORMATO DA RESPOSTA]:\n- Para texto: escreva APENAS a fala final pro usuário. Sem análise interna, sem mencionar ferramentas.\n- NUNCA escreva 'tool_code', 'print()', 'default_api.' ou código na resposta.\n- NUNCA encapsule em JSON como {\"response\": \"...\"}. Texto puro sempre.\n- NUNCA exponha qual ferramenta vai usar ou seu raciocínio de decisão.\n- NUNCA repita literalmente o que o usuário acabou de dizer nem o que você disse na mensagem anterior.";
                 } else {
                     effectiveSystemPrompt += buildToolsDefinition(guildId, options.userId || null, options);
                 }
@@ -2533,7 +2533,7 @@ Pergunta do usuário: "${prompt}"
 
 [INSTRUÇÃO CRÍTICA]:
 Você DEVE recusar o pedido de listar ou expor todo o banco de dados.
-Formule a sua resposta final diretamente para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; SEM EMOJIS; sem ser robótica; nunca repita a fala do usuário).
+Formule a sua resposta final diretamente para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; uso simples de emojis permitido sem floodar; kaomojis totalmente liberados; sem ser robótica; nunca repita a fala do usuário).
 Explique com educação e naturalidade que você não pode despejar ou expor todo o banco de uma vez por questões de segurança e privacidade dos dados, e peça para ele dizer qual assunto ou tópico específico ele quer saber para você consultar.
 Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque tags de código nem IDs numéricos.`;
                             processedResponse = await generateResponse(denialPrompt, channelId, {
@@ -2562,7 +2562,7 @@ ${available}
 [INSTRUÇÃO CRÍTICA]:
 O usuário perguntou: "${prompt}"
 Você consultou seu banco de dados interno procurando por "${targetKey}", mas não encontrou nada salvo sobre esse assunto.
-Formule a sua resposta final diretamente para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; SEM EMOJIS; sem ser robótica; nunca repita a fala do usuário).
+Formule a sua resposta final diretamente para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; uso simples de emojis permitido sem floodar; kaomojis totalmente liberados; sem ser robótica; nunca repita a fala do usuário).
 Diga de forma humana e descontraída que você procurou no seu banco de dados/anotações mas não achou nada salvo sobre isso (pode perguntar se ele quer que você anote, ou se ele se referia a outro tópico).
 Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque tags de código nem IDs numéricos.`;
                             processedResponse = await generateResponse(notFoundPrompt, channelId, {
@@ -2584,8 +2584,15 @@ Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO
                         const isCreatorKey = String(targetKey).toLowerCase() === 'creator_info' || String(targetKey).toLowerCase().includes('criador');
                         const isHikariKey = String(targetKey).toLowerCase() === 'hikari_info' || String(targetKey).toLowerCase().includes('hikari');
                         const wantsImage = isHikariSelfPortraitIntent(options.searchPrompt || prompt);
-                        const wantsVoice = Boolean(options.forceVoice || options.voice === true || /(?:^|[\s,;!?])(?:manda|mande|grava|grave|solta|solte|fala|fale|responda?)\b.{0,30}(?:[aá]udio|voz|nota de voz|audiozinho|falando)(?:$|[\s,;!?])|(?:por|em)\s+([aá]udio|voz)/i.test(prompt));
-                        const canUseVoice = config.voiceChatEnabled !== false && options.voice !== false;
+                        const normPrompt = (prompt || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                        const hasNegativeVoice = /\b(sem|nao|nada\s+de|sem\s+ser)\b.{0,20}\b(audio|voz|audiozinho|grava|fala)\b/i.test(normPrompt);
+                        const wantsVoice = !hasNegativeVoice && Boolean(
+                            options.forceVoice || options.voice === true ||
+                            /\b(manda|mande|grava|grave|solta|solte|responda?)\b.{0,30}\b(audio|voz|nota de voz|audiozinho|falando)\b/i.test(normPrompt) ||
+                            /\b(fala|fale)\b.{0,20}\b(por|em)\s+(audio|voz)\b/i.test(normPrompt) ||
+                            /(?<!\b(sem|nao)\b.{0,15})\b(por|em)\s+(audio|voz)\b/i.test(normPrompt)
+                        );
+                        const canUseVoice = config.voiceChatEnabled !== false && options.voice !== false && !hasNegativeVoice;
 
                         let contextPrompt;
                         let allowToolsInPass2 = false;
@@ -2599,8 +2606,9 @@ ${dbResult.formatted}
 [INSTRUÇÃO CRÍTICA]:
 O usuário perguntou: "${prompt}"
 Você consultou o banco de dados interno e obteve as informações acima sobre o seu criador.
-Como o usuário pediu para falar/responder por áudio (ou a resposta é por voz), você DEVE chamar a ferramenta "send_voice_note" em formato JSON.
-Formule uma fala direta, natural e concisa (1 a 4 frases curtas, sem emojis, sem código) baseada estritamente nas informações acima sobre o seu criador (Guilhermy, 20 anos, tecnologia/programação, gentil, gosta de jogos, tsundere).
+Como o usuário pediu expressamente para responder por áudio/voz, você DEVE chamar a ferramenta "send_voice_note" em formato JSON.
+Consuma e utilize atentamente os dados e fatos recuperados acima para formular a sua fala.
+Formule uma fala direta, natural e concisa (1 a 4 frases curtas, sem emojis, sem código) baseada estritamente nas informações acima sobre o seu criador.
 FORMATO OBRIGATÓRIO (JSON):
 {
   "thought": "responder por voz sobre o criador",
@@ -2609,27 +2617,32 @@ FORMATO OBRIGATÓRIO (JSON):
     "text": "..."
   }
 }`;
-                            } else if (canUseVoice) {
-                                allowToolsInPass2 = true;
-                                contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO SOBRE O CRIADOR]:
-${dbResult.formatted}
-
-[INSTRUÇÃO CRÍTICA]:
-O usuário perguntou: "${prompt}"
-Você consultou o banco de dados interno e obteve as informações acima sobre o seu criador.
-Agora formule a sua resposta no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; SEM EMOJIS; sem ser robótica; nunca repita a fala do usuário).
-Sua resposta DEVE ser construída utilizando estritamente as informações recuperadas acima do banco de dados, reformulando todos os pontos e observações contidos nos dados de maneira descontraída e natural.
-Você pode responder diretamente em texto puro OU, se você mesma escolher responder falando por mensagem de voz oficial, chame a ferramenta "send_voice_note" em formato JSON com 1 a 4 frases curtas sem emojis.`;
                             } else {
-                                contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO SOBRE O CRIADOR]:
+                                if (canUseVoice) {
+                                    allowToolsInPass2 = true;
+                                    contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO SOBRE O CRIADOR]:
 ${dbResult.formatted}
 
 [INSTRUÇÃO CRÍTICA]:
 O usuário perguntou: "${prompt}"
 Você consultou o banco de dados interno e obteve as informações acima sobre o seu criador.
-Agora formule a sua resposta final para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; SEM EMOJIS; sem ser robótica; nunca repita a fala do usuário).
-Sua resposta DEVE ser construída utilizando estritamente as informações recuperadas acima do banco de dados, reformulando todos os pontos e observações contidos nos dados de maneira descontraída e natural.
+Consuma atentamente os fatos e detalhes recuperados acima do banco de dados para preparar a sua mensagem, apresentando essas informações de forma orgânica, descontraída e natural.
+Formule a sua resposta no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; uso simples de emojis permitido sem floodar; kaomojis totalmente liberados; sem ser robótica; nunca repita a fala do usuário).
+
+MODO DE RESPOSTA (ESCOLHA DA IA):
+- PADRÃO (TEXTO PURO): Escreva diretamente a sua fala final para o usuário como texto normal. NÃO use JSON, NÃO use ferramentas.
+- VOZ ESPONTÂNEA (OPCIONAL): Se você mesma decidir espontaneamente que prefere responder falando por áudio desta vez ('ah, vou mandar um áudio dessa vez'), você pode chamar a ferramenta "send_voice_note" em JSON com { "thought": "...", "tool": "send_voice_note", "args": { "text": "sua fala concisa aqui (1 a 4 frases, sem emojis, sem código)" } }.`;
+                                } else {
+                                    contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO SOBRE O CRIADOR]:
+${dbResult.formatted}
+
+[INSTRUÇÃO CRÍTICA]:
+O usuário perguntou: "${prompt}"
+Você consultou o banco de dados interno e obteve as informações acima sobre o seu criador.
+Consuma atentamente os fatos e detalhes recuperados acima do banco de dados para preparar a sua mensagem, apresentando essas informações de forma orgânica, descontraída e natural.
+Formule a sua resposta final para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; uso simples de emojis permitido sem floodar; kaomojis totalmente liberados; sem ser robótica; nunca repita a fala do usuário).
 Responda APENAS com o texto da sua fala final para o usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque tags de código nem IDs numéricos.`;
+                                }
                             }
                         } else if (isHikariKey && wantsImage) {
                             allowToolsInPass2 = true;
@@ -2664,8 +2677,8 @@ ${dbResult.formatted}
 [INSTRUÇÃO CRÍTICA]:
 O usuário perguntou: "${prompt}"
 Você consultou o banco de dados interno e obteve as informações acima.
-Como o usuário pediu para falar/responder por áudio (ou a resposta é por voz), você DEVE chamar a ferramenta "send_voice_note" em formato JSON.
-Formule uma fala direta, natural e concisa (1 a 4 frases curtas, sem emojis, sem código) utilizando os dados recuperados do banco.
+Como o usuário pediu para responder por áudio/voz, você DEVE chamar a ferramenta "send_voice_note" em formato JSON.
+Consuma os fatos recuperados do banco e formule uma fala direta, natural e concisa (1 a 4 frases curtas, sem emojis, sem código) utilizando os dados recuperados do banco.
 FORMATO OBRIGATÓRIO (JSON):
 {
   "thought": "responder por voz com dados do banco",
@@ -2674,26 +2687,31 @@ FORMATO OBRIGATÓRIO (JSON):
     "text": "..."
   }
 }`;
-                            } else if (canUseVoice) {
-                                allowToolsInPass2 = true;
-                                contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO]:
-${headerInfo}
-Conteúdo:
-${dbResult.formatted}
-
-[INSTRUÇÃO]:
-O usuário perguntou: "${prompt}"
-Utilize todos os dados acima recuperados do banco de dados para responder ao usuário de forma completa, natural e na sua personalidade (SEM EMOJIS).
-Você pode responder diretamente em texto puro OU, se escolher responder falando por mensagem de voz oficial, chame a ferramenta "send_voice_note" em formato JSON com 1 a 4 frases curtas sem emojis.`;
                             } else {
-                                contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO]:
+                                if (canUseVoice) {
+                                    allowToolsInPass2 = true;
+                                    contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO]:
 ${headerInfo}
 Conteúdo:
 ${dbResult.formatted}
 
 [INSTRUÇÃO]:
 O usuário perguntou: "${prompt}"
-Utilize todos os dados acima recuperados do banco de dados para responder ao usuário de forma completa, natural e na sua personalidade (SEM EMOJIS). Responda apenas com a sua fala direta, sem JSON.`;
+Consuma todos os dados e fatos acima recuperados do banco de dados para responder ao usuário de forma completa, natural e na sua personalidade (uso simples de emojis permitido sem floodar; kaomojis totalmente liberados).
+
+MODO DE RESPOSTA (ESCOLHA DA IA):
+- PADRÃO (TEXTO PURO): Escreva diretamente a sua fala final para o usuário como texto normal, sem JSON.
+- VOZ ESPONTÂNEA (OPCIONAL): Se você mesma decidir espontaneamente que prefere responder falando por áudio desta vez ('ah, vou mandar um áudio dessa vez'), você pode chamar a ferramenta "send_voice_note" em JSON com { "thought": "...", "tool": "send_voice_note", "args": { "text": "sua fala concisa aqui (1 a 4 frases, sem emojis, sem código)" } }.`;
+                                } else {
+                                    contextPrompt = `[DADOS DO BANCO DE DADOS INTERNO]:
+${headerInfo}
+Conteúdo:
+${dbResult.formatted}
+
+[INSTRUÇÃO]:
+O usuário perguntou: "${prompt}"
+Consuma todos os dados e fatos acima recuperados do banco de dados para responder ao usuário de forma completa, natural e na sua personalidade (uso simples de emojis permitido sem floodar; kaomojis totalmente liberados). Responda apenas com a sua fala direta, sem JSON.`;
+                                }
                             }
                         }
 
@@ -2716,8 +2734,13 @@ Utilize todos os dados acima recuperados do banco de dados para responder ao usu
                                 } catch (_) {}
                             }
                             if (pass2ToolData) {
-                                toolData = pass2ToolData;
-                                console.log(`[AI/LLM] Segunda passada encadeada para Tool: ${toolData.tool}`);
+                                if (pass2ToolData.tool === 'generate_reply') {
+                                    let pReply = pass2ToolData.args ? (pass2ToolData.args.reply || pass2ToolData.args.text || pass2ToolData.args.content || pass2ToolData.args.response || pass2ToolData.args.message) : null;
+                                    processedResponse = pReply || pass2ToolData.thought || pass2Response;
+                                } else {
+                                    toolData = pass2ToolData;
+                                    console.log(`[AI/LLM] Segunda passada encadeada para Tool: ${toolData.tool}`);
+                                }
                             } else {
                                 processedResponse = pass2Response;
                                 const dbFooter = '💾 Database';
@@ -2768,7 +2791,48 @@ Utilize todos os dados acima recuperados do banco de dados para responder ao usu
                     if (!writeResult.success) {
                         processedResponse = writeResult.message || 'Não foi possível gravar essa informação no banco.';
                     } else {
-                        processedResponse = `Pronto, anotei e salvei "${targetKey}" no banco de dados com sucesso.`;
+                        const fallbackMsg = `Pronto, anotei e salvei "${targetKey}" no banco de dados com sucesso.`;
+                        try {
+                            const confirmPrompt = `[AÇÃO NO BANCO DE DADOS CONCLUÍDA COM SUCESSO]:
+Você executou a ferramenta "db_write" e gravou no banco de dados a chave "${targetKey}" com o conteúdo: "${targetContent || '(sem conteúdo)'}".
+Pergunta do usuário: "${prompt}"
+
+[INSTRUÇÃO CRÍTICA]:
+Você DEVE confirmar de forma extremamente clara, forte e inequívoca para o usuário o que você acabou de gravar e salvar no banco de dados (ex: cite que anotou/salvou a chave com sucesso e mencione claramente o que foi guardado).
+Usuários precisam de certeza absoluta e confirmação direta do que foi feito, sem meias palavras ou ambiguidades.
+Formule a sua resposta final na sua personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; uso simples de emojis permitido sem floodar; kaomojis totalmente liberados; sem ser robótica).
+Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque tags de código nem IDs numéricos.`;
+                            const generatedConfirm = await generateResponse(confirmPrompt, channelId, {
+                                allowSearch: false,
+                                disableTools: true,
+                                guildId: targetGuildId,
+                                skipLocal: options.skipLocal,
+                                isInternalComment: true
+                            });
+                            if (generatedConfirm && !generatedConfirm.includes('⚠️ SYSTEM ERROR')) {
+                                let cleanConfirm = generatedConfirm.replace(/\n-# .*$/gm, '').trim();
+                                const jsonMatch = cleanConfirm.match(/\{[\s\S]*\}/);
+                                if (jsonMatch) {
+                                    try {
+                                        const parsed = JSON.parse(jsonMatch[0]);
+                                        cleanConfirm = parsed.response || parsed.content || parsed.text || parsed.reply || cleanConfirm;
+                                    } catch (_) {}
+                                }
+                                processedResponse = cleanConfirm || fallbackMsg;
+                            } else {
+                                processedResponse = fallbackMsg;
+                            }
+                        } catch (_) {
+                            processedResponse = fallbackMsg;
+                        }
+                        const dbFooter = '💾 Database';
+                        if (/\n-# /.test(processedResponse)) {
+                            processedResponse += ` | ${dbFooter}`;
+                        } else if (modelFooter) {
+                            processedResponse += `${modelFooter} | ${dbFooter}`;
+                        } else {
+                            processedResponse += `\n-# ${dbFooter}`;
+                        }
                     }
                     console.log(`[AI/LLM] Resposta gerada via Tool: db_write (${duration})`);
                 }
@@ -2815,7 +2879,7 @@ Pergunta do usuário: "${prompt}"
 
 [INSTRUÇÃO CRÍTICA]:
 Você DEVE recusar a alteração.
-Formule a sua resposta final diretamente para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; SEM EMOJIS; sem ser robótica; nunca repita a fala do usuário).
+Formule a sua resposta final diretamente para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; uso simples de emojis permitido sem floodar; kaomojis totalmente liberados; sem ser robótica; nunca repita a fala do usuário).
 Explique com naturalidade que você não pode alterar ou editar essa anotação porque ela é importante e foi salva por ${authorLabel}, e que para evitar trolls ou perda de dados, somente esse usuário ou a moderação/administração do servidor podem autorizar ou fazer alterações.
 Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque tags de código nem IDs numéricos.`;
                             processedResponse = await generateResponse(denialPrompt, channelId, {
@@ -2836,7 +2900,48 @@ Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO
                             processedResponse = editResult.message || 'Não foi possível editar essa informação no banco.';
                         }
                     } else {
-                        processedResponse = `Pronto, atualizei o registro "${targetKey}" no banco de dados com sucesso.`;
+                        const fallbackMsg = `Pronto, atualizei o registro "${targetKey}" no banco de dados com sucesso.`;
+                        try {
+                            const confirmPrompt = `[AÇÃO NO BANCO DE DADOS CONCLUÍDA COM SUCESSO]:
+Você executou a ferramenta "db_edit" e atualizou com sucesso o registro "${targetKey}" no banco de dados (conteúdo atualizado: "${targetContent || '(conteúdo atualizado)'}").
+Pergunta do usuário: "${prompt}"
+
+[INSTRUÇÃO CRÍTICA]:
+Você DEVE confirmar de forma extremamente clara, forte e inequívoca para o usuário o que você acabou de alterar e atualizar no registro "${targetKey}".
+Usuários precisam de certeza absoluta e confirmação direta do que foi feito, sem meias palavras ou ambiguidades.
+Formule a sua resposta final na sua personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; uso simples de emojis permitido sem floodar; kaomojis totalmente liberados; sem ser robótica).
+Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque tags de código nem IDs numéricos.`;
+                            const generatedConfirm = await generateResponse(confirmPrompt, channelId, {
+                                allowSearch: false,
+                                disableTools: true,
+                                guildId: targetGuildId,
+                                skipLocal: options.skipLocal,
+                                isInternalComment: true
+                            });
+                            if (generatedConfirm && !generatedConfirm.includes('⚠️ SYSTEM ERROR')) {
+                                let cleanConfirm = generatedConfirm.replace(/\n-# .*$/gm, '').trim();
+                                const jsonMatch = cleanConfirm.match(/\{[\s\S]*\}/);
+                                if (jsonMatch) {
+                                    try {
+                                        const parsed = JSON.parse(jsonMatch[0]);
+                                        cleanConfirm = parsed.response || parsed.content || parsed.text || parsed.reply || cleanConfirm;
+                                    } catch (_) {}
+                                }
+                                processedResponse = cleanConfirm || fallbackMsg;
+                            } else {
+                                processedResponse = fallbackMsg;
+                            }
+                        } catch (_) {
+                            processedResponse = fallbackMsg;
+                        }
+                        const dbFooter = '💾 Database';
+                        if (/\n-# /.test(processedResponse)) {
+                            processedResponse += ` | ${dbFooter}`;
+                        } else if (modelFooter) {
+                            processedResponse += `${modelFooter} | ${dbFooter}`;
+                        } else {
+                            processedResponse += `\n-# ${dbFooter}`;
+                        }
                     }
                     console.log(`[AI/LLM] Resposta gerada via Tool: db_edit (${duration})`);
                 }
@@ -2872,7 +2977,7 @@ Pergunta do usuário: "${prompt}"
 
 [INSTRUÇÃO CRÍTICA]:
 Você DEVE recusar a exclusão.
-Formule a sua resposta final diretamente para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; SEM EMOJIS; sem ser robótica; nunca repita a fala do usuário).
+Formule a sua resposta final diretamente para o usuário no seu estilo e personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; uso simples de emojis permitido sem floodar; kaomojis totalmente liberados; sem ser robótica; nunca repita a fala do usuário).
 Explique com naturalidade que você não pode deletar essa anotação porque ela é importante e foi salva por ${authorLabel}, e que para evitar trolls ou perda de dados, somente esse usuário ou a moderação/administração do servidor podem autorizar ou confirmar a exclusão.
 Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque tags de código nem IDs numéricos.`;
                             processedResponse = await generateResponse(denialPrompt, channelId, {
@@ -2893,7 +2998,48 @@ Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO
                             processedResponse = deleteResult.message || 'Não foi possível excluir esse registro.';
                         }
                     } else {
-                        processedResponse = `Feito, o registro "${targetKey}" foi removido do banco de dados.`;
+                        const fallbackMsg = `Feito, o registro "${targetKey}" foi removido do banco de dados com sucesso.`;
+                        try {
+                            const confirmPrompt = `[AÇÃO NO BANCO DE DADOS CONCLUÍDA COM SUCESSO]:
+Você executou a ferramenta "db_delete" e removeu/excluiu com sucesso o registro "${targetKey}" do banco de dados.
+Pergunta do usuário: "${prompt}"
+
+[INSTRUÇÃO CRÍTICA]:
+Você DEVE confirmar de forma extremamente clara, forte e inequívoca para o usuário que você deletou e removeu o registro "${targetKey}" com sucesso do banco de dados (ex: cite claramente que excluiu o registro indicado).
+Usuários precisam de certeza absoluta e confirmação direta do que foi feito, sem meias palavras ou ambiguidades.
+Formule a sua resposta final na sua personalidade autêntica (Hikari: calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; uso simples de emojis permitido sem floodar; kaomojis totalmente liberados; sem ser robótica).
+Responda APENAS com a sua fala final para o usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque tags de código nem IDs numéricos.`;
+                            const generatedConfirm = await generateResponse(confirmPrompt, channelId, {
+                                allowSearch: false,
+                                disableTools: true,
+                                guildId: targetGuildId,
+                                skipLocal: options.skipLocal,
+                                isInternalComment: true
+                            });
+                            if (generatedConfirm && !generatedConfirm.includes('⚠️ SYSTEM ERROR')) {
+                                let cleanConfirm = generatedConfirm.replace(/\n-# .*$/gm, '').trim();
+                                const jsonMatch = cleanConfirm.match(/\{[\s\S]*\}/);
+                                if (jsonMatch) {
+                                    try {
+                                        const parsed = JSON.parse(jsonMatch[0]);
+                                        cleanConfirm = parsed.response || parsed.content || parsed.text || parsed.reply || cleanConfirm;
+                                    } catch (_) {}
+                                }
+                                processedResponse = cleanConfirm || fallbackMsg;
+                            } else {
+                                processedResponse = fallbackMsg;
+                            }
+                        } catch (_) {
+                            processedResponse = fallbackMsg;
+                        }
+                        const dbFooter = '💾 Database';
+                        if (/\n-# /.test(processedResponse)) {
+                            processedResponse += ` | ${dbFooter}`;
+                        } else if (modelFooter) {
+                            processedResponse += `${modelFooter} | ${dbFooter}`;
+                        } else {
+                            processedResponse += `\n-# ${dbFooter}`;
+                        }
                     }
                     console.log(`[AI/LLM] Resposta gerada via Tool: db_delete (${duration})`);
                 }
@@ -2960,7 +3106,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                         let hikariComment = `Ok, puxei as informações sobre **${steamInfo.name}** pra você! Está custando ${steamInfo.price}.`;
                         
                         try {
-                            const commentPrompt = `Eu acabei de consultar o jogo "${steamInfo.name}" na Steam. O preço atual é ${steamInfo.price} e o lançamento foi em ${steamInfo.releaseDate}. Faça um comentário CURTO (máximo 15 palavras) e bem casual sobre isso, colocando o valor na resposta, na sua personalidade de forma natural. (NÃO gere json nem responda pedindo, apenas diga a fala natural).`;
+                            const commentPrompt = `Eu acabei de consultar o jogo "${steamInfo.name}" na Steam. O preço atual é ${steamInfo.price} e o lançamento foi em ${steamInfo.releaseDate}. Faça um comentário simples, natural e bem casual (1 a 2 frases curtas) sobre isso na sua personalidade autêntica, citando o preço de forma descontraída (emojis moderados e kaomojis liberados). Apenas o texto direto, sem JSON, sem ferramentas.`;
                             const rawComment = await generateResponse(commentPrompt, channelId, { allowSearch: false, disableTools: true, guildId, isInternalComment: true });
                             if (rawComment && !rawComment.includes('⚠️ SYSTEM ERROR')) {
                                 let cleanData = rawComment.replace(/\n-# .*$/gm, '').trim();
@@ -3035,7 +3181,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                         let hikariComment = `Pronto! Deu **${resultFormatted} ${convInfo.to}** na cotação atual.`;
                         
                         try {
-                            const commentPrompt = `Eu acabei de converter ${convInfo.amount} ${convInfo.from} para ${convInfo.to}. O resultado foi ${resultFormatted}. Faça um comentário CURTO (máximo 15 palavras) e bem casual sobre isso, na sua personalidade. (NÃO gere json nem responda pedindo, apenas diga a fala natural).`;
+                            const commentPrompt = `Eu acabei de converter ${convInfo.amount} ${convInfo.from} para ${convInfo.to}. O resultado foi ${resultFormatted}. Faça um comentário simples, natural e bem casual (1 a 2 frases curtas) sobre isso na sua personalidade autêntica (emojis moderados e kaomojis liberados). Apenas o texto direto, sem JSON, sem ferramentas.`;
                             const rawComment = await Promise.race([
                                 generateResponse(commentPrompt, channelId, { allowSearch: false, disableTools: true, guildId, isInternalComment: true }),
                                 new Promise(resolve => setTimeout(() => resolve(null), 3000))
@@ -3116,7 +3262,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                                 let hikariComment = 'olha, ficou bem interessante isso daí...';
                                 try {
                                     console.log(`[ImageHandler] Pedindo comentário para Hikari sobre: "${imagePrompt}"`);
-                                    const commentPrompt = `Você (Hikari) acabou de gerar uma imagem com o prompt: "${imagePrompt}". Faça um comentário MUITO CURTO (máximo 15 palavras), natural e casual sobre essa ideia/resultado. NÃO use JSON. NÃO use ferramentas. Apenas texto puro. Seja direta e use seu estilo de fala.`;
+                                    const commentPrompt = `Você (Hikari) acabou de gerar uma imagem com o prompt: "${imagePrompt}". Faça um comentário simples, natural e bem casual (1 a 2 frases curtas) sobre essa ideia ou sobre a arte gerada na sua personalidade autêntica (emojis moderados e kaomojis liberados). Apenas o texto direto, sem JSON, sem ferramentas.`;
                                     const rawComment = await generateResponse(commentPrompt, channelId, {
                                         allowSearch: false,
                                         disableTools: true,
@@ -3270,6 +3416,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                                             }
                                         }
                                     }
+                                    channelVoiceCooldowns.set(channelId, Date.now());
                                     savePromptToHistory(prompt, userTag, userId, `[TOOL: SEND_VOICE_NOTE - "${voiceData.cleanText}"]`, interaction);
                                     addToHistory(channelId, 'user', (options.searchPrompt || prompt).substring(0, 300));
                                     addToHistory(channelId, 'assistant', voiceData.cleanText);
@@ -3297,6 +3444,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                                     } else if (interaction && typeof interaction.deleteReply === 'function') {
                                         try { await interaction.deleteReply(); } catch (_) {}
                                     }
+                                    channelVoiceCooldowns.set(channelId, Date.now());
                                     savePromptToHistory(prompt, userTag, userId, `[TOOL: SEND_VOICE_NOTE - "${voiceResult.cleanText}"]`, interaction);
                                     addToHistory(channelId, 'user', (options.searchPrompt || prompt).substring(0, 300));
                                     addToHistory(channelId, 'assistant', voiceResult.cleanText);
@@ -3503,25 +3651,12 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
             addToHistory(channelId, 'assistant', cleanResponseForHistory);
 
             let sentViaVoice = false;
-            const isVoiceAllowed = config.voiceChatEnabled !== false && options.voice !== false;
-            const forceVoice = Boolean((options && options.forceVoice) || options.voice === true);
-            let shouldSendSpontaneous = false;
-            if (isVoiceAllowed && !forceVoice && !options.radioMode && config.voiceSpontaneousEnabled !== false) {
-                const now = Date.now();
-                const cdMs = (config.voiceCooldownMinutes || 15) * 60 * 1000;
-                const lastTime = channelVoiceCooldowns.get(channelId) || 0;
-                const maxChars = config.voiceMaxChars || 350;
-                const textLen = cleanResponseForHistory.length;
-                const isCleanText = textLen >= 10 && textLen <= maxChars && !cleanResponseForHistory.includes('```') && !/https?:\/\//i.test(cleanResponseForHistory);
-                if (now - lastTime >= cdMs && isCleanText) {
-                    const chance = (config.voiceSpontaneousChance || 5) / 100;
-                    if (Math.random() < chance) {
-                        shouldSendSpontaneous = true;
-                    }
-                }
-            }
+            const normPromptForVoice = (prompt || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const hasNegativeVoice = /\b(sem|nao|nada\s+de|sem\s+ser)\b.{0,20}\b(audio|voz|audiozinho|grava|fala)\b/i.test(normPromptForVoice);
+            const isVoiceAllowed = config.voiceChatEnabled !== false && options.voice !== false && !hasNegativeVoice;
+            const forceVoice = !hasNegativeVoice && Boolean((options && options.forceVoice) || options.voice === true);
 
-            if (isVoiceAllowed && (forceVoice || shouldSendSpontaneous)) {
+            if (isVoiceAllowed && forceVoice) {
                 try {
                     await unifiedReply('🎙️ **Gravando voz...**');
                     const { generateAndSendVoiceMessage, synthesizeVoiceAudio } = require('../services/ttsService');
@@ -3545,11 +3680,8 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                                     }
                                 }
                             }
-                            if (shouldSendSpontaneous) {
-                                channelVoiceCooldowns.set(channelId, Date.now());
-                            }
                             sentViaVoice = true;
-                            console.log(`[AI/LLM] Resposta de voz enviada privadamente/DM (${duration}) [forceVoice=${forceVoice}, spontaneous=${shouldSendSpontaneous}]`);
+                            console.log(`[AI/LLM] Resposta de voz enviada privadamente/DM (${duration}) [forceVoice=${forceVoice}]`);
                         }
                     } else {
                         const targetChannel = interaction.channel;
@@ -3567,11 +3699,8 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
                             } else if (interaction && typeof interaction.deleteReply === 'function') {
                                 try { await interaction.deleteReply(); } catch (_) {}
                             }
-                            if (shouldSendSpontaneous) {
-                                channelVoiceCooldowns.set(channelId, Date.now());
-                            }
                             sentViaVoice = true;
-                            console.log(`[AI/LLM] Resposta enviada como Discord Voice Message oficial (${duration}) [forceVoice=${forceVoice}, spontaneous=${shouldSendSpontaneous}]`);
+                            console.log(`[AI/LLM] Resposta enviada como Discord Voice Message oficial (${duration}) [forceVoice=${forceVoice}]`);
                         }
                     }
                 } catch (vErr) {

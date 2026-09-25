@@ -825,7 +825,7 @@ module.exports = {
 
                 let hikariComment = "";
                 try {
-                    const commentPrompt = `Eu acabei de consultar o jogo "${steamInfo.name}" na Steam via comando manual. O preço atual é ${steamInfo.price}. Faça um comentário CURTO (máximo 15 palavras) e bem casual sobre isso, na sua personalidade. (Apenas o texto, sem JSON).`;
+                    const commentPrompt = `Eu acabei de consultar o jogo "${steamInfo.name}" na Steam via comando manual. O preço atual é ${steamInfo.price}. Faça um comentário simples, natural e bem casual (1 a 2 frases curtas) sobre isso na sua personalidade autêntica (emojis moderados e kaomojis liberados). Apenas o texto, sem JSON, sem ferramentas.`;
                     const rawComment = await generateResponse(commentPrompt, interaction.channelId, { allowSearch: false, disableTools: true, guildId: interaction.guildId, isInternalComment: true });
                     if (rawComment && !rawComment.includes('⚠️ SYSTEM ERROR')) {
                         let cleanData = rawComment.replace(/\n-# .*$/gm, '').trim();
@@ -891,7 +891,7 @@ module.exports = {
                     
                 let hikariComment = "";
                 try {
-                    const commentPrompt = `Eu acabei de converter ${convInfo.amount} ${convInfo.from} para ${convInfo.to} via comando manual. O resultado foi ${resultFormatted}. Faça um comentário CURTO (máximo 15 palavras) e bem casual sobre isso, na sua personalidade. (Apenas o texto, sem JSON).`;
+                    const commentPrompt = `Eu acabei de converter ${convInfo.amount} ${convInfo.from} para ${convInfo.to} via comando manual. O resultado foi ${resultFormatted}. Faça um comentário simples, natural e bem casual (1 a 2 frases curtas) sobre isso na sua personalidade autêntica (emojis moderados e kaomojis liberados). Apenas o texto, sem JSON, sem ferramentas.`;
                     const rawComment = await Promise.race([
                         generateResponse(commentPrompt, interaction.channelId, { allowSearch: false, disableTools: true, guildId: interaction.guildId, isInternalComment: true }),
                         new Promise(resolve => setTimeout(() => resolve(null), 3000))
