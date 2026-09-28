@@ -2,7 +2,14 @@ const path = require('path');
 const fs = require('fs');
 const config = require('../config');
 
-const dbPath = path.join(__dirname, '../data/ai_database.json');
+let dbPath = path.join(__dirname, '../data/ai_database.json');
+function setDatabasePath(customPath) {
+    dbPath = customPath;
+    loadDatabase();
+}
+function getDatabasePath() {
+    return dbPath;
+}
 
 let database = {};
 
@@ -547,5 +554,7 @@ module.exports = {
     editDb,
     deleteDb,
     listDbKeys,
-    setProtection
+    setProtection,
+    setDatabasePath,
+    getDatabasePath
 };
