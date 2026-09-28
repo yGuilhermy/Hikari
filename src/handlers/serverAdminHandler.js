@@ -27,7 +27,9 @@ const {
     setMultipleChannelsDisabled,
     clearAllDisabledChannels,
     blockAllGuildChannels,
-    getDisabledChannels
+    getDisabledChannels,
+    updateMultiMcpEmbeds,
+    getMultiMcpEmbeds
 } = require('./llmHandler');
 const { sendMcpToolsManager } = require('./mcpToolPanelHandler');
 
@@ -125,12 +127,13 @@ async function handleServerAdminCommand(interaction) {
     const espontaneoPorcentagem = interaction.options.getInteger('espontaneo_porcentagem');
     const canalUpdates = interaction.options.getChannel('canal_updates');
     const mencoesAtivo = interaction.options.getBoolean('mencoes_ativo');
+    const multiMcpEmbeds = interaction.options.getBoolean('multi_mcp_embeds');
 
     const targetChannelId = canalAlvo ? canalAlvo.id : interaction.channelId;
 
     const hasOptions = canalStatus !== null || instrucao !== null || mood !== null || resetHumor !== null ||
                        espontaneoEstado !== null || espontaneoFrequencia !== null || espontaneoPorcentagem !== null ||
-                       canalUpdates !== null || mencoesAtivo !== null;
+                       canalUpdates !== null || mencoesAtivo !== null || multiMcpEmbeds !== null;
 
     if (hasOptions) {
         const results = [];
@@ -174,6 +177,11 @@ async function handleServerAdminCommand(interaction) {
         if (mencoesAtivo !== null) {
             setServerEveryoneMention(interaction.guildId, mencoesAtivo);
             results.push(`🔔 **Respostas a @everyone/@here:** ${mencoesAtivo ? '✅ Ativado' : '❌ Desativado'}`);
+        }
+
+        if (multiMcpEmbeds !== null && interaction.guildId) {
+            updateMultiMcpEmbeds(multiMcpEmbeds, interaction.guildId);
+            results.push(`🖼️ **Embeds em Multi-MCP:** ${multiMcpEmbeds ? '🟢 Ativados' : '🔴 Desativados (Padrão limpo)'} neste servidor.`);
         }
 
         const embed = new EmbedBuilder()
@@ -909,10 +917,11 @@ async function handleIaFerramentasCommand(interaction) {
             }
         }
 
+        const embedsActive = getMultiMcpEmbeds(targetGuildId);
         const embed = new EmbedBuilder()
             .setColor(0x7C3AED)
             .setTitle('🔧 Status das Ferramentas MCP — Servidor')
-            .setDescription(`Configuração de ferramentas para o servidor **${interaction.guild?.name || targetGuildId}**`)
+            .setDescription(`Configuração de ferramentas para o servidor **${interaction.guild?.name || targetGuildId}**\n**Embeds em Multi-MCP:** ${embedsActive ? '🟢 **ATIVADOS**' : '🔴 **DESATIVADOS (Padrão limpo)**'}`)
             .addFields(
                 { name: '🟢 Ativas', value: activeList.length > 0 ? activeList.join('\n') : '*Nenhuma ferramenta ativa*', inline: false },
                 { name: '🔴 Desativadas', value: disabledList.length > 0 ? disabledList.join('\n') : '*Nenhuma ferramenta desativada*', inline: false }
@@ -921,6 +930,20 @@ async function handleIaFerramentasCommand(interaction) {
             .setTimestamp();
 
         return interaction.reply({ embeds: [embed], ephemeral: false });
+    }
+
+    if (acao === 'toggle_embeds') {
+        const current = getMultiMcpEmbeds(targetGuildId);
+        const newState = estado ? estado === 'on' : !current;
+        updateMultiMcpEmbeds(newState, targetGuildId);
+        const embed = new EmbedBuilder()
+            .setColor(newState ? 0x10B981 : 0xEF4444)
+            .setTitle(`Embeds em Multi-MCP ${newState ? 'Ativados' : 'Desativados'}`)
+            .setDescription(`No servidor **${interaction.guild?.name || targetGuildId}**, os embeds para execuções com múltiplos MCPs estão agora **${newState ? 'ATIVADOS' : 'DESATIVADOS (apenas mensagem limpa)'}**.`)
+            .setFooter({ text: 'Hikari MCP Manager • by yGuilhermy' })
+            .setTimestamp();
+
+        return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     if (acao === 'toggle') {

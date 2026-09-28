@@ -146,6 +146,7 @@ const commands = [
             .addBooleanOption(opt => opt.setName('mencoes_ativo').setDescription('Responder a marcações de @everyone e @here?').setRequired(false))
             .addChannelOption(opt => opt.setName('canal_alvo').setDescription('Canal alvo para aplicar configurações (padrão: canal atual).').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.GuildVoice, ChannelType.GuildStageVoice).setRequired(false))
             .addStringOption(opt => opt.setName('canal_status').setDescription('Ativar ou desativar completamente a Hikari no canal alvo.').addChoices({ name: '🟢 Ativar Hikari', value: 'enable' }, { name: '🔴 Desativar Hikari', value: 'disable' }).setRequired(false))
+            .addBooleanOption(opt => opt.setName('multi_mcp_embeds').setDescription('Exibir embeds visuais quando múltiplos MCPs executarem? (Padrão: falso)').setRequired(false))
     ),
     setGlobalContext(
         new SlashCommandBuilder()
@@ -176,6 +177,7 @@ const commands = [
                     .addChoices(
                         { name: '📜 Listar Status das Tools', value: 'list' },
                         { name: '⚡ Alternar Tool (Ativar/Desativar)', value: 'toggle' },
+                        { name: '🖼️ Alternar Embeds Multi-MCP', value: 'toggle_embeds' },
                         { name: '🔄 Restaurar Padrão do Servidor', value: 'reset' }
                     ))
             .addStringOption(option =>
@@ -243,6 +245,7 @@ const commands = [
                     .setDescription('[Creator] Configura exibição do modelo nas respostas e pensamentos.')
                     .addBooleanOption(opt => opt.setName('mostrar_nome').setDescription('Mostrar nome do modelo nas respostas?').setRequired(false))
                     .addBooleanOption(opt => opt.setName('mostrar_pensamento').setDescription('Mostrar modelo durante o pensamento?').setRequired(false))
+                    .addBooleanOption(opt => opt.setName('multi_mcp_embeds').setDescription('Exibir embeds visuais quando múltiplos MCPs executarem? (Padrão: falso)').setRequired(false))
                     .addIntegerOption(opt => opt.setName('retentativas').setDescription('Tentativas em caso de erro (0-10).').setMinValue(0).setMaxValue(10).setRequired(false))
             )
             .addSubcommand(sub =>

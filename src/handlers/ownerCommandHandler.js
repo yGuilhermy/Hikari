@@ -200,6 +200,72 @@ async function handleNewVoice(message, client, argsText) {
     }
 }
 
+async function handleQueue(message, client, argsText) {
+    const { getGuildMaxConcurrency, setGuildMaxConcurrency, guildQueues, guildActiveWorkers } = require('./llmHandler');
+    const parts = (argsText || '').split(/\s+/).filter(Boolean);
+    const targetGuildId = parts[1] || message.guildId;
+
+    if (!targetGuildId || targetGuildId === 'DM') {
+        const active = (guildActiveWorkers?.get('DM')) || 0;
+        const waiting = (guildQueues?.get('DM')?.length) || 0;
+        const embed = new EmbedBuilder()
+            .setColor(0x7C3AED)
+            .setTitle('📬 FILA DE PROCESSAMENTO • MENSAGENS DIRETAS (DM)')
+            .setDescription(
+                `> **Limite de Concorrência:** \`1\` requisição por vez (fixo para DMs).\n` +
+                `> **Processando agora:** \`${active}\`\n` +
+                `> **Aguardando na fila:** \`${waiting}\`\n\n` +
+                `ℹ️ *Por segurança e isolamento individual, DMs sempre operam com limite 1.*`
+            )
+            .setFooter({ text: 'Hikari Queue • by yGuilhermy' })
+            .setTimestamp();
+        return message.reply({ embeds: [embed] }).catch(() => {});
+    }
+
+    if (parts.length > 0 && !isNaN(parseInt(parts[0], 10))) {
+        const newLimit = parseInt(parts[0], 10);
+        const result = setGuildMaxConcurrency(targetGuildId, newLimit, message.author.id);
+        if (!result.success) {
+            return message.reply({ content: `❌ ${result.message}` }).catch(() => {});
+        }
+        const embed = new EmbedBuilder()
+            .setColor(0x10B981)
+            .setTitle('⚙️ LIMITE DE FILA ATUALIZADO')
+            .setDescription(
+                `> **Servidor:** \`${targetGuildId}\`\n` +
+                `> **Novo Limite de Concorrência:** \`${newLimit === 0 ? '0 (Ilimitado)' : newLimit}\` requisições simultâneas.\n` +
+                `> **Padrão:** O padrão para servidores não configurados é 5.`
+            )
+            .setFooter({ text: `Hikari Admin • Solicitado por ${message.author.username}` })
+            .setTimestamp();
+        return message.reply({ embeds: [embed] }).catch(() => {});
+    }
+
+    const currentLimit = getGuildMaxConcurrency(targetGuildId);
+    const active = (guildActiveWorkers?.get(targetGuildId)) || 0;
+    const waiting = (guildQueues?.get(targetGuildId)?.length) || 0;
+    const embed = new EmbedBuilder()
+        .setColor(0x7C3AED)
+        .setTitle('📬 STATUS DA FILA DO SERVIDOR')
+        .setDescription(
+            `> **Servidor:** \`${targetGuildId}\`\n` +
+            `> **Limite Concorrência:** \`${currentLimit === 0 ? '0 (Ilimitado)' : currentLimit}\` simultâneas.\n` +
+            `> **Processando agora:** \`${active}\`\n` +
+            `> **Aguardando na fila:** \`${waiting}\`\n\n` +
+            `💡 **Para alterar:** \`-hqueue <limite> [servidor_id]\`\n` +
+            `*(Ex: \`-hqueue 10\` ou \`-hqueue 0\` para ilimitado)*`
+        )
+        .setFooter({ text: 'Hikari Admin • Prefixo Oficial: -h' })
+        .setTimestamp();
+    return message.reply({ embeds: [embed] }).catch(() => {});
+}
+
+async function handleMcpEmbeds(message) {
+    return message.reply({
+        content: 'ℹ️ **Comando Migrado para Comandos Slash (/)**\n> O controle de embeds em Multi-MCP agora está integrado diretamente aos comandos de painel e slash:\n> • `/config_criador modelo` — ajuste operacional global ou do servidor\n> • `/config_servidor` — opção `multi_mcp_embeds` ou botão visual no Gestor MCP\n> • `/ia_ferramentas acao:Alternar Embeds Multi-MCP`'
+    }).catch(() => {});
+}
+
 async function handleHelp(message) {
     const embed = new EmbedBuilder()
         .setColor(0x7C3AED)
@@ -214,6 +280,11 @@ async function handleHelp(message) {
             {
                 name: '`-hnewvoice <texto>`',
                 value: 'Sintetiza exatamente o texto digitado usando a voz oficial da Hikari, sem passar pela IA. Ideal para recados e falas personalizadas.',
+                inline: false
+            },
+            {
+                name: '`-hqueue [limite] [servidor_id]`',
+                value: 'Consulta ou define o limite de concorrência da fila de IA por servidor (0 = ilimitado, padrão = 5). DMs sempre possuem concorrência 1.',
                 inline: false
             },
             {
@@ -265,6 +336,14 @@ async function processOwnerCommand(message, client) {
         case 'newvoice':
             await handleNewVoice(message, client, argsText);
             return true;
+        case 'queue':
+        case 'fila':
+            await handleQueue(message, client, argsText);
+            return true;
+        case 'mcpembeds':
+        case 'embedsmcp':
+            await handleMcpEmbeds(message, client, argsText);
+            return true;
         case 'stop':
             await handleStop(message, client);
             return true;
@@ -294,5 +373,7 @@ module.exports = {
     handleDel,
     handleVoice,
     handleNewVoice,
+    handleQueue,
+    handleMcpEmbeds,
     handleHelp
 };

@@ -7,6 +7,8 @@ const {
     getShowModelThinking,
     updateErrorRetries,
     getErrorRetries,
+    updateMultiMcpEmbeds,
+    getMultiMcpEmbeds,
     updateProviderSetting,
     getProviderSettings,
 } = require('./llmHandler');
@@ -36,6 +38,18 @@ const CONFIG_PAGES = [
         description: 'Quando ativado, exibe qual modelo está processando o pedido na mensagem de "pensando..." antes da resposta final. Ajuda a identificar qual provider está sendo usado em tempo real durante o fallback automático.',
         get: () => getShowModelThinking(),
         set: (v) => updateShowModelThinking(v),
+    },
+    {
+        key: 'multiMcpEmbeds',
+        label: 'Embeds em Multi-MCP',
+        category: '🤖 IA — Exibição',
+        icon: '🖼️',
+        type: 'boolean',
+        persistence: 'runtime',
+        summary: 'Ativa ou desativa embeds quando múltiplos MCPs rodam.',
+        description: 'Controla se os embeds visuais (como cards da Steam, gráficos de câmbio) são anexados quando a IA executa múltiplas ferramentas simultâneas. Desativado por padrão para evitar poluição visual no chat, mantendo apenas a mensagem de texto com todos os dados reunidos.',
+        get: () => getMultiMcpEmbeds(),
+        set: (v) => updateMultiMcpEmbeds(v),
     },
     {
         key: 'errorRetries',

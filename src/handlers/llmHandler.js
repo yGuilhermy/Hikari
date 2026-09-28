@@ -231,7 +231,8 @@ function buildToolsDefinition(guildId, userId = null, options = {}) {
         db_read:         'User: "Quem é o seu criador e me fale sobre ele"\nResponse: { "thought": "Consultar dados do criador.", "tool": "db_read", "args": { "key": "creator_info" } }\nUser: "quem te criou?"\nResponse: { "thought": "Consultar criador.", "tool": "db_read", "args": { "key": "creator_info" } }\nUser: "Como é sua aparência física?"\nResponse: { "thought": "Consultar dados da Hikari.", "tool": "db_read", "args": { "key": "hikari_info" } }\nUser: "gere uma imagem sua"\nResponse: { "thought": "Consultar aparência para gerar imagem.", "tool": "db_read", "args": { "key": "hikari_info" } }',
         db_write:        'User: "Lembre-se que o aniversário do servidor é em outubro"\nResponse: { "thought": "Salvar data do aniversário.", "tool": "db_write", "args": { "key": "aniversario_servidor", "content": "Aniversário do servidor é em outubro" } }',
         db_edit:         'User: "Mude a anotação do aniversário para 15 de outubro"\nResponse: { "thought": "Atualizar anotação.", "tool": "db_edit", "args": { "key": "aniversario_servidor", "content": "Aniversário do servidor é 15 de outubro", "append": false } }',
-        db_delete:       'User: "Esqueça a anotação sobre o aniversário"\nResponse: { "thought": "Deletar registro.", "tool": "db_delete", "args": { "key": "aniversario_servidor" } }'
+        db_delete:       'User: "Esqueça a anotação sobre o aniversário"\nResponse: { "thought": "Deletar registro.", "tool": "db_delete", "args": { "key": "aniversario_servidor" } }',
+        multi_tools:     'User: "cotação do dólar e tempo em Curitiba"\nResponse: { "thought": "ações independentes simultâneas", "multi_tools": [{ "tool": "convert_currency", "args": { "amount": 1, "from": "USD", "to": "BRL" } }, { "tool": "search_web", "args": { "query": "previsao do tempo curitiba" } }] }\nUser: "preço de Elden Ring e me dê o valor em euros"\nResponse: { "thought": "preciso pesquisar o preço antes de converter", "tool": "check_steam", "args": { "game": "Elden Ring" } }'
     };
     for (const [name, example] of Object.entries(examplesMap)) {
         if (!disabled.includes(name)) {
@@ -243,7 +244,7 @@ function buildToolsDefinition(guildId, userId = null, options = {}) {
             exampleList += `\n${example}\n`;
         }
     }
-    return `\n--- FERRAMENTAS DISPONÍVEIS ---\nVocê tem acesso às seguintes ferramentas para executar ações reais.\nUse-as quando o usuário pedir para baixar algo, buscar um jogo ou citar um comando MCP.\n${toolList}\n--- INSTRUÇÃO DE PENSAMENTO E DECISÃO ---\nAntes de responder, ANALISE:\n1. O usuário quer apenas conversar ou uma informação que você já sabe? -> Responda apenas com texto (Sem JSON).\n2. O usuário quer uma AÇÃO ESPECÍFICA (Download, Busca Web) ou disse 'mcp de [ferramenta]'? -> Responda com JSON da ferramenta imediatamente.\n\nFORMATO PARA USO DE FERRAMENTA (JSON):\n{\n  "thought": "Pensamento ultra-curto (1 a 3 palavras para economizar tokens, ex: 'baixar audio')",\n  "tool": "nome_da_ferramenta",\n  "args": { ...argumentos... }\n}\n\nEXEMPLOS:${exampleList}\nUser: "Como você está?"\nResponse: Estou bem, e você?\n\n---------------------------------------\n`;
+    return `\n--- FERRAMENTAS DISPONÍVEIS ---\nVocê tem acesso às seguintes ferramentas para executar ações reais.\nUse-as quando o usuário pedir para baixar algo, buscar um jogo ou citar um comando MCP.\n${toolList}\n--- INSTRUÇÃO DE PENSAMENTO E DECISÃO ---\nAntes de responder, ANALISE:\n1. O usuário quer apenas conversar ou uma informação que você já sabe? -> Responda apenas com texto (Sem JSON).\n2. O usuário quer uma AÇÃO ESPECÍFICA (Download, Busca Web) ou disse 'mcp de [ferramenta]'? -> Responda com JSON da ferramenta imediatamente.\n\nFORMATOS DE FERRAMENTAS (JSON):\nPara ferramenta única:\n{\n  "thought": "pensamento curto",\n  "tool": "nome_da_ferramenta",\n  "args": { ...argumentos... }\n}\n\nPara múltiplas ferramentas simultâneas e independentes:\n{\n  "thought": "pensamento curto",\n  "multi_tools": [\n    { "tool": "ferramenta_1", "args": { ... } },\n    { "tool": "ferramenta_2", "args": { ... } }\n  ]\n}\n\nREGRA CRÍTICA DE EXECUÇÃO (PARALELO VS EM CAMADAS):\n- EXECUÇÃO PARALELA (multi_tools): Se o usuário pediu ações independentes cujos argumentos você já conhece completamente de antemão (ex.: cotação do dólar e previsão do tempo em SP), chame todas no array 'multi_tools'.\n- EXECUÇÃO EM CAMADAS (SEQUENCIAL): Se uma ação depende de um dado que você ainda NÃO tem (ex.: 'pesquise o preço do Elden Ring e converta em euros' - você ainda não sabe o preço!), NUNCA invente, estime ou use placeholders para a segunda ferramenta. Chame APENAS a primeira ferramenta. O sistema executará e fornecerá o dado real na etapa seguinte, onde você poderá chamar a próxima ferramenta com o valor real obtido.\n\nEXEMPLOS:${exampleList}\nUser: "Como você está?"\nResponse: Estou bem, e você?\n\n---------------------------------------\n`;
 }
 loadServerTools();
 const providerSettings = {
@@ -362,6 +363,39 @@ function setServerLastChannel(guildId, channelId) {
     saveServerSettings();
 }
 
+function getGuildMaxConcurrency(guildId) {
+    if (!guildId || guildId === 'DM') {
+        return 1;
+    }
+    const settings = serverSettings[guildId];
+    if (settings && settings.maxQueueConcurrency !== undefined && settings.maxQueueConcurrency !== null) {
+        const val = parseInt(settings.maxQueueConcurrency, 10);
+        if (!isNaN(val) && val >= 0) {
+            return val;
+        }
+    }
+    return 5;
+}
+
+function setGuildMaxConcurrency(guildId, maxConcurrency, userId) {
+    if (!config.isOwner(userId)) {
+        return { success: false, error: 'unauthorized', message: 'Apenas os donos da Hikari podem alterar o limite de fila de servidores.' };
+    }
+    if (!guildId || guildId === 'DM') {
+        return { success: false, error: 'invalid_target', message: 'As mensagens diretas (DM) possuem limite fixo de 1 por vez e não podem ser alteradas.' };
+    }
+    const val = parseInt(maxConcurrency, 10);
+    if (isNaN(val) || val < 0) {
+        return { success: false, error: 'invalid_value', message: 'O valor da concorrência deve ser um número inteiro maior ou igual a 0 (0 = sem limite).' };
+    }
+    if (!serverSettings[guildId]) {
+        serverSettings[guildId] = {};
+    }
+    serverSettings[guildId].maxQueueConcurrency = val;
+    saveServerSettings();
+    return { success: true, guildId, maxConcurrency: val };
+}
+
 function isChannelDisabled(guildId, channelId) {
     if (!guildId || !channelId) return false;
     const settings = serverSettings[guildId];
@@ -471,28 +505,87 @@ function setChannelChatter(channelId, { active, frequency, percentage }) {
     }
     saveChannelSettings();
 }
-const processingQueue = [];
-let isProcessing = false;
+const guildQueues = new Map();
+const guildActiveWorkers = new Map();
+const activeCancelTokenSources = new Set();
 let onQueueUpdateCallback = null;
 let discordClient = null;
-let currentCancelTokenSource = null;
+
+function sanitizeToolArgs(args) {
+    if (!args || typeof args !== 'object') return {};
+    const sanitized = {};
+    for (const [key, value] of Object.entries(args)) {
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+        if (typeof value === 'object' && value !== null) {
+            sanitized[key] = sanitizeToolArgs(value);
+        } else {
+            sanitized[key] = value;
+        }
+    }
+    return sanitized;
+}
+
+function parseGeminiToolCode(content) {
+    if (!content || (!content.includes('tool_code') && !content.includes('default_api.'))) return null;
+    const toolRegex = /(?:default_api\.)?([a-zA-Z0-9_]+)\(([\s\S]*?)\)/g;
+    const tools = [];
+    let match;
+    while ((match = toolRegex.exec(content)) !== null) {
+        const fnName = match[1];
+        if (fnName === 'print' || fnName === 'generate_reply') continue;
+        const rawArgs = match[2].trim();
+        const args = {};
+        const paramRegex = /([a-zA-Z0-9_]+)\s*=\s*(?:(['"])([\s\S]*?)\2|([0-9.]+)|(true|false)|(\{[\s\S]*?\}|\[[\s\S]*?\]))/gi;
+        let pMatch;
+        while ((pMatch = paramRegex.exec(rawArgs)) !== null) {
+            const key = pMatch[1];
+            let val;
+            if (pMatch[3] !== undefined) val = pMatch[3];
+            else if (pMatch[4] !== undefined) val = Number(pMatch[4]);
+            else if (pMatch[5] !== undefined) val = pMatch[5].toLowerCase() === 'true';
+            else if (pMatch[6] !== undefined) {
+                try { val = JSON.parse(pMatch[6]); } catch (_) { val = pMatch[6]; }
+            }
+            args[key] = val;
+        }
+        if (Object.keys(args).length === 0 && rawArgs.startsWith('{') && rawArgs.endsWith('}')) {
+            try { Object.assign(args, JSON.parse(rawArgs)); } catch (_) {}
+        }
+        tools.push({ tool: fnName, args: sanitizeToolArgs(args) });
+    }
+    if (tools.length === 0) return null;
+    if (tools.length === 1) {
+        return {
+            thought: "Action extracted from tool_code",
+            tool: tools[0].tool,
+            args: tools[0].args
+        };
+    }
+    return {
+        thought: "Multi-Tool Execution extracted from tool_code",
+        multi_tools: tools.slice(0, 5)
+    };
+}
 
 function clearProcessingQueue() {
-    const count = processingQueue.length;
-    processingQueue.length = 0;
-    if (onQueueUpdateCallback) {
-        onQueueUpdateCallback(0);
+    let count = 0;
+    for (const q of guildQueues.values()) {
+        count += q.length;
+        q.length = 0;
     }
+    guildQueues.clear();
+    guildActiveWorkers.clear();
+    notifyQueueUpdate();
     return count;
 }
 
 function abortCurrentGeneration() {
-    if (currentCancelTokenSource) {
+    for (const source of activeCancelTokenSources) {
         try {
-            currentCancelTokenSource.cancel('Operacao abortada pelo comando -hstop.');
+            source.cancel('Operacao abortada pelo comando -hstop.');
         } catch (_) {}
-        currentCancelTokenSource = null;
     }
+    activeCancelTokenSources.clear();
 }
 const conversationHistory = {};
 const lastModelByChannel = {};
@@ -618,7 +711,11 @@ function setOnQueueUpdate(callback) {
 }
 function notifyQueueUpdate() {
     if (onQueueUpdateCallback) {
-        onQueueUpdateCallback(processingQueue.length);
+        let totalWaiting = 0;
+        for (const q of guildQueues.values()) {
+            totalWaiting += q.length;
+        }
+        onQueueUpdateCallback(totalWaiting);
     }
 }
 function formatRawPrompt(userPrompt, systemPrompt) {
@@ -1253,35 +1350,70 @@ async function tryGemini(prompt, systemPrompt, options = {}) {
                     const rawTools = options.radioMCPTools || buildToolsPayload(options.guildId || null, options.userId || null, options);
                     payload.tools = sanitizeToolsForApi(rawTools);
                 }
-                const response = await axios.post(config.geminiUrl, payload, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${currentKey}`
-                    },
-                    timeout: providerSettings.gemini.timeout,
-                    cancelToken: currentCancelTokenSource?.token
-                });
+                const cancelSource = axios.CancelToken.source();
+                activeCancelTokenSources.add(cancelSource);
+                let response;
+                try {
+                    response = await axios.post(config.geminiUrl, payload, {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${currentKey}`
+                        },
+                        timeout: providerSettings.gemini.timeout,
+                        cancelToken: cancelSource.token
+                    });
+                } finally {
+                    activeCancelTokenSources.delete(cancelSource);
+                }
                 const choice = response.data?.choices?.[0];
                 if (choice) {
                     const msg = choice.message;
                     if (msg.tool_calls && msg.tool_calls.length > 0) {
-                        const firstTool = msg.tool_calls[0].function;
-                        let args = {};
-                        try {
-                            args = JSON.parse(firstTool.arguments);
-                        } catch (e) {
-                            console.warn("[Gemini MCP] JSON Args Warning:", e.message);
+                        const parsedToolCalls = [];
+                        for (const tc of msg.tool_calls) {
+                            if (!tc || !tc.function) continue;
+                            let parsedArgs = {};
+                            try {
+                                parsedArgs = JSON.parse(tc.function.arguments);
+                            } catch (e) {
+                                console.warn("[Gemini MCP] JSON Args Warning:", e.message);
+                            }
+                            parsedToolCalls.push({
+                                name: tc.function.name,
+                                args: sanitizeToolArgs(parsedArgs)
+                            });
                         }
-                        if (firstTool.name === 'generate_reply' && args.content) {
+                        if (parsedToolCalls.length === 1 && parsedToolCalls[0].name === 'generate_reply' && parsedToolCalls[0].args.content) {
                             return {
-                                text: args.content,
+                                text: parsedToolCalls[0].args.content,
+                                modelName: 'Gemini'
+                            };
+                        }
+                        const actualTools = parsedToolCalls.filter(t => t.name !== 'generate_reply');
+                        if (actualTools.length === 0) {
+                            const genReply = parsedToolCalls.find(t => t.name === 'generate_reply');
+                            return {
+                                text: genReply?.args?.content || '',
+                                modelName: 'Gemini'
+                            };
+                        }
+                        if (actualTools.length === 1) {
+                            const formattedResponse = JSON.stringify({
+                                thought: "Action triggered by Gemini MCP 2.0",
+                                tool: actualTools[0].name,
+                                args: actualTools[0].args
+                            });
+                            return {
+                                text: formattedResponse,
                                 modelName: 'Gemini'
                             };
                         }
                         const formattedResponse = JSON.stringify({
-                            thought: "Action triggered by Gemini MCP 2.0",
-                            tool: firstTool.name,
-                            args: args
+                            thought: "Multi-Tool Execution triggered by Gemini MCP 2.0",
+                            multi_tools: actualTools.slice(0, 5).map(t => ({
+                                tool: t.name,
+                                args: t.args
+                            }))
                         });
                         return {
                             text: formattedResponse,
@@ -1304,7 +1436,14 @@ async function tryGemini(prompt, systemPrompt, options = {}) {
                                 cleanVal = cleanVal.replace(suffixRegex, '');
                                 content = cleanVal.trim();
                             } else if (/^(?:tool_code[\s\n]*)?(?:```(?:python)?[\s\n]*)?(?:print\()?\(?(?:default_api\.)?(\w+)\(/i.test(cleanVal) || /tool_code[\s\n]*(?:```)?/i.test(content)) {
-                                throw new Error('Gemini retornou tool_code como texto (formato inválido)');
+                                const parsedFromCode = parseGeminiToolCode(content);
+                                if (parsedFromCode) {
+                                    return {
+                                        text: JSON.stringify(parsedFromCode),
+                                        modelName: 'Gemini'
+                                    };
+                                }
+                                throw new Error('Gemini retornou tool_code como texto (formato inválido): ' + JSON.stringify(content));
                             }
                         }
                         return {
@@ -1614,21 +1753,450 @@ ${prompt}
     telemetryLogger.error('Todos os provedores de IA falharam');
     return `⚡ **Limites de Processamento Atingidos:** Todos os nossos provedores de IA atingiram a cota temporária de tokens ou estão temporariamente indisponíveis. Tente interagir novamente daqui algumas horas! ✨`;
 }
-async function processQueue() {
+async function executeAgentLoop(initialTools, initialThought, prompt, channelId, userId, userTag, interaction, type, unifiedReply, replyMessage, modelFooter, duration, options, guildId, guildName, channelName) {
+    const rawList = Array.isArray(initialTools) ? initialTools.slice(0, 5) : [];
+    let currentToolsToRun = rawList.map(item => ({
+        tool: String(item.tool || item.name || item.action || '').trim(),
+        args: sanitizeToolArgs(item.args || item.arguments || item.action_input || {})
+    })).filter(item => item.tool.length > 0);
+
+    if (currentToolsToRun.length === 0) {
+        return;
+    }
+
+    const targetGuildId = options?.guildId || guildId;
+    const MAX_TOOL_LAYERS = 2;
+    let currentLayer = 1;
+    const collectedResults = [];
+    const collectedEmbeds = [];
+    const collectedFiles = [];
+    const executedToolsList = [];
+    const executedToolSignatures = new Set();
+    let voiceSpokenText = null;
+    let synthesizedText = null;
+    let currentThought = initialThought;
+
+    while (currentLayer <= MAX_TOOL_LAYERS && currentToolsToRun.length > 0) {
+        const toolsForThisLayer = [];
+        for (const item of currentToolsToRun) {
+            if (isToolDisabled(targetGuildId, item.tool)) {
+                collectedResults.push(`[Ferramenta ${item.tool}]: Desativada neste servidor.`);
+                continue;
+            }
+            const signature = `${item.tool}:${JSON.stringify(item.args)}`;
+            if (executedToolSignatures.has(signature)) {
+                continue;
+            }
+            executedToolSignatures.add(signature);
+            toolsForThisLayer.push(item);
+        }
+
+        if (toolsForThisLayer.length === 0) {
+            break;
+        }
+
+        if (currentLayer === 1) {
+            const desc = toolsForThisLayer.length > 1
+                ? `Executando **${toolsForThisLayer.length} ferramentas simultâneas**:\n` + toolsForThisLayer.map((t, idx) => `> \`${idx + 1}.\` **${t.tool}**`).join('\n')
+                : `Executando ferramenta: **${toolsForThisLayer[0].tool}**`;
+            const actionEmbed = new EmbedBuilder()
+                .setColor(0x7C3AED)
+                .setTitle('⚙️ Executando Ação')
+                .setDescription(desc + `\n\n🧠 **Pensamento da IA:**\n> *${currentThought || 'Executando tarefas solicitadas'}*`)
+                .setFooter({ text: 'Hikari Core • Multi-MCP' });
+            await unifiedReply(null, [], [], [actionEmbed]);
+        } else {
+            const desc = toolsForThisLayer.length > 1
+                ? `Executando **${toolsForThisLayer.length} ferramentas adicionais** (Etapa ${currentLayer}):\n` + toolsForThisLayer.map((t, idx) => `> \`${idx + 1}.\` **${t.tool}**`).join('\n')
+                : `Executando ferramenta adicional (Etapa ${currentLayer}): **${toolsForThisLayer[0].tool}**`;
+            const layerEmbed = new EmbedBuilder()
+                .setColor(0x7C3AED)
+                .setTitle(`⚙️ Executando Ação (Etapa ${currentLayer})`)
+                .setDescription(desc + `\n\n🧠 **Pensamento da IA:**\n> *${currentThought || 'Refinando informações'}*`)
+                .setFooter({ text: 'Hikari Core • Multi-MCP' });
+            await unifiedReply(null, [], [], [layerEmbed]);
+        }
+
+        for (const item of toolsForThisLayer) {
+            executedToolsList.push(item.tool);
+            telemetryLogger.tool({ name: item.tool });
+
+            try {
+                if (item.tool === 'check_steam') {
+                    const query = item.args.game || item.args.query || item.args.jogo;
+                    if (!query) {
+                        collectedResults.push(`[Steam]: Nome do jogo não especificado.`);
+                        continue;
+                    }
+                    const steamInfo = await getSteamGameInfo(query);
+                    if (steamInfo.error) {
+                        collectedResults.push(`[Steam]: Erro na consulta de "${query}": ${steamInfo.error}`);
+                    } else {
+                        let finalDesc = steamInfo.description || "Sem sinopse válida.";
+                        if (finalDesc.length > 2000) finalDesc = finalDesc.substring(0, 2000) + '...';
+                        const steamEmbed = new EmbedBuilder()
+                            .setColor(0x7C3AED)
+                            .setTitle(steamInfo.name)
+                            .setURL(steamInfo.url)
+                            .setDescription(finalDesc)
+                            .addFields(
+                                { name: 'Preço', value: steamInfo.discount > 0 ? `~~${steamInfo.originalPrice}~~ **${steamInfo.price}** (-${steamInfo.discount}%)` : steamInfo.price, inline: true },
+                                { name: 'Lançamento', value: steamInfo.releaseDate, inline: true },
+                                { name: 'Desenvolvedor', value: steamInfo.developers, inline: true }
+                            )
+                            .setFooter({ text: 'Fonte: Loja da Steam • Hikari' })
+                            .setTimestamp();
+                        if (steamInfo.headerImage) {
+                            steamEmbed.setImage(steamInfo.headerImage);
+                        }
+                        if (steamInfo.metacritic) {
+                            steamEmbed.addFields({ name: 'Metacritic', value: `${steamInfo.metacritic}/100 🌟`, inline: true });
+                        }
+                        collectedEmbeds.push(steamEmbed);
+                        collectedResults.push(`[Steam Info - "${steamInfo.name}"]: Preço: ${steamInfo.price} (Desconto: ${steamInfo.discount}%), Lançamento: ${steamInfo.releaseDate}, Desenvolvedor: ${steamInfo.developers}, Metacritic: ${steamInfo.metacritic || 'N/A'}, Sinopse: ${finalDesc.substring(0, 300)}`);
+                    }
+                } else if (item.tool === 'convert_currency') {
+                    let { amount, from, to } = item.args || {};
+                    if (!from || !to || item.args?.query) {
+                        const parsed = parseCurrencyQuery(item.args?.query || `${amount || ''} ${from || ''} ${to || ''}`);
+                        if (!amount) amount = parsed.amount;
+                        if (!from) from = parsed.from;
+                        if (!to) to = parsed.to;
+                    }
+                    from = from || 'USD';
+                    to = to || 'BRL';
+                    amount = amount !== undefined && amount !== null && !isNaN(Number(amount)) ? Number(amount) : 1;
+                    const convInfo = await convertCurrency(amount, from, to);
+                    if (convInfo.error) {
+                        collectedResults.push(`[Cotação de Moeda]: ${convInfo.error}`);
+                    } else {
+                        const amountFormatted = formatCurrencyNumber(convInfo.amount);
+                        const resultFormatted = formatCurrencyNumber(convInfo.result);
+                        const rateFormatted = formatCurrencyNumber(convInfo.rate);
+                        const convEmbed = new EmbedBuilder()
+                            .setColor(0x10B981)
+                            .setTitle(`Conversão de Moedas: ${convInfo.name || `${convInfo.from}/${convInfo.to}`}`)
+                            .setDescription(`**${amountFormatted} ${convInfo.from}** equivale a **${resultFormatted} ${convInfo.to}**`)
+                            .addFields(
+                                { name: 'Cotação (' + convInfo.from + ')', value: `1 ${convInfo.from} = ${rateFormatted} ${convInfo.to}`, inline: true },
+                                { name: 'Última Atualização', value: convInfo.lastUpdate || 'Desconhecida', inline: true }
+                            )
+                            .setFooter({ text: 'Fonte: Câmbio Oficial • Hikari' })
+                            .setTimestamp();
+                        if (convInfo.pctChange) {
+                            convEmbed.addFields({ name: '📊 Variação (24h)', value: `${Number(convInfo.pctChange) >= 0 ? '📈 +' : '📉 '}${convInfo.pctChange}%`, inline: true });
+                        }
+                        collectedEmbeds.push(convEmbed);
+                        collectedResults.push(`[Conversão de Moeda]: ${amountFormatted} ${convInfo.from} = ${resultFormatted} ${convInfo.to} (Taxa: ${rateFormatted})`);
+                    }
+                } else if (item.tool === 'search_web') {
+                    const query = item.args.query || item.args.pesquisa || item.args.busca;
+                    if (!query) {
+                        collectedResults.push(`[Pesquisa Web]: Consulta não informada.`);
+                    } else {
+                        const searchResults = await performWebSearch(query);
+                        collectedResults.push(`[Pesquisa Web para "${query}"]:\n${searchResults || 'Nenhum resultado relevante encontrado.'}`);
+                    }
+                } else if (item.tool === 'db_read' || item.tool === 'get_creator_info') {
+                    const { readDb } = require('./databaseHandler');
+                    const targetKey = item.args?.key || item.args?.chave || 'creator_info';
+                    const isOwner = config.isOwner(userId);
+                    const dbResult = readDb(targetKey, targetGuildId, isOwner);
+                    if (dbResult.success) {
+                        collectedResults.push(`[Dados do Banco - "${targetKey}"]:\n${dbResult.formatted}`);
+                    } else {
+                        collectedResults.push(`[Dados do Banco - "${targetKey}"]: Nenhuma anotação encontrada.`);
+                    }
+                } else if (item.tool === 'db_write') {
+                    const { writeDb } = require('./databaseHandler');
+                    const targetKey = item.args?.key || item.args?.chave;
+                    const targetContent = item.args?.content || item.args?.conteudo || item.args?.texto || item.args?.data;
+                    const isImportant = Boolean(item.args?.important || item.args?.importante);
+                    const isOwner = config.isOwner(userId);
+                    const meta = {
+                        salvo_por: userTag && userId ? `${userTag} - ${userId}` : (userTag || userId || 'desconhecido'),
+                        savedById: userId || null,
+                        savedByTag: userTag || null,
+                        important: isImportant
+                    };
+                    const writeResult = writeDb(targetKey, targetContent, targetGuildId, isOwner, meta);
+                    collectedResults.push(`[Banco de Dados]: ${writeResult.success ? `Chave "${targetKey}" gravada com sucesso com conteúdo: "${targetContent}".` : writeResult.message}`);
+                } else if (item.tool === 'db_edit') {
+                    const { editDb } = require('./databaseHandler');
+                    const { PermissionFlagsBits } = require('discord.js');
+                    const targetKey = item.args?.key || item.args?.chave;
+                    const targetContent = item.args?.content || item.args?.conteudo || item.args?.texto || item.args?.data;
+                    const append = Boolean(item.args?.append || item.args?.adicionar || item.args?.acrescentar);
+                    const isImportant = item.args?.important !== undefined ? Boolean(item.args.important) : undefined;
+                    const isOwner = config.isOwner(userId);
+                    const member = interaction?.member;
+                    const isStaff = Boolean(
+                        isOwner ||
+                        (member && member.permissions && (
+                            member.permissions.has(PermissionFlagsBits.Administrator) ||
+                            member.permissions.has(PermissionFlagsBits.ManageGuild) ||
+                            member.permissions.has(PermissionFlagsBits.ManageMessages)
+                        )) ||
+                        (interaction?.guild && interaction.guild.ownerId === userId)
+                    );
+                    const editResult = editDb(targetKey, targetContent, { append, important: isImportant }, targetGuildId, { userId, userTag, isOwner, isStaff }, { userTag, userId, important: isImportant });
+                    collectedResults.push(`[Banco de Dados]: ${editResult.success ? `Chave "${targetKey}" editada com sucesso.` : editResult.message}`);
+                } else if (item.tool === 'db_delete') {
+                    const { deleteDb } = require('./databaseHandler');
+                    const { PermissionFlagsBits } = require('discord.js');
+                    const targetKey = item.args?.key || item.args?.chave;
+                    const isOwner = config.isOwner(userId);
+                    const member = interaction?.member;
+                    const isStaff = Boolean(
+                        isOwner ||
+                        (member && member.permissions && (
+                            member.permissions.has(PermissionFlagsBits.Administrator) ||
+                            member.permissions.has(PermissionFlagsBits.ManageGuild) ||
+                            member.permissions.has(PermissionFlagsBits.ManageMessages)
+                        )) ||
+                        (interaction?.guild && interaction.guild.ownerId === userId)
+                    );
+                    const delResult = deleteDb(targetKey, targetGuildId, { userId, userTag, isOwner, isStaff });
+                    collectedResults.push(`[Banco de Dados]: ${delResult.success ? `Chave "${targetKey}" removida com sucesso.` : delResult.message}`);
+                } else if (item.tool === 'send_voice_note') {
+                    voiceSpokenText = item.args?.text || item.args?.texto || item.args?.content || true;
+                    collectedResults.push(`[Nota de Voz]: Mensagem de áudio complementar solicitada.`);
+                } else if (item.tool === 'generate_image') {
+                    const imgPrompt = item.args?.prompt || '';
+                    const imgNeg = item.args?.negative_prompt || '';
+                    const width = Math.min(item.args?.width || 1024, 1280);
+                    const height = Math.min(item.args?.height || 1024, 1280);
+                    const imgData = await generateImage(imgPrompt, imgNeg, width, height);
+                    if (imgData && (imgData.imageUrl || imgData.localFilePath)) {
+                        const imgEmbed = new EmbedBuilder()
+                            .setColor(0x7C3AED)
+                            .setTitle('🎨 Imagem Gerada')
+                            .setFooter({ text: `Prompt: ${imgPrompt.substring(0, 80)} • Hikari` })
+                            .setTimestamp();
+                        if (imgData.imageUrl) {
+                            imgEmbed.setImage(imgData.imageUrl);
+                        } else if (imgData.localFilePath && fs.existsSync(imgData.localFilePath)) {
+                            const att = new AttachmentBuilder(imgData.localFilePath, { name: 'generated.png' });
+                            imgEmbed.setImage('attachment://generated.png');
+                            collectedFiles.push(att);
+                            setTimeout(() => {
+                                try { if (fs.existsSync(imgData.localFilePath)) fs.unlinkSync(imgData.localFilePath); } catch (_) {}
+                            }, 10000);
+                        }
+                        collectedEmbeds.push(imgEmbed);
+                        collectedResults.push(`[Geração de Imagem]: Imagem gerada com sucesso para o prompt: "${imgPrompt}".`);
+                    } else {
+                        collectedResults.push(`[Geração de Imagem]: Falha ao gerar imagem.`);
+                    }
+                } else {
+                    collectedResults.push(`[Ferramenta ${item.tool}]: Executada com argumentos: ${JSON.stringify(item.args)}`);
+                }
+            } catch (err) {
+                console.error(`[MultiMCP] Erro ao executar ${item.tool}:`, err.message);
+                collectedResults.push(`[Erro na ferramenta ${item.tool}]: ${err.message}`);
+            }
+        }
+
+        if (currentLayer < MAX_TOOL_LAYERS) {
+            const evalPrompt = `[PEDIDO ORIGINAL DO USUÁRIO]:
+"${prompt}"
+
+[RESULTADOS DAS FERRAMENTAS EXECUTADAS (Etapa ${currentLayer})]:
+${collectedResults.join('\n\n')}
+
+[AVALIAÇÃO DE PRÓXIMO PASSO]:
+Você executou as ferramentas da etapa ${currentLayer} acima.
+Analise com atenção o pedido original do usuário e os dados recém-obtidos:
+1. Se você já tem TODAS as informações necessárias para responder completamente ao usuário: responda diretamente com o texto final na sua personalidade Hikari (sem JSON, sem ferramentas).
+2. Se o pedido do usuário ainda precisa de outra ação ou ferramenta complementar com base nos dados que você acabou de descobrir (ex.: converter uma quantia descoberta para outra moeda, fazer uma pesquisa complementar com os termos encontrados, etc.): responda em formato JSON com a próxima ferramenta a ser executada:
+{
+  "thought": "pensamento curto justificando a próxima ação",
+  "tool": "nome_da_ferramenta",
+  "args": { ...argumentos com dados reais... }
+}
+OU para múltiplas ferramentas na próxima etapa:
+{
+  "thought": "pensamento curto",
+  "multi_tools": [
+    { "tool": "nome_da_ferramenta", "args": { ... } }
+  ]
+}`;
+            let evalResponse = await generateResponse(evalPrompt, channelId, {
+                allowSearch: false,
+                disableTools: true,
+                guildId: targetGuildId,
+                skipLocal: options.skipLocal
+            });
+
+            if (evalResponse) {
+                evalResponse = stripThinking(evalResponse);
+            }
+
+            const jsonMatch = evalResponse ? evalResponse.match(/\{[\s\S]*\}/) : null;
+            let nextTools = null;
+            if (jsonMatch) {
+                try {
+                    const parsed = JSON.parse(jsonMatch[0]);
+                    if (parsed.multi_tools && Array.isArray(parsed.multi_tools) && parsed.multi_tools.length > 0) {
+                        nextTools = parsed.multi_tools;
+                        currentThought = parsed.thought;
+                    } else if (parsed.tools && Array.isArray(parsed.tools) && parsed.tools.length > 0) {
+                        nextTools = parsed.tools;
+                        currentThought = parsed.thought;
+                    } else if (parsed.tool && !['generate_reply', 'none', 'null'].includes(String(parsed.tool).toLowerCase())) {
+                        nextTools = [{ tool: parsed.tool, args: parsed.args || {} }];
+                        currentThought = parsed.thought;
+                    } else {
+                        synthesizedText = parsed.args?.content || parsed.content || parsed.text || parsed.reply || parsed.resposta || parsed.mensagem || evalResponse.replace(jsonMatch[0], '').trim();
+                    }
+                } catch (_) {
+                    synthesizedText = evalResponse.trim();
+                }
+            } else if (evalResponse && !evalResponse.includes('⚠️ SYSTEM ERROR')) {
+                synthesizedText = evalResponse.trim();
+            }
+
+            if (nextTools && nextTools.length > 0) {
+                const unexecuted = nextTools.filter(t => !executedToolSignatures.has(`${t.tool || t.name}:${JSON.stringify(t.args || {})}`));
+                if (unexecuted.length > 0) {
+                    currentToolsToRun = unexecuted.slice(0, 5);
+                    currentLayer++;
+                    continue;
+                }
+            }
+            break;
+        } else {
+            break;
+        }
+    }
+
+    if (!synthesizedText || synthesizedText.includes('⚠️ SYSTEM ERROR') || /\{[\s\S]*"tool"[\s\S]*\}/.test(synthesizedText)) {
+        const synthesisPrompt = `[RESULTADOS DE TODAS AS FERRAMENTAS EXECUTADAS]:
+${collectedResults.join('\n\n')}
+
+[PERGUNTA DO USUÁRIO]: "${prompt}"
+
+[INSTRUÇÃO CRÍTICA]:
+Você executou com sucesso todas as etapas e ferramentas acima e reuniu todas as informações solicitadas.
+Sintetize uma resposta final unificada, fluida, completa e natural combinando todas as informações na sua personalidade autêntica Hikari (calma, direta, simulando sentimentos reais mas fofa no fundo; gírias como vc, tbm, pq, blz; uso simples de emojis permitido sem floodar; kaomojis totalmente liberados; sem ser robótica; nunca repita a fala do usuário).
+Apresente os fatos de cada ferramenta com clareza para o usuário.
+Responda APENAS com texto puro diretamente ao usuário. NÃO use ferramentas, NÃO gere JSON, NÃO coloque blocos de código nem IDs numéricos.`;
+
+        synthesizedText = await generateResponse(synthesisPrompt, channelId, {
+            allowSearch: false,
+            disableTools: true,
+            guildId: targetGuildId,
+            skipLocal: options.skipLocal
+        });
+
+        if (synthesizedText) {
+            synthesizedText = stripThinking(synthesizedText);
+        }
+        if (!synthesizedText || synthesizedText.includes('⚠️ SYSTEM ERROR')) {
+            synthesizedText = `Aqui estão os resultados reunidos:\n` + collectedResults.join('\n');
+        }
+    }
+
+    let toolFooter = null;
+    if (executedToolsList.length > 1) {
+        toolFooter = '⚙️ Multi-MCP';
+    } else if (executedToolsList.length === 1) {
+        const singleTool = executedToolsList[0];
+        if (singleTool === 'search_web') toolFooter = '🔎 Search';
+        else if (singleTool.startsWith('db_')) toolFooter = '💾 Database';
+        else if (singleTool === 'check_steam') toolFooter = '🎮 Steam';
+        else if (singleTool === 'convert_currency') toolFooter = '💱 Câmbio';
+    }
+
+    const durationPart = getShowModel() ? ` | ⏱️ ${duration}` : '';
+    if (toolFooter) {
+        if (/\n-# /.test(synthesizedText)) {
+            synthesizedText += ` | ${toolFooter}${durationPart}`;
+        } else if (modelFooter) {
+            synthesizedText += `${modelFooter} | ${toolFooter}${durationPart}`;
+        } else {
+            synthesizedText += `\n-# ${toolFooter}${durationPart}`;
+        }
+    } else if (getShowModel()) {
+        if (/\n-# /.test(synthesizedText)) {
+            synthesizedText += durationPart;
+        } else if (modelFooter) {
+            synthesizedText += `${modelFooter}${durationPart}`;
+        } else {
+            synthesizedText += `\n-# ⏱️ ${duration}`;
+        }
+    }
+
+    let safeEmbeds = [];
+    if (executedToolsList.length > 1) {
+        if (getMultiMcpEmbeds(targetGuildId)) {
+            safeEmbeds = collectedEmbeds.slice(0, 10);
+        }
+    } else {
+        safeEmbeds = collectedEmbeds.slice(0, 10);
+    }
+    const safeFiles = collectedFiles.slice(0, 10);
+    await unifiedReply(synthesizedText, safeFiles, [], safeEmbeds);
+
+    if (voiceSpokenText && config.voiceChatEnabled !== false && options.voice !== false) {
+        try {
+            const { generateAndSendVoiceMessage, synthesizeVoiceAudio } = require('../services/ttsService');
+            const { registerBotAudio } = require('./audioTranscriptionHandler');
+            const spoken = typeof voiceSpokenText === 'string' ? voiceSpokenText : synthesizedText.substring(0, 300);
+            const targetChannel = interaction.channel;
+            const replyTargetId = (type === 'mention' && interaction.id) ? interaction.id : null;
+            const voiceResult = await generateAndSendVoiceMessage(spoken, targetChannel, replyTargetId);
+            if (voiceResult && voiceResult.message) {
+                registerBotAudio(voiceResult.message.id, voiceResult.cleanText);
+            }
+        } catch (vErr) {
+            console.warn('[MultiMCP Voice] Erro ao enviar áudio complementar:', vErr.message);
+        }
+    }
+
+    addToHistory(channelId, 'user', prompt);
+    addToHistory(channelId, 'assistant', synthesizedText);
+    savePromptToHistory(prompt, userTag, userId, `[AGENT_LOOP: ${executedToolsList.join(', ')}]`, interaction);
+}
+
+async function executeMultiTools(toolData, prompt, channelId, userId, userTag, interaction, type, unifiedReply, replyMessage, modelFooter, duration, options, guildId, guildName, channelName) {
+    const rawList = Array.isArray(toolData.multi_tools) ? toolData.multi_tools : (Array.isArray(toolData.tools) ? toolData.tools : (toolData.tool ? [{ tool: toolData.tool, args: toolData.args }] : []));
+    return executeAgentLoop(rawList, toolData.thought, prompt, channelId, userId, userTag, interaction, type, unifiedReply, replyMessage, modelFooter, duration, options, guildId, guildName, channelName);
+}
+
+function dispatchGuildQueue(guildKey) {
     const { isBotPaused } = require('./ownerCommandHandler');
     if (isBotPaused()) {
-        processingQueue.length = 0;
-        isProcessing = false;
+        const q = guildQueues.get(guildKey);
+        if (q) q.length = 0;
+        guildActiveWorkers.set(guildKey, 0);
         notifyQueueUpdate();
         return;
     }
-    if (processingQueue.length === 0) {
-        isProcessing = false;
-        notifyQueueUpdate();
+    const queue = guildQueues.get(guildKey);
+    if (!queue || queue.length === 0) {
         return;
     }
-    isProcessing = true;
-    const queueItem = processingQueue.shift();
+    const maxConcurrency = getGuildMaxConcurrency(guildKey);
+    while (queue.length > 0) {
+        const active = guildActiveWorkers.get(guildKey) || 0;
+        if (maxConcurrency > 0 && active >= maxConcurrency) {
+            break;
+        }
+        const queueItem = queue.shift();
+        guildActiveWorkers.set(guildKey, active + 1);
+        notifyQueueUpdate();
+
+        processQueueItem(queueItem).finally(() => {
+            const currentActive = guildActiveWorkers.get(guildKey) || 1;
+            guildActiveWorkers.set(guildKey, Math.max(0, currentActive - 1));
+            notifyQueueUpdate();
+            setTimeout(() => dispatchGuildQueue(guildKey), 100);
+        });
+    }
+}
+
+async function processQueueItem(queueItem) {
     let prompt = queueItem.prompt;
     const { interaction, type, userTag, userId, channelId, options } = queueItem;
     const guildId = interaction?.guild?.id || interaction?.guildId;
@@ -1639,7 +2207,6 @@ async function processQueue() {
     console.log(`----------------------`);
     console.log(`{${guildName} - ${serverIdentifier}} {${channelName} - ${channelIdentifier}}`);
     console.log(`----------------------`);
-    notifyQueueUpdate();
     let replyMessage = null;
     const unifiedReply = async (content, files = [], components = [], embeds = []) => {
         if (interaction.isVoice || (interaction.id && typeof interaction.id === 'string' && interaction.id.startsWith('voice_'))) {
@@ -2042,6 +2609,15 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
             const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 let toolData = JSON.parse(jsonMatch[0]);
+                if (toolData.multi_tools && Array.isArray(toolData.multi_tools) && toolData.multi_tools.length > 0) {
+                    await executeMultiTools(toolData, prompt, channelId, userId, userTag, interaction, type, unifiedReply, replyMessage, modelFooter, duration, options, guildId, guildName, channelName);
+                    return;
+                }
+                if (toolData.tools && Array.isArray(toolData.tools) && toolData.tools.length > 0) {
+                    toolData.multi_tools = toolData.tools;
+                    await executeMultiTools(toolData, prompt, channelId, userId, userTag, interaction, type, unifiedReply, replyMessage, modelFooter, duration, options, guildId, guildName, channelName);
+                    return;
+                }
                 if (toolData.generate_reply) {
                     if (typeof toolData.generate_reply === 'string') {
                         toolData.tool = 'generate_reply';
@@ -2096,6 +2672,11 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                         console.log(`[AI THOUGHT] ${toolData.thought}`);
                     }
                     telemetryLogger.tool({ name: toolData.tool });
+                    const AGENT_LOOP_TOOLS = ['check_steam', 'convert_currency', 'search_web', 'db_read', 'db_write', 'db_edit', 'db_delete', 'get_creator_info', 'generate_image', 'send_voice_note'];
+                    if (AGENT_LOOP_TOOLS.includes(toolData.tool)) {
+                        await executeAgentLoop([{ tool: toolData.tool, args: toolData.args }], toolData.thought, prompt, channelId, userId, userTag, interaction, type, unifiedReply, replyMessage, modelFooter, duration, options, guildId, guildName, channelName);
+                        return;
+                    }
                     if (options && options.radioMode && toolData.tool && toolData.tool.startsWith('radio_')) {
                         const { handleRadioMCPCall } = require('../music/radioMCPHandler');
                         const radioGuildId = options.guildId || interaction.guildId;
@@ -2505,8 +3086,8 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                     }
                     processedResponse = content;
                     if (modelFooter) {
-                        processedResponse += `${modelFooter} | ⏱️ ${duration}`;
-                    } else {
+                        processedResponse += getShowModel() ? `${modelFooter} | ⏱️ ${duration}` : modelFooter;
+                    } else if (getShowModel()) {
                         processedResponse += `\n-# ⏱️ ${duration}`;
                     }
                     if (/\bhikari\b.*\b(saia|sai|desconecta)\s+(da|do)?\s*(call|voz)\b/i.test(prompt)) {
@@ -3730,8 +4311,6 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
         console.error('Erro ao processar fila:', error.response ? error.response.data : error.message);
         addToHistory(channelId, 'assistant', 'erro da ia');
         await unifiedReply('⚠️ Desculpe, tive um erro ao processar seu pedido. Tente novamente.');
-    } finally {
-        setTimeout(processQueue, 1000);
     }
 }
 async function addToQueue(prompt, interaction, type, options = {}) {
@@ -3753,13 +4332,21 @@ async function addToQueue(prompt, interaction, type, options = {}) {
             await interaction.deferReply({ ephemeral: !isPublic });
         }
     }
-    processingQueue.push({ prompt, interaction, type, userTag, userId, channelId, options });
+    const guildKey = interaction?.guild?.id || interaction?.guildId || 'DM';
+    if (!guildQueues.has(guildKey)) {
+        guildQueues.set(guildKey, []);
+    }
+    const serverQueue = guildQueues.get(guildKey);
+    serverQueue.push({ prompt, interaction, type, userTag, userId, channelId, options, guildKey });
     notifyQueueUpdate();
-    if (!isProcessing) {
-        processQueue();
-    } else {
+
+    const maxConcurrency = getGuildMaxConcurrency(guildKey);
+    const activeWorkers = guildActiveWorkers.get(guildKey) || 0;
+    const isAtCapacity = maxConcurrency > 0 && activeWorkers >= maxConcurrency;
+
+    if (isAtCapacity) {
         if (type === 'mention' && !options.radioMode) {
-            const queuePosition = processingQueue.length;
+            const queuePosition = serverQueue.length;
             try {
                 const queueMsg = await interaction.reply({
                     content: `Sua solicitação está na fila. Posição: ${queuePosition}.`,
@@ -3776,6 +4363,7 @@ async function addToQueue(prompt, interaction, type, options = {}) {
             }
         }
     }
+    dispatchGuildQueue(guildKey);
 }
 let globalShowModel = false;
 function updateShowModel(value) {
@@ -3800,6 +4388,24 @@ function updateErrorRetries(value) {
 }
 function getErrorRetries() {
     return globalErrorRetries;
+}
+let globalMultiMcpEmbeds = false;
+function updateMultiMcpEmbeds(value, guildId = null) {
+    if (guildId && guildId !== 'DM') {
+        if (!serverSettings[guildId]) {
+            serverSettings[guildId] = {};
+        }
+        serverSettings[guildId].multiMcpEmbeds = Boolean(value);
+        saveServerSettings();
+    }
+    globalMultiMcpEmbeds = Boolean(value);
+    console.log(`[CONFIG] multi_mcp_embeds atualizado para ${globalMultiMcpEmbeds}${guildId ? ` (servidor: ${guildId})` : ''}`);
+}
+function getMultiMcpEmbeds(guildId = null) {
+    if (guildId && guildId !== 'DM' && serverSettings[guildId] && serverSettings[guildId].multiMcpEmbeds !== undefined) {
+        return Boolean(serverSettings[guildId].multiMcpEmbeds);
+    }
+    return globalMultiMcpEmbeds;
 }
 function updateProviderSetting(provider, key, value) {
     if (providerSettings[provider] && providerSettings[provider][key] !== undefined) {
@@ -3828,7 +4434,11 @@ module.exports = {
     getShowModelThinking,
     updateErrorRetries,
     getErrorRetries,
+    updateMultiMcpEmbeds,
+    getMultiMcpEmbeds,
     generateResponse,
+    executeAgentLoop,
+    executeMultiTools,
     getServerPrompt,
     setServerPrompt,
     resetServerPrompt,
@@ -3850,4 +4460,8 @@ module.exports = {
     clearHistory,
     clearProcessingQueue,
     abortCurrentGeneration,
+    getGuildMaxConcurrency,
+    setGuildMaxConcurrency,
+    guildQueues,
+    guildActiveWorkers,
 };

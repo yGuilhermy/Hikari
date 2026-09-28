@@ -23,6 +23,8 @@ const {
     getShowModelThinking,
     updateErrorRetries,
     getErrorRetries,
+    updateMultiMcpEmbeds,
+    getMultiMcpEmbeds,
     getDisabledTools,
     getAllMcpTools,
     setServerToolEnabled,
@@ -45,10 +47,12 @@ async function handleCreatorAdminCommand(interaction, client) {
     if (sub === 'modelo') {
         const mostrarModelo = interaction.options.getBoolean('mostrar_nome');
         const mostrarPensamento = interaction.options.getBoolean('mostrar_pensamento');
+        const multiMcpEmbeds = interaction.options.getBoolean('multi_mcp_embeds');
         const retentativas = interaction.options.getInteger('retentativas');
 
         if (mostrarModelo !== null) updateShowModel(mostrarModelo);
         if (mostrarPensamento !== null) updateShowModelThinking(mostrarPensamento);
+        if (multiMcpEmbeds !== null) updateMultiMcpEmbeds(multiMcpEmbeds, interaction.guildId);
         if (retentativas !== null) updateErrorRetries(retentativas);
 
         const successEmbed = new EmbedBuilder()
@@ -58,6 +62,7 @@ async function handleCreatorAdminCommand(interaction, client) {
             .addFields(
                 { name: 'Exibir Modelo', value: mostrarModelo !== null ? (mostrarModelo ? '✅ Sim' : '❌ Não') : 'Não alterado', inline: true },
                 { name: 'Exibir Pensamento', value: mostrarPensamento !== null ? (mostrarPensamento ? '✅ Sim' : '❌ Não') : 'Não alterado', inline: true },
+                { name: 'Embeds Multi-MCP', value: multiMcpEmbeds !== null ? (multiMcpEmbeds ? '✅ Sim' : '❌ Não') : 'Não alterado', inline: true },
                 { name: 'Tentativas de Erro', value: retentativas !== null ? String(retentativas) : 'Não alterado', inline: true }
             )
             .setTimestamp();
@@ -192,7 +197,7 @@ async function sendCreatorAdminDashboard(interaction, client, isUpdate = false) 
         .setTitle('👑 Central de Controle Master • Criador Hikari')
         .setDescription('Painel de gestão global e administração avançada da Hikari.')
         .addFields(
-            { name: '📊 Status do Sistema', value: `**RAM em uso:** ${ramMB} MB\n**Exibir Modelo:** ${getShowModel() ? '✅ Sim' : '❌ Não'}\n**Exibir Pensamento:** ${getShowModelThinking() ? '✅ Sim' : '❌ Não'}\n**Retentativas:** ${getErrorRetries()}\n**AutoMod (Servidor):** \`${autoBlockMode}\``, inline: true },
+            { name: '📊 Status do Sistema', value: `**RAM em uso:** ${ramMB} MB\n**Exibir Modelo:** ${getShowModel() ? '✅ Sim' : '❌ Não'}\n**Exibir Pensamento:** ${getShowModelThinking() ? '✅ Sim' : '❌ Não'}\n**Embeds Multi-MCP:** ${getMultiMcpEmbeds() ? '✅ Sim' : '❌ Não'}\n**Retentativas:** ${getErrorRetries()}\n**AutoMod (Servidor):** \`${autoBlockMode}\``, inline: true },
             { name: '🛑 Restrições Globais', value: `**Usuários:** ${userBansCount}\n**Servidores:** ${guildBansCount}\n**Canais:** ${channelBansCount}`, inline: true }
         )
         .setFooter({ text: 'Central de Administração Criador • by yGuilhermy' })
@@ -242,6 +247,13 @@ async function handleCreatorAdminInteraction(interaction, client) {
             .setValue(getShowModelThinking() ? 'SIM' : 'NAO')
             .setRequired(true);
 
+        const multiMcpInput = new TextInputBuilder()
+            .setCustomId('multi_mcp_embeds')
+            .setLabel('Embeds em Multi-MCP? (SIM / NAO)')
+            .setStyle(TextInputStyle.Short)
+            .setValue(getMultiMcpEmbeds() ? 'SIM' : 'NAO')
+            .setRequired(true);
+
         const retriesInput = new TextInputBuilder()
             .setCustomId('retentativas')
             .setLabel('Número de Retentativas de Erro (0-10)')
@@ -252,6 +264,7 @@ async function handleCreatorAdminInteraction(interaction, client) {
         modal.addComponents(
             new ActionRowBuilder().addComponents(showModelInput),
             new ActionRowBuilder().addComponents(showThinkingInput),
+            new ActionRowBuilder().addComponents(multiMcpInput),
             new ActionRowBuilder().addComponents(retriesInput)
         );
 
@@ -344,12 +357,14 @@ async function handleCreatorAdminInteraction(interaction, client) {
     if (customId === 'crtcfg_modal_modelos') {
         const mostrarNome = (interaction.fields.getTextInputValue('mostrar_nome') || '').toUpperCase() === 'SIM';
         const mostrarPensamento = (interaction.fields.getTextInputValue('mostrar_pensamento') || '').toUpperCase() === 'SIM';
+        const multiMcpEmbeds = (interaction.fields.getTextInputValue('multi_mcp_embeds') || '').toUpperCase() === 'SIM';
         const rawRetentativas = interaction.fields.getTextInputValue('retentativas');
         const parsedRetentativas = parseInt(rawRetentativas);
         const retentativas = isNaN(parsedRetentativas) ? getErrorRetries() : Math.max(0, Math.min(10, parsedRetentativas));
 
         updateShowModel(mostrarNome);
         updateShowModelThinking(mostrarPensamento);
+        updateMultiMcpEmbeds(multiMcpEmbeds, interaction.guildId);
         updateErrorRetries(retentativas);
 
         const embed = new EmbedBuilder()
@@ -358,6 +373,7 @@ async function handleCreatorAdminInteraction(interaction, client) {
             .addFields(
                 { name: 'Exibir Nome do Modelo', value: mostrarNome ? '✅ Sim' : '❌ Não', inline: true },
                 { name: 'Exibir Modelo no Pensamento', value: mostrarPensamento ? '✅ Sim' : '❌ Não', inline: true },
+                { name: 'Embeds em Multi-MCP', value: multiMcpEmbeds ? '✅ Sim' : '❌ Não', inline: true },
                 { name: 'Retentativas em Erro', value: String(retentativas), inline: true }
             );
         return interaction.reply({ embeds: [embed], ephemeral: true });

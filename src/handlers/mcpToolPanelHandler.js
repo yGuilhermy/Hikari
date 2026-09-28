@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const config = require('../config');
-const { getDisabledTools, getAllMcpTools, setServerToolEnabled, resetServerTools } = require('./llmHandler');
+const { getDisabledTools, getAllMcpTools, setServerToolEnabled, resetServerTools, getMultiMcpEmbeds, updateMultiMcpEmbeds } = require('./llmHandler');
 
 const TOOL_DESCRIPTIONS = {
     'search_and_download_music': '**Propósito:** Permite que a Hikari pesquise no catálogo do Deezer e faça o download de arquivos de áudio de alta qualidade (.mp3).\n\n**Como Usar:** Peça por nome da música ou artista (ex: *"hikari baixa welcome to the jungle"*). Se a busca for ambígua, o bot apresentará 5 opções no chat para escolha.\n\n**Gatilhos Típicos:** *"baixa a música X"*, *"download de Y"*, *"pesquise a música Z"*, *"quero a opção 1"*.\n\n**Saída:** Arquivo de áudio `.mp3` enviado diretamente na conversa.',
@@ -55,8 +55,9 @@ async function sendMcpToolsManager(interaction, guildId, selectedToolName = null
         }
 
         const activeCount = allTools.length - disabled.length;
+        const embedsActive = getMultiMcpEmbeds(guildId);
         embed.setTitle('🔧 Central de Controle de Ferramentas MCP')
-             .setDescription(`Gerencie o que a **Hikari** tem permissão de usar neste servidor.\n\n**Resumo de Status:** ${activeCount} ativas / ${disabled.length} desativadas`)
+             .setDescription(`Gerencie o que a **Hikari** tem permissão de usar neste servidor.\n\n**Resumo de Status:** ${activeCount} ativas / ${disabled.length} desativadas\n**Embeds em Multi-MCP:** ${embedsActive ? '🟢 **ATIVADOS**' : '🔴 **DESATIVADOS (Padrão limpo)**'}`)
              .addFields(
                  { name: `🟢 Ferramentas Ativas (${activeTools.length})`, value: activeTools.length > 0 ? activeTools.join('\n') : '*Nenhuma ferramenta ativa*', inline: false },
                  { name: `🔴 Ferramentas Desativadas (${disabledTools.length})`, value: disabledTools.length > 0 ? disabledTools.join('\n') : '*Nenhuma ferramenta desativada*', inline: false }
@@ -107,7 +108,12 @@ async function sendMcpToolsManager(interaction, guildId, selectedToolName = null
         );
         rows.push(btnRow);
     } else {
+        const embedsActive = getMultiMcpEmbeds(guildId);
         const btnRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`srvmcp_toggle_embeds_${guildId}`)
+                .setLabel(embedsActive ? '🖼️ Embeds Multi-MCP: Ativados' : '🖼️ Embeds Multi-MCP: Desativados')
+                .setStyle(embedsActive ? ButtonStyle.Success : ButtonStyle.Secondary),
             new ButtonBuilder()
                 .setCustomId(`srvmcp_reset_${guildId}`)
                 .setLabel('🔄 Resetar Padrões do Servidor')
@@ -142,6 +148,13 @@ async function handleMcpToolInteraction(interaction) {
         const guildId = customId.replace('srvmcp_select_', '');
         const selectedToolName = interaction.values[0];
         return sendMcpToolsManager(interaction, guildId, selectedToolName, true);
+    }
+
+    if (customId.startsWith('srvmcp_toggle_embeds_')) {
+        const guildId = customId.replace('srvmcp_toggle_embeds_', '');
+        const current = getMultiMcpEmbeds(guildId);
+        updateMultiMcpEmbeds(!current, guildId);
+        return sendMcpToolsManager(interaction, guildId, null, true);
     }
 
     if (customId.startsWith('srvmcp_toggle_')) {

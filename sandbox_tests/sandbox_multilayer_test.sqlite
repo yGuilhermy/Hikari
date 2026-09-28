@@ -1,0 +1,20 @@
+{
+  "meta_arrecadacao": {
+    "content": "Meta atual: R$ 1500",
+    "protected": false,
+    "salvo_por": null,
+    "savedById": null,
+    "savedByTag": "tester",
+    "important": false,
+    "updatedAt": "2026-09-28T13:39:57.693Z"
+  },
+  "celeste_release": {
+    "content": "Lançamento de Celeste: 25/jan./2018",
+    "protected": false,
+    "salvo_por": null,
+    "savedById": null,
+    "savedByTag": "tester",
+    "important": false,
+    "updatedAt": "2026-09-28T13:39:59.572Z"
+  }
+}
