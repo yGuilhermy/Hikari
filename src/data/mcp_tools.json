@@ -130,8 +130,8 @@
     "type": "function",
     "function": {
       "name": "search_web",
-      "description": "Realiza uma pesquisa na internet para obter informações sobre qualquer dúvida, curiosidade, fato, notícias atuais ou cotações de mercado. CRÍTICO: Você DEVE usar esta ferramenta sempre que o usuário fizer perguntas sobre assuntos que exijam dados externos, históricos, específicos ou atuais. Nunca diga que não sabe, não pode ou não consegue ajudar se puder obter a resposta via pesquisa.",
-      "textual_triggers": "Gatilhos: \"pesquise sobre X\", \"quem foi Y\", \"informações sobre o jogo Z\", \"notícias de hoje\".",
+      "description": "Realiza uma pesquisa na internet para obter informações sobre qualquer dúvida, curiosidade, fato, notícias atuais ou cotações de mercado. CRÍTICO: Você DEVE usar esta ferramenta sempre que o usuário fizer perguntas sobre assuntos que exijam dados externos, históricos, específicos ou atuais, ou quando pedir 'pesquisa na web' / 'busca no google' (se não houver termo explícito, deduza e pesquise sobre o assunto ou dúvida anterior). Nunca diga que não sabe, não pode ou não consegue ajudar se puder obter a resposta via pesquisa.",
+      "textual_triggers": "Gatilhos: \"pesquise sobre X\", \"quem foi Y\", \"informações sobre o jogo Z\", \"notícias de hoje\", \"pesquisa na web\".",
       "textual_args": "{ \"query\": \"termo de busca otimizado\" }",
       "parameters": {
         "type": "object",
@@ -182,8 +182,8 @@
     "type": "function",
     "function": {
       "name": "show_bot_menu",
-      "description": "Exibe um painel interativo visual (menu de ajuda/help) no Discord com botões e seletores. CRÍTICO: Esta ferramenta só deve ser chamada se o usuário pedir explicitamente para 'abrir o menu de ajuda', 'mostrar painel de comandos' ou termos visuais equivalentes. NUNCA chame esta ferramenta se o usuário apenas fizer perguntas sobre comandos ou pedir ajuda textual comum.",
-      "textual_triggers": "Gatilhos: \"abrir menu de ajuda interativo\", \"mostrar painel de comandos do discord\"",
+      "description": "Exibe o painel interativo visual (menu de ajuda/help) no Discord com botões e seletores. Use esta ferramenta quando o usuário pedir para abrir o menu de ajuda, perguntar quais são suas funções, recursos, capacidades ou comandos do bot (ex: 'quais são suas funções?', 'o que você pode fazer?', 'mostre seus comandos', 'abra o menu de ajuda').",
+      "textual_triggers": "Gatilhos: \"quais são suas funções?\", \"o que você sabe fazer?\", \"menu de ajuda\", \"comandos do bot\", \"abrir menu de ajuda\".",
       "textual_args": "{ \"context\": \"geral\" | \"regras\" | \"sobre\"}",
       "parameters": {
         "type": "object",
@@ -464,8 +464,8 @@
     "type": "function",
     "function": {
       "name": "db_write",
-      "description": "Salva ou atualiza um registro no banco de dados interno persistente. Use quando o usuário pedir para lembrar, anotar, guardar ou salvar uma informação para consultas futuras. A IA avalia com inteligência se o dado é importante (defina important: true) ou simples/casual (important: false, padrão). CRÍTICO - CONDUTA, SEGURANÇA E TERMOS DE SERVIÇO: É terminantemente proibido salvar ou registrar informações tóxicas, difamatórias, ofensivas, depreciativas, acusações ou conteúdo negativo contra qualquer usuário ou pessoa, coisas que violem os Termos de Serviço (TOS) do Discord, apologia a crimes ou atividades ilegais. Se o usuário pedir para guardar algo ilícito, difamatório, prejudicial ou contra outro usuário, NÃO execute esta ferramenta; recuse o pedido diretamente na sua fala de forma natural e calma (no estilo da Hikari, com emojis simples ou kaomojis), explicando que você não guarda esse tipo de coisa.",
-      "textual_triggers": "Gatilhos: \"lembre-se que X\", \"salve no banco que Y\", \"guarde essa informação: Z\".",
+      "description": "Salva ou atualiza um registro no banco de dados interno persistente. Use quando o usuário pedir para lembrar, anotar, guardar ou salvar uma informação para consultas futuras (ex: 'anotar no banco pra fazer manutenção', 'salve no banco que...'). Se o usuário não especificar chave e conteúdo separadamente, deduza uma chave curta (ex: 'manutencao') e salve a anotação imediatamente. A IA avalia com inteligência se o dado é importante (defina important: true) ou simples/casual (important: false, padrão). CRÍTICO - CONDUTA, SEGURANÇA E TERMOS DE SERVIÇO: É terminantemente proibido salvar ou registrar informações tóxicas, difamatórias, ofensivas, depreciativas, acusações ou conteúdo negativo contra qualquer usuário ou pessoa, coisas que violem os Termos de Serviço (TOS) do Discord, apologia a crimes ou atividades ilegais. Se o usuário pedir para guardar algo ilícito, difamatório, prejudicial ou contra outro usuário, NÃO execute esta ferramenta; recuse o pedido diretamente na sua fala de forma natural e calma (no estilo da Hikari, com emojis simples ou kaomojis), explicando que você não guarda esse tipo de coisa.",
+      "textual_triggers": "Gatilhos: \"anotar no banco pra fazer manutenção\", \"lembre-se que X\", \"salve no banco que Y\", \"guarde essa informação: Z\".",
       "textual_args": "{ \"key\": \"nome_do_topico\", \"content\": \"informação a ser salva\", \"important\": false }",
       "parameters": {
         "type": "object",

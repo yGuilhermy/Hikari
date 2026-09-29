@@ -13,6 +13,7 @@ const {
     getProviderSettings,
 } = require('./llmHandler');
 const { getDbSettings, updateDbSetting } = require('./databaseHandler');
+const { getVisionTimeout, updateVisionTimeout } = require('./imageVisionHandler');
 
 const CONFIG_PAGES = [
     {
@@ -63,6 +64,19 @@ const CONFIG_PAGES = [
         min: 0, max: 10, step: 1,
         get: () => getErrorRetries(),
         set: (v) => updateErrorRetries(v),
+    },
+    {
+        key: 'visionTimeout',
+        label: 'Timeout — Visão (Gemini)',
+        category: '🤖 IA — Resiliência',
+        icon: '👁️',
+        type: 'number',
+        persistence: 'runtime',
+        summary: 'Tempo de espera para análise de imagens (ms).',
+        description: 'Tempo em milissegundos que a Hikari aguarda pela resposta de visão computacional antes de abortar. Padrão reduzido para 7000ms para evitar que requisições presas em filas com alta demanda congelem a conversa.',
+        min: 2000, max: 30000, step: 1000,
+        get: () => getVisionTimeout(),
+        set: (v) => updateVisionTimeout(v),
     },
     {
         key: 'aiDbRead',

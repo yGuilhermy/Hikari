@@ -100,6 +100,31 @@ const VISION_MODELS = [
     config.geminiModelFallback
 ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
 
+let visionTimeoutMs = 7000;
+const visionModelCooldowns = new Map();
+const visionKeyCooldowns = new Map();
+
+function getVisionTimeout() {
+    return visionTimeoutMs;
+}
+
+function updateVisionTimeout(ms) {
+    const val = parseInt(ms, 10);
+    if (!isNaN(val) && val >= 2000 && val <= 60000) {
+        visionTimeoutMs = val;
+        console.log(`[CONFIG] vision_timeout atualizado para ${val}ms`);
+    }
+}
+
+function getVisionModelCooldowns() {
+    return visionModelCooldowns;
+}
+
+function resetVisionModelCooldowns() {
+    visionModelCooldowns.clear();
+    visionKeyCooldowns.clear();
+}
+
 async function describeWithGemini(buffer, mimeType) {
     const keys = config.geminiApiKeys || [];
     if (!keys.length) {
@@ -112,7 +137,23 @@ async function describeWithGemini(buffer, mimeType) {
 
     for (let i = 0; i < keys.length; i++) {
         const key = keys[i];
+        if (visionKeyCooldowns.has(key)) {
+            const expires = visionKeyCooldowns.get(key);
+            if (Date.now() < expires) {
+                continue;
+            }
+            visionKeyCooldowns.delete(key);
+        }
+
         for (const model of VISION_MODELS) {
+            if (visionModelCooldowns.has(model)) {
+                const expires = visionModelCooldowns.get(model);
+                if (Date.now() < expires) {
+                    continue;
+                }
+                visionModelCooldowns.delete(model);
+            }
+
             try {
                 const nativeUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
                 const payload = {
@@ -130,7 +171,7 @@ async function describeWithGemini(buffer, mimeType) {
 
                 const response = await axios.post(nativeUrl, payload, {
                     headers: { 'Content-Type': 'application/json' },
-                    timeout: 20000
+                    timeout: visionTimeoutMs
                 });
 
                 const candidate = response.data?.candidates?.[0];
@@ -143,20 +184,42 @@ async function describeWithGemini(buffer, mimeType) {
             } catch (err) {
                 const status = err.response?.status;
                 const errMsg = err.response?.data?.error?.message || err.message;
+                const isHighDemand = /high demand|temporarily unavailable|overloaded|spikes in demand/i.test(errMsg);
+                const isTimeout = err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '');
+                const isServiceUnavailable = status === 503;
+
+                if (isHighDemand || isTimeout || isServiceUnavailable) {
+                    visionModelCooldowns.set(model, Date.now() + 300000);
+                    console.warn(`[Vision] Modelo ${model} colocado em cooldown de 5 min (alta demanda/timeout)`);
+                    continue;
+                }
+
                 if (status === 404) {
                     continue;
                 }
+
                 if (status === 429) {
-                    console.warn(`[Vision] Cota excedida na chave ${i + 1}/${keys.length} (${model}): ${errMsg}`);
+                    visionKeyCooldowns.set(key, Date.now() + 60000);
+                    console.warn(`[Vision] Cota excedida na chave ${i + 1}/${keys.length} (${model}), pausando chave por 60s: ${errMsg}`);
                     break;
                 }
+
                 console.warn(`[Vision] Falha na chave ${i + 1}/${keys.length} (${model}):`, errMsg);
             }
         }
 
+        const availableFallbackModel = VISION_MODELS.find(m => {
+            if (!visionModelCooldowns.has(m)) return true;
+            return Date.now() >= visionModelCooldowns.get(m);
+        }) || 'gemini-2.5-flash-lite';
+
+        if (visionModelCooldowns.has(availableFallbackModel) && Date.now() < visionModelCooldowns.get(availableFallbackModel)) {
+            continue;
+        }
+
         try {
             const compatPayload = {
-                model: 'gemini-2.5-flash-lite',
+                model: availableFallbackModel,
                 messages: [
                     {
                         role: 'user',
@@ -180,13 +243,13 @@ async function describeWithGemini(buffer, mimeType) {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${key}`
                 },
-                timeout: 20000
+                timeout: visionTimeoutMs
             });
 
             const text = compatResponse.data?.choices?.[0]?.message?.content;
             if (typeof text === 'string' && text.trim().length > 10) {
                 const cleaned = formatCompactDescription(text);
-                console.log(`[Vision] Imagem descrita com sucesso via fallback OpenAI na chave ${i + 1}/${keys.length}.`);
+                console.log(`[Vision] Imagem descrita com sucesso via fallback OpenAI na chave ${i + 1}/${keys.length} (${availableFallbackModel}).`);
                 return cleaned;
             }
         } catch (_) {}
@@ -293,5 +356,9 @@ module.exports = {
     resolveMessageVisualContent,
     formatCompactDescription,
     loadCache,
-    saveCache
+    saveCache,
+    getVisionTimeout,
+    updateVisionTimeout,
+    getVisionModelCooldowns,
+    resetVisionModelCooldowns
 };
