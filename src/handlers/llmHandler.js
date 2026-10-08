@@ -678,7 +678,7 @@ function extractMcpTargetAndArgs(userText, channelId, fullPrompt) {
         }
         return { tool: 'search_and_download_music', args: { query: query || 'musica' } };
     }
-    if (['video', 'vídeo', 'clipe', 'clip', 'reel', 'shorts', 'tiktok', 'download_video'].includes(rawToolKey)) {
+    if (['video', 'vídeo', 'clipe', 'clip', 'reel', 'shorts', 'tiktok', 'twitter', 'tweet', 'x', 'download_video'].includes(rawToolKey)) {
         return { tool: 'download_video', args: { url: urlInQuery || query } };
     }
     if (['imagem', 'foto', 'arte', 'desenho', 'ilustracao', 'ilustração', 'wallpaper', 'avatar', 'pfp', 'image', 'generate_image'].includes(rawToolKey)) {

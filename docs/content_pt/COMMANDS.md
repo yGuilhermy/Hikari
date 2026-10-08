@@ -88,7 +88,7 @@ Desconecta a Hikari do canal de voz em que ela está conectada no servidor.
 
 Extrai e converte o áudio de vídeos em formato MP3.
 
-- **URL:** O link do vídeo (YouTube, Instagram Reels ou TikTok).
+- **URL:** O link do vídeo (YouTube, Instagram Reels, TikTok ou Twitter/X).
 - **Advanced:** Utiliza `yt-dlp` para baixar a melhor qualidade de áudio e `ffmpeg` para converter em MP3 de forma limpa, limpando os arquivos locais em seguida.
 
 ### `/baixar_musica_deezer`
@@ -102,7 +102,7 @@ Busca e baixa faixas de música de alta qualidade diretamente do catálogo Deeze
 
 Baixa vídeos e envia em formato MP4 no chat do Discord.
 
-- **URL:** O link do vídeo (YouTube Shorts, Instagram Reels ou TikTok).
+- **URL:** O link do vídeo (YouTube Shorts, Instagram Reels, TikTok ou Twitter/X).
 - **Descricao (Boolean):** Se verdadeiro, exibe o autor e a descrição do vídeo original na mensagem. Padrão: `false`.
 - **Advanced:** Detecta o limite de upload do servidor para aplicar compressão de vídeo em FFMPEG se ultrapassar os limites do Discord. Oferece fila de compressão assíncrona.
 

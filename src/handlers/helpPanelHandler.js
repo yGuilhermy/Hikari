@@ -152,13 +152,29 @@ const COMMAND_DETAILS = {
         name: '/baixar_musica',
         category: '🎵 Multimídia & Downloads',
         permission: '👥 Todos os Usuários',
-        description: 'Extrai e faz o download de áudio (.mp3) a partir de links do YouTube, Instagram Reels ou TikTok.',
+        description: 'Extrai e faz o download de áudio (.mp3) a partir de links do YouTube, Instagram Reels, TikTok ou Twitter/X.',
         syntax: '/baixar_musica url:<link>',
         options: [
-            { name: 'url', desc: 'URL do vídeo do YouTube, Instagram ou TikTok.', required: true }
+            { name: 'url', desc: 'URL do vídeo do YouTube, Instagram, TikTok ou Twitter/X.', required: true }
         ],
         examples: [
-            '/baixar_musica url:https://www.youtube.com/watch?v=...'
+            '/baixar_musica url:https://www.youtube.com/watch?v=...',
+            '/baixar_musica url:https://x.com/username/status/...'
+        ]
+    },
+    'baixar_video': {
+        name: '/baixar_video',
+        category: '🎵 Multimídia & Downloads',
+        permission: '👥 Todos os Usuários',
+        description: 'Baixa o arquivo de vídeo (.mp4) de plataformas suportadas (YouTube Shorts, Instagram Reels, TikTok e Twitter/X).',
+        syntax: '/baixar_video url:<link> [descricao:True|False]',
+        options: [
+            { name: 'url', desc: 'URL do vídeo do YouTube Shorts, Instagram Reels, TikTok ou Twitter/X.', required: true },
+            { name: 'descricao', desc: 'Exibir descrição e autor do vídeo na resposta.', required: false }
+        ],
+        examples: [
+            '/baixar_video url:https://x.com/username/status/...',
+            '/baixar_video url:https://www.instagram.com/reel/...'
         ]
     },
     'baixar_musica_deezer': {

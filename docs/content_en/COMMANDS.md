@@ -72,7 +72,7 @@ Generates images using various diffusion models.
 
 Extracts and converts video audio into MP3 format.
 
-- **URL:** The link to the video (YouTube, Instagram Reels, or TikTok).
+- **URL:** The link to the video (YouTube, Instagram Reels, TikTok, or Twitter/X).
 - **Advanced:** Uses `yt-dlp` to download the best audio stream and `ffmpeg` to cleanly convert it to MP3, deleting local temporary files afterward.
 
 ### `/baixar_musica_deezer`
@@ -86,7 +86,7 @@ Searches and downloads high quality music tracks directly from Deezer by song ti
 
 Downloads videos and sends them in MP4 format in the Discord chat.
 
-- **URL:** The link to the video (YouTube Shorts, Instagram Reels, or TikTok).
+- **URL:** The link to the video (YouTube Shorts, Instagram Reels, TikTok, or Twitter/X).
 - **descricao (Boolean):** If true, displays the uploader and description of the original video in the message. Default: `false`.
 - **Advanced:** Automatically detects the server's upload size limit and applies FFMPEG compression if the video exceeds the Discord threshold. Utilizes a global asynchronous compression queue.
 

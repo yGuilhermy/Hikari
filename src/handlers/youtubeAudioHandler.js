@@ -17,16 +17,32 @@ const YOUTUBE_PLAYLIST_REGEX = /(?:youtube\.com|youtu\.be)\/playlist\?list=|yout
 const YOUTUBE_SHORTS_REGEX = /^(?:https?:\/\/)?(?:www\.)?(?:m\.)?(?:youtube\.com|youtu\.be)\/shorts\/([a-zA-Z0-9_-]{11,})(?:\S+)?$/;
 const INSTAGRAM_REGEX = /^(?:https?:\/\/)?(?:www\.)?instagram\.com\/(?:reel|reels)\/([a-zA-Z0-9_-]+)(?:\/|\?.*)?$/;
 const TIKTOK_REGEX = /^(?:https?:\/\/)?(?:[a-z0-9-]+\.)?tiktok\.com\/(?:@[a-zA-Z0-9_.-]+\/video\/\d+|t\/[a-zA-Z0-9]+|[a-zA-Z0-9_.-]+)(?:\/|\?.*)?$/;
+const TWITTER_REGEX = /^(?:https?:\/\/)?(?:[a-zA-Z0-9-]+\.)?(?:twitter\.com|x\.com|fxtwitter\.com|vxtwitter\.com|fixupx\.com)\/(?:(?:i\/status\/|[a-zA-Z0-9_]+\/status\/)(\d+))(?:\S*)?$/i;
 
 function isSafeUrl(url) {
     if (typeof url !== 'string') return false;
-    if (/[\r\n\0"'`$|;&<>\\]/.test(url)) return false;
+    const trimmed = url.trim();
+    if (trimmed.length === 0 || trimmed.length > 2048) return false;
+    if (trimmed.startsWith('-')) return false;
+    if (/[\r\n\0"'`$|;&<>\\]/.test(trimmed)) return false;
     try {
-        const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
-        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+        const parsed = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+        const host = parsed.hostname.toLowerCase();
+        if (!host || host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1' || host.endsWith('.local') || host.endsWith('.internal')) return false;
+        return true;
     } catch {
         return false;
     }
+}
+
+function normalizeTwitterUrl(url) {
+    const match = url.match(TWITTER_REGEX);
+    if (match && match[1]) {
+        const cleanDigits = match[1].replace(/[^0-9]/g, '');
+        return `https://x.com/i/status/${cleanDigits}`;
+    }
+    return url;
 }
 
 function execYtdlp(args) {
@@ -107,6 +123,8 @@ function formatVideoSuccessMessage(videoData, showDetails = false) {
         providerName = 'Instagram Reels';
     } else if (extractor.includes('tiktok')) {
         providerName = 'TikTok';
+    } else if (extractor.includes('twitter')) {
+        providerName = 'Twitter / X';
     } else if (extractor.includes('youtube')) {
         const isShorts = (metadata.webpage_url || '').includes('/shorts/') || (metadata.title || '').toLowerCase().includes('shorts');
         providerName = isShorts ? 'YouTube Shorts' : 'YouTube';
@@ -130,14 +148,15 @@ function formatVideoSuccessMessage(videoData, showDetails = false) {
 }
 
 function sanitizeFilenameForDiscord(filename) {
-    let sanitized = filename.replace(/[<>:"/\\|?*`!,]/g, '');
+    let sanitized = filename.replace(/[<>:"/\\|?*`!,;&$(){}[\]~^#'%]/g, '');
+    sanitized = sanitized.replace(/\.\.+/g, '');
     sanitized = sanitized.replace(/\s+/g, ' ').trim();
     const MAX_FILENAME_LENGTH = 100;
     if (sanitized.length > MAX_FILENAME_LENGTH) {
         const lastSpace = sanitized.lastIndexOf(' ', MAX_FILENAME_LENGTH);
         sanitized = sanitized.substring(0, lastSpace > 0 ? lastSpace : MAX_FILENAME_LENGTH);
     }
-    return sanitized;
+    return sanitized || 'media';
 }
 
 function detectPlatform(url) {
@@ -146,32 +165,33 @@ function detectPlatform(url) {
     if (YOUTUBE_VIDEO_REGEX.test(url)) return 'youtube';
     if (INSTAGRAM_REGEX.test(url)) return 'instagram';
     if (TIKTOK_REGEX.test(url)) return 'tiktok';
+    if (TWITTER_REGEX.test(url)) return 'twitter';
     return null;
 }
 
 function buildYtdlpAudioFlags(outputPath, url) {
-    const flags = ['--no-playlist', '-x', '--audio-format', 'mp3'];
+    const flags = ['--no-playlist', '--no-exec', '-x', '--audio-format', 'mp3'];
     const cookiesPath = config.ytdlpCookiesPath;
     if (cookiesPath && fs.existsSync(cookiesPath)) {
         flags.push('--cookies', cookiesPath);
     }
     if (Array.isArray(config.ytdlpExtraFlags)) {
-        flags.push(...config.ytdlpExtraFlags);
+        flags.push(...config.ytdlpExtraFlags.filter(f => typeof f === 'string' && !f.includes('exec')));
     }
-    flags.push('-o', outputPath, '--print-json', url);
+    flags.push('-o', outputPath, '--print-json', '--', url);
     return flags;
 }
 
 function buildYtdlpVideoFlags(outputPath, url) {
-    const flags = ['--no-playlist', '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'];
+    const flags = ['--no-playlist', '--no-exec', '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'];
     const cookiesPath = config.ytdlpCookiesPath;
     if (cookiesPath && fs.existsSync(cookiesPath)) {
         flags.push('--cookies', cookiesPath);
     }
     if (Array.isArray(config.ytdlpExtraFlags)) {
-        flags.push(...config.ytdlpExtraFlags);
+        flags.push(...config.ytdlpExtraFlags.filter(f => typeof f === 'string' && !f.includes('exec')));
     }
-    flags.push('-o', outputPath, '--print-json', url);
+    flags.push('-o', outputPath, '--print-json', '--', url);
     return flags;
 }
 
@@ -219,25 +239,38 @@ function parseMetadata(stdout, fallbackId) {
 }
 
 function extractVideoId(url, platform) {
+    let rawId = '';
     let match;
     switch (platform) {
         case 'youtube_shorts':
             match = url.match(YOUTUBE_SHORTS_REGEX);
-            return match ? match[1] : crypto.randomUUID().slice(0, 11);
+            rawId = match ? match[1] : '';
+            break;
         case 'youtube_music':
             match = url.match(YOUTUBE_MUSIC_REGEX);
-            return match ? match[1] : crypto.randomUUID().slice(0, 11);
+            rawId = match ? match[1] : '';
+            break;
         case 'youtube':
             match = url.match(YOUTUBE_VIDEO_REGEX);
-            return match ? match[1] : crypto.randomUUID().slice(0, 11);
+            rawId = match ? match[1] : '';
+            break;
         case 'instagram':
             match = url.match(INSTAGRAM_REGEX);
-            return match ? match[1] : crypto.randomUUID().slice(0, 8);
+            rawId = match ? match[1] : '';
+            break;
+        case 'twitter':
+            match = url.match(TWITTER_REGEX);
+            rawId = match ? match[1] : '';
+            break;
         case 'tiktok':
-            return crypto.randomUUID().slice(0, 8);
+            rawId = crypto.randomUUID().slice(0, 8);
+            break;
         default:
-            return crypto.randomUUID().slice(0, 8);
+            rawId = crypto.randomUUID().slice(0, 8);
+            break;
     }
+    const cleanId = (rawId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    return cleanId && cleanId.length > 0 ? cleanId.slice(0, 32) : crypto.randomUUID().slice(0, 8);
 }
 
 async function downloadTikTokMedia(url, isAudioOnly, targetFilePath) {
@@ -339,7 +372,7 @@ async function downloadAudio(videoUrl, context = null) {
         }
         const platform = detectPlatform(videoUrl);
         if (!platform) {
-            const err = new Error("URL_INVALID: A URL fornecida não é de uma plataforma suportada (YouTube, Instagram ou TikTok).");
+            const err = new Error("URL_INVALID: A URL fornecida não é de uma plataforma suportada (YouTube, Instagram, TikTok ou Twitter/X).");
             logMediaAction('Download Áudio', platform, videoUrl, context, 'Erro', `Detalhe: ${err.message}`);
             return reject(err);
         }
@@ -356,6 +389,11 @@ async function downloadAudio(videoUrl, context = null) {
         const resolveAudioFile = (metadata) => {
             const sanitizedTitle = sanitizeFilenameForDiscord(metadata.title || `Media_${videoId}`);
             const finalFilePath = path.join(TEMP_AUDIO_DIR, `${sanitizedTitle}.mp3`);
+            if (!path.resolve(finalFilePath).startsWith(path.resolve(TEMP_AUDIO_DIR))) {
+                const err = new Error("PATH_SECURITY_ERROR: Caminho de arquivo temporário inválido.");
+                logMediaAction('Download Áudio', platform, videoUrl, context, 'Erro', `Detalhe: ${err.message}`);
+                return reject(err);
+            }
             const renameAndResolve = (src, dest) => {
                 const sizeMB = (fs.statSync(src).size / (1024 * 1024)).toFixed(1);
                 logMediaAction('Download Áudio', platform, videoUrl, context, 'Sucesso', `Título: "${metadata.title}" | Tamanho: ${sizeMB} MB`);
@@ -383,6 +421,8 @@ async function downloadAudio(videoUrl, context = null) {
                 if (match && match[1]) {
                     processedUrl = `https://www.youtube.com/watch?v=${match[1]}`;
                 }
+            } else if (platform === 'twitter') {
+                processedUrl = normalizeTwitterUrl(videoUrl);
             }
             const args = buildYtdlpAudioFlags(tempOutputFilePath, processedUrl);
             logMediaAction('Download Áudio', platform, videoUrl, context, 'Iniciado');
@@ -399,6 +439,10 @@ async function downloadAudio(videoUrl, context = null) {
                     errObj = new Error("VIDEO_PRIVATE: Este vídeo é privado ou não está disponível.");
                 } else if (stderr.includes("age-restricted") || stdout.includes("age-restricted")) {
                     errObj = new Error("VIDEO_AGE_RESTRICTED: Este vídeo é restrito por idade.");
+                } else if (stderr.includes("No video could be found") || stdout.includes("No video could be found")) {
+                    errObj = new Error("NO_MEDIA: Nenhum vídeo ou áudio encontrado nesta publicação do Twitter/X.");
+                } else if (stderr.includes("requires authentication") || stdout.includes("requires authentication") || stderr.includes("account has been suspended") || stdout.includes("account has been suspended")) {
+                    errObj = new Error("MEDIA_UNAVAILABLE: Esta publicação requer autenticação ou a conta foi suspensa.");
                 } else if (stderr.includes("no appropriate format") || stdout.includes("no appropriate format")) {
                     errObj = new Error("FORMAT_UNAVAILABLE: Não foi encontrado um formato de áudio adequado.");
                 } else {
@@ -433,7 +477,7 @@ async function downloadVideo(videoUrl, context = null) {
         }
         const platform = detectPlatform(videoUrl);
         if (!platform) {
-            const err = new Error("URL_INVALID: A URL fornecida não é de uma plataforma suportada.");
+            const err = new Error("URL_INVALID: A URL fornecida não é de uma plataforma suportada (YouTube Shorts, Instagram Reels, TikTok ou Twitter/X).");
             logMediaAction('Download Vídeo', platform, videoUrl, context, 'Erro', `Detalhe: ${err.message}`);
             return reject(err);
         }
@@ -462,6 +506,11 @@ async function downloadVideo(videoUrl, context = null) {
             let foundPath = possiblePaths.find(p => fs.existsSync(p));
             if (foundPath) {
                 const finalFilePath = path.join(TEMP_VIDEO_DIR, `${sanitizedTitle}.mp4`);
+                if (!path.resolve(finalFilePath).startsWith(path.resolve(TEMP_VIDEO_DIR))) {
+                    const err = new Error("PATH_SECURITY_ERROR: Caminho de arquivo temporário inválido.");
+                    logMediaAction('Download Vídeo', platform, videoUrl, context, 'Erro', `Detalhe: ${err.message}`);
+                    return reject(err);
+                }
                 if (foundPath !== finalFilePath) {
                     try {
                         fs.renameSync(foundPath, finalFilePath);
@@ -480,7 +529,11 @@ async function downloadVideo(videoUrl, context = null) {
         };
 
         const runYtdlp = async () => {
-            const args = buildYtdlpVideoFlags(tempOutputFilePath, videoUrl);
+            let processedUrl = videoUrl;
+            if (platform === 'twitter') {
+                processedUrl = normalizeTwitterUrl(videoUrl);
+            }
+            const args = buildYtdlpVideoFlags(tempOutputFilePath, processedUrl);
             logMediaAction('Download Vídeo', platform, videoUrl, context, 'Iniciado');
             try {
                 const { stdout } = await execYtdlp(args);
@@ -495,6 +548,10 @@ async function downloadVideo(videoUrl, context = null) {
                     errObj = new Error("VIDEO_PRIVATE: Este vídeo é privado ou não está disponível.");
                 } else if (stderr.includes("age-restricted") || stdout.includes("age-restricted")) {
                     errObj = new Error("VIDEO_AGE_RESTRICTED: Este vídeo é restrito por idade.");
+                } else if (stderr.includes("No video could be found") || stdout.includes("No video could be found")) {
+                    errObj = new Error("NO_MEDIA: Nenhum vídeo ou áudio encontrado nesta publicação do Twitter/X.");
+                } else if (stderr.includes("requires authentication") || stdout.includes("requires authentication") || stderr.includes("account has been suspended") || stdout.includes("account has been suspended")) {
+                    errObj = new Error("MEDIA_UNAVAILABLE: Esta publicação requer autenticação ou a conta foi suspensa.");
                 } else {
                     errObj = new Error(`lib do ytdlp desatualizada, peça o <@${config.ownerId}> para atualizar na host`);
                 }
@@ -552,7 +609,13 @@ function removePendingVideo(fileId) {
 
 async function compressVideo(inputPath, attachmentLimit) {
     return new Promise((resolve, reject) => {
+        if (!path.resolve(inputPath).startsWith(path.resolve(TEMP_VIDEO_DIR))) {
+            return reject(new Error("PATH_SECURITY_ERROR: Caminho de entrada inválido."));
+        }
         const outputPath = inputPath.replace(/\.[^.]+$/, '_compressed.mp4');
+        if (!path.resolve(outputPath).startsWith(path.resolve(TEMP_VIDEO_DIR))) {
+            return reject(new Error("PATH_SECURITY_ERROR: Caminho de saída inválido."));
+        }
         const targetBytes = Math.floor(attachmentLimit * 0.95);
         const fileStat = fs.statSync(inputPath);
         const durationEstimate = Math.max(30, Math.min(300, fileStat.size / 500000));
@@ -677,5 +740,6 @@ module.exports = {
     formatVideoSuccessMessage,
     YOUTUBE_SHORTS_REGEX,
     INSTAGRAM_REGEX,
-    TIKTOK_REGEX
+    TIKTOK_REGEX,
+    TWITTER_REGEX
 };

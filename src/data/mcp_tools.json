@@ -28,22 +28,22 @@
   },
   {
     "meta": {
-      "label": "🎵 Download de Áudio (YouTube/Instagram/TikTok)",
-      "description": "Baixa o áudio de vídeos do YouTube, Instagram Reels ou TikTok em MP3",
+      "label": "🎵 Download de Áudio (YouTube/Instagram/TikTok/Twitter)",
+      "description": "Baixa o áudio de vídeos do YouTube, Instagram Reels, TikTok ou Twitter/X em MP3",
       "disableable": true
     },
     "type": "function",
     "function": {
       "name": "download_audio",
-      "description": "Executa o download de arquivos de áudio (.mp3) a partir de links externos de plataformas como YouTube, Instagram Reels ou TikTok. CRÍTICO: Esta ferramenta só deve ser chamada se o usuário fornecer um link URL explícito e solicitar áudio, mp3, som ou música. Nunca invente ou gere URLs. Se o pedido não contiver um link válido, recuse ou peça o link. Se houver ambiguidade no pedido (sem especificar se quer áudio ou vídeo), pergunte ao usuário antes de chamar a ferramenta.",
-      "textual_triggers": "Gatilhos: \"baixe essa musica\", \"download do audio\", \"quero o mp3\", \"link do audio\", \"baixa o áudio desse reel\".",
-      "textual_args": "{ \"url\": \"URL do video (YouTube/Instagram/TikTok)\" }",
+      "description": "Executa o download de arquivos de áudio (.mp3) a partir de links externos de plataformas como YouTube, Instagram Reels, TikTok ou Twitter/X. CRÍTICO: Esta ferramenta só deve ser chamada se o usuário fornecer um link URL explícito e solicitar áudio, mp3, som ou música. Nunca invente ou gere URLs. Se o pedido não contiver um link válido, recuse ou peça o link. Se houver ambiguidade no pedido (sem especificar se quer áudio ou vídeo), pergunte ao usuário antes de chamar a ferramenta.",
+      "textual_triggers": "Gatilhos: \"baixe essa musica\", \"download do audio\", \"quero o mp3\", \"link do audio\", \"baixa o áudio desse reel\", \"áudio desse tweet\".",
+      "textual_args": "{ \"url\": \"URL do video (YouTube/Instagram/TikTok/Twitter)\" }",
       "parameters": {
         "type": "object",
         "properties": {
           "url": {
             "type": "string",
-            "description": "URL do vídeo (YouTube, Instagram Reels ou TikTok)"
+            "description": "URL do vídeo (YouTube, Instagram Reels, TikTok ou Twitter/X)"
           }
         },
         "required": [
@@ -54,22 +54,22 @@
   },
   {
     "meta": {
-      "label": "🎬 Download de Vídeo (YouTube Shorts/Instagram/TikTok)",
-      "description": "Baixa vídeos do YouTube Shorts, Instagram Reels ou TikTok em MP4",
+      "label": "🎬 Download de Vídeo (YouTube Shorts/Instagram/TikTok/Twitter)",
+      "description": "Baixa vídeos do YouTube Shorts, Instagram Reels, TikTok ou Twitter/X em MP4",
       "disableable": true
     },
     "type": "function",
     "function": {
       "name": "download_video",
-      "description": "Executa o download de arquivos de vídeo (.mp4) a partir de links de plataformas como YouTube Shorts, Instagram Reels ou TikTok. IMPORTANTE: Para vídeos do YouTube, apenas o formato 'Shorts' é suportado (vídeos normais longos do YouTube falharão). CRÍTICO: Exige que o usuário tenha enviado uma URL válida no prompt. NUNCA invente ou alucine URLs.",
-      "textual_triggers": "Gatilhos: \"baixa esse vídeo\", \"download do reel\", \"salva esse tiktok\", \"quero o vídeo desse shorts\".",
-      "textual_args": "{ \"url\": \"URL do video (YouTube Shorts/Instagram Reels/TikTok)\", \"include_description\": false }",
+      "description": "Executa o download de arquivos de vídeo (.mp4) a partir de links de plataformas como YouTube Shorts, Instagram Reels, TikTok ou Twitter/X. IMPORTANTE: Para vídeos do YouTube, apenas o formato 'Shorts' é suportado (vídeos normais longos do YouTube falharão). CRÍTICO: Exige que o usuário tenha enviado uma URL válida no prompt. NUNCA invente ou alucine URLs.",
+      "textual_triggers": "Gatilhos: \"baixa esse vídeo\", \"download do reel\", \"salva esse tiktok\", \"quero o vídeo desse shorts\", \"baixa esse vídeo do twitter\", \"vídeo do x\".",
+      "textual_args": "{ \"url\": \"URL do video (YouTube Shorts/Instagram Reels/TikTok/Twitter)\", \"include_description\": false }",
       "parameters": {
         "type": "object",
         "properties": {
           "url": {
             "type": "string",
-            "description": "URL do vídeo (YouTube Shorts, Instagram Reels ou TikTok)"
+            "description": "URL do vídeo (YouTube Shorts, Instagram Reels, TikTok ou Twitter/X)"
           },
           "include_description": {
             "type": "boolean",
