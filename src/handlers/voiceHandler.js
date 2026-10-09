@@ -102,7 +102,7 @@ async function joinVoiceCall(member, textChannel, replyFn = null) {
             connection: existingConn,
             guildId,
             voiceChannelId: voiceChannel.id,
-            textChannelId: textChannel.id,
+            textChannelId: textChannel?.id || null,
             isLeaving: false
         };
         activeConnections.set(guildId, stateData);
@@ -137,7 +137,7 @@ async function joinVoiceCall(member, textChannel, replyFn = null) {
             connection,
             guildId,
             voiceChannelId: voiceChannel.id,
-            textChannelId: textChannel.id,
+            textChannelId: textChannel?.id || null,
             isLeaving: false
         };
 

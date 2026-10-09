@@ -38,7 +38,7 @@ function startActivityUpdater(client) {
     }
     activityInterval = setInterval(() => {
         applyStatus(client);
-    }, 4000);
+    }, 30000);
 }
 
 function updateBotActivity(clientInstance, queueLength) {

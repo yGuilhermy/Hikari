@@ -13,6 +13,16 @@ const DEFAULT_MIN_INITIAL_SEC = 1;
 const DEFAULT_MAX_BUFFER_SEC = 8;
 const DEFAULT_RESUME_BUFFER_SEC = 4;
 
+function isValidHttpUrl(string) {
+    if (!string || typeof string !== 'string') return false;
+    try {
+        const parsed = new URL(string);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch (_) {
+        return false;
+    }
+}
+
 class YouTubeBufferStream extends Readable {
     constructor(url, options = {}) {
         super(options);
@@ -38,6 +48,19 @@ class YouTubeBufferStream extends Readable {
     }
 
     _startProcess() {
+        if (!isValidHttpUrl(this.url)) {
+            const err = new Error('URL inválida: apenas http:// e https:// são permitidos');
+            if (this._rejectReady) {
+                const reject = this._rejectReady;
+                this._rejectReady = null;
+                reject(err);
+            }
+            process.nextTick(() => {
+                this.emit('error', err);
+            });
+            return;
+        }
+
         const cookiesPath = config.ytdlpCookiesPath;
         const cookieFlags = (cookiesPath && fs.existsSync(cookiesPath)) ? ['--cookies', cookiesPath] : [];
         const extraFlags = config.ytdlpExtraFlags || [];
@@ -51,6 +74,7 @@ class YouTubeBufferStream extends Readable {
             ...extraFlags,
             '-o', '-',
             '-f', 'bestaudio/best',
+            '--',
             this.url
         ];
 

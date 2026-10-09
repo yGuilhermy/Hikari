@@ -26,11 +26,16 @@ function loadDatabase() {
             const raw = fs.readFileSync(dbPath, 'utf8');
             database = JSON.parse(raw);
         } else {
-            database = {};
+            if (!database || typeof database !== 'object') {
+                database = {};
+            }
             saveDatabase();
         }
     } catch (e) {
-        database = {};
+        console.warn(`[databaseHandler] Falha ao carregar banco de dados de ${dbPath}:`, e.message || e);
+        if (!database || typeof database !== 'object') {
+            database = {};
+        }
     }
 }
 
@@ -41,7 +46,14 @@ function saveDatabase() {
         fs.renameSync(tmpPath, dbPath);
         return true;
     } catch (e) {
-        return false;
+        try {
+            fs.writeFileSync(dbPath, JSON.stringify(database, null, 2), 'utf8');
+            try { fs.unlinkSync(`${dbPath}.tmp`); } catch (_) {}
+            return true;
+        } catch (fallbackErr) {
+            console.warn(`[databaseHandler] Falha ao salvar banco de dados em ${dbPath}:`, fallbackErr.message || fallbackErr);
+            return false;
+        }
     }
 }
 
@@ -123,6 +135,12 @@ function canDelete(guildId = null) {
 
 const BULK_KEYWORDS = new Set(['*', 'all', 'todos', 'tudo', 'todas', 'dump', 'banco', 'banco de dados', 'database', 'geral', 'global', 'completo', 'full']);
 
+function isForbiddenKey(key) {
+    if (!key || typeof key !== 'string') return true;
+    const clean = key.trim().toLowerCase();
+    return clean === '__proto__' || clean === 'constructor' || clean === 'prototype';
+}
+
 function isBulkQuery(key) {
     const cleanKey = String(key || '').trim().toLowerCase();
     if (!cleanKey) return true;
@@ -131,11 +149,11 @@ function isBulkQuery(key) {
 
 function findMatchingKeys(key) {
     const cleanKey = String(key || '').trim().toLowerCase();
-    if (!cleanKey) return [];
-    const keys = Object.keys(database);
+    if (!cleanKey || isForbiddenKey(cleanKey)) return [];
+    const keys = Object.keys(database).filter(k => !isForbiddenKey(k));
     const matched = new Set();
 
-    if (database[cleanKey]) {
+    if (Object.prototype.hasOwnProperty.call(database, cleanKey)) {
         matched.add(cleanKey);
     }
     for (const k of keys) {
@@ -174,6 +192,7 @@ function findMatchingKeys(key) {
 }
 
 function findMatchingKey(key) {
+    if (isForbiddenKey(key)) return null;
     const keys = findMatchingKeys(key);
     return keys.length > 0 ? keys[0] : null;
 }
@@ -201,6 +220,13 @@ function readDb(key, guildId = null, isOwner = false) {
     }
     loadDatabase();
     const cleanKey = String(key || '').trim().toLowerCase();
+    if (!cleanKey || isForbiddenKey(cleanKey)) {
+        return {
+            success: false,
+            error: 'reserved_key',
+            message: 'Chave reservada inválida.'
+        };
+    }
     if (isBulkQuery(cleanKey) && !isOwner) {
         return {
             success: false,
@@ -454,11 +480,11 @@ function deleteDb(key, guildId = null, userContext = {}) {
     }
     loadDatabase();
     const cleanKey = String(key || '').trim().toLowerCase();
-    if (!cleanKey || ['__proto__', 'constructor', 'prototype'].includes(cleanKey)) {
+    if (!cleanKey || isForbiddenKey(cleanKey)) {
         return {
             success: false,
-            error: 'invalid_key',
-            message: 'Chave inválida fornecida para exclusão.'
+            error: 'reserved_key',
+            message: 'Chave reservada inválida.'
         };
     }
     const resolvedKey = findMatchingKey(cleanKey);
@@ -527,7 +553,7 @@ function listDbKeys(guildId = null) {
 function setProtection(key, isProtected) {
     loadDatabase();
     const cleanKey = String(key || '').trim().toLowerCase();
-    if (!database[cleanKey]) {
+    if (isForbiddenKey(cleanKey) || !Object.prototype.hasOwnProperty.call(database, cleanKey)) {
         return false;
     }
     database[cleanKey].protected = Boolean(isProtected);
@@ -549,6 +575,7 @@ module.exports = {
     findMatchingKey,
     findMatchingKeys,
     isBulkQuery,
+    isForbiddenKey,
     readDb,
     writeDb,
     editDb,

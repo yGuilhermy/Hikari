@@ -1,6 +1,6 @@
 const axios = require('axios');
 const FormData = require('form-data');
-require('dotenv').config();
+const config = require('../config');
 
 const STT_PROVIDERS_CONFIG = {
     GROQ: true,
@@ -40,11 +40,14 @@ async function transcribeWithGroq(audioBuffer, apiKey, filename) {
 }
 
 async function transcribeWithGemini(audioBuffer, apiKey) {
+    const key = apiKey || (typeof config.getGeminiKey === 'function' ? config.getGeminiKey() : null) || process.env.GEMINI_API_KEY;
     const base64Audio = audioBuffer.toString('base64');
-    const model = process.env.GEMINI_MODEL_FALLBACK && !process.env.GEMINI_MODEL_FALLBACK.includes('1.5')
-        ? process.env.GEMINI_MODEL_FALLBACK
-        : 'gemini-2.5-flash';
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const model = (config.geminiModelFallback && !config.geminiModelFallback.includes('1.5'))
+        ? config.geminiModelFallback
+        : (process.env.GEMINI_MODEL_FALLBACK && !process.env.GEMINI_MODEL_FALLBACK.includes('1.5')
+            ? process.env.GEMINI_MODEL_FALLBACK
+            : 'gemini-2.5-flash');
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
     const payload = {
         contents: [
@@ -63,7 +66,10 @@ async function transcribeWithGemini(audioBuffer, apiKey) {
     };
 
     const response = await axios.post(url, payload, {
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': key
+        },
         timeout: 8000
     });
 
@@ -182,7 +188,7 @@ async function transcribeAudio(audioBuffer, filename = 'speech.wav') {
         });
     }
 
-    const geminiKey = process.env.GEMINI_API_KEY;
+    const geminiKey = (typeof config.getGeminiKey === 'function' ? config.getGeminiKey() : null) || process.env.GEMINI_API_KEY;
     if (STT_PROVIDERS_CONFIG.GEMINI && !isPlaceholderKey(geminiKey)) {
         providers.push({
             name: 'Gemini Flash Audio (Google API)',

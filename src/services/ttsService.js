@@ -190,10 +190,23 @@ function convertWavToOggOpus(wavBuffer) {
             clearTimeout(timer);
             resolve(null);
         });
+        ffmpeg.stdin.on('error', () => {
+            if (!isDone) {
+                isDone = true;
+                clearTimeout(timer);
+                resolve(null);
+            }
+        });
 
         try {
-            ffmpeg.stdin.write(wavBuffer);
-            ffmpeg.stdin.end();
+            if (ffmpeg.stdin && ffmpeg.stdin.writable) {
+                ffmpeg.stdin.write(wavBuffer);
+                ffmpeg.stdin.end();
+            } else if (!isDone) {
+                isDone = true;
+                clearTimeout(timer);
+                resolve(null);
+            }
         } catch (_) {
             if (!isDone) {
                 isDone = true;

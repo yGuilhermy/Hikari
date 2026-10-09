@@ -406,7 +406,7 @@ async function handleRadioSelectRemove(interaction, client) {
         }
 
         const removedTrack = session.playlist[selectedIndex];
-        removeTrackFromPlaylist(guildId, selectedIndex);
+        removeTrackFromPlaylist(guildId, selectedIndex + 1);
 
         await updateEmbed(guildId, interaction.channel, client);
         return await interaction.update({

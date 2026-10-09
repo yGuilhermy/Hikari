@@ -55,7 +55,11 @@ function saveServerTools() {
         fs.writeFileSync(tmpPath, JSON.stringify(serverToolsConfig, null, 2));
         fs.renameSync(tmpPath, serverToolsPath);
     } catch (error) {
-        console.error('[MCP] Erro ao salvar server_tools.json:', error);
+        try {
+            fs.writeFileSync(serverToolsPath, JSON.stringify(serverToolsConfig, null, 2));
+        } catch (fallbackErr) {
+            console.error('[MCP] Erro ao salvar server_tools.json:', fallbackErr);
+        }
     }
 }
 function isToolDisabled(guildId, toolName) {
@@ -2189,12 +2193,16 @@ function dispatchGuildQueue(guildKey) {
         guildActiveWorkers.set(guildKey, active + 1);
         notifyQueueUpdate();
 
-        processQueueItem(queueItem).finally(() => {
-            const currentActive = guildActiveWorkers.get(guildKey) || 1;
-            guildActiveWorkers.set(guildKey, Math.max(0, currentActive - 1));
-            notifyQueueUpdate();
-            setTimeout(() => dispatchGuildQueue(guildKey), 100);
-        });
+        processQueueItem(queueItem)
+            .catch((err) => {
+                console.error(`[LLMQueue] Erro ao processar item da fila da guilda ${guildKey}:`, err);
+            })
+            .finally(() => {
+                const currentActive = guildActiveWorkers.get(guildKey) || 1;
+                guildActiveWorkers.set(guildKey, Math.max(0, currentActive - 1));
+                notifyQueueUpdate();
+                setTimeout(() => dispatchGuildQueue(guildKey), 100);
+            });
     }
 }
 
@@ -2743,6 +2751,7 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                         console.warn(`[MCP TOOL] Ferramenta '${toolData.tool}' está desativada no servidor ${targetGuildId}. Execução abortada.`);
                         processedResponse = `⚠️ A ferramenta \`${toolData.tool}\` está desativada neste servidor.`;
                         savePromptToHistory(prompt, userTag, userId, `[TOOL: BLOCKED - ${toolData.tool}]`, interaction);
+                        await unifiedReply(processedResponse);
                         return;
                     }
                     console.log(`[MCP TOOL] Detectado: ${toolData.tool} | Thought: ${toolData.thought}`);

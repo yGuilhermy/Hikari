@@ -45,15 +45,36 @@ function normalizeTwitterUrl(url) {
     return url;
 }
 
-function execYtdlp(args) {
+function execYtdlp(args, timeoutMs = 90000) {
     return new Promise((resolve, reject) => {
         const proc = spawn('yt-dlp', args);
         let stdout = '';
         let stderr = '';
+        let timer = null;
+        let isTimedOut = false;
+
+        if (timeoutMs > 0) {
+            timer = setTimeout(() => {
+                isTimedOut = true;
+                try {
+                    proc.kill('SIGKILL');
+                } catch (_) {}
+                const err = new Error(`yt-dlp timed out after ${timeoutMs}ms`);
+                err.stdout = stdout;
+                err.stderr = stderr;
+                reject(err);
+            }, timeoutMs);
+        }
+
         proc.stdout.on('data', (d) => { stdout += d.toString(); });
         proc.stderr.on('data', (d) => { stderr += d.toString(); });
-        proc.on('error', (err) => reject(err));
+        proc.on('error', (err) => {
+            if (timer) clearTimeout(timer);
+            if (!isTimedOut) reject(err);
+        });
         proc.on('close', (code) => {
+            if (timer) clearTimeout(timer);
+            if (isTimedOut) return;
             if (code !== 0) {
                 const err = new Error(`yt-dlp exited with code ${code}`);
                 err.stdout = stdout;
@@ -300,21 +321,23 @@ async function downloadTikTokMedia(url, isAudioOnly, targetFilePath) {
 
                 if (isAudioOnly && !mediaUrl.includes('audio_mpeg') && !mediaUrl.endsWith('.mp3')) {
                     const tempRawPath = targetFilePath + '.tmp';
-                    fs.writeFileSync(tempRawPath, Buffer.from(downloadRes.data));
-                    await new Promise((resolve, reject) => {
-                        const proc = spawn('ffmpeg', ['-y', '-i', tempRawPath, '-vn', '-ab', '192k', '-ar', '44100', targetFilePath]);
-                        proc.on('close', (code) => {
-                            try { fs.unlinkSync(tempRawPath); } catch (e) {}
-                            if (code !== 0) return reject(new Error(`ffmpeg falhou com código ${code}`));
-                            resolve();
+                    await fs.promises.writeFile(tempRawPath, Buffer.from(downloadRes.data));
+                    try {
+                        await new Promise((resolve, reject) => {
+                            const proc = spawn('ffmpeg', ['-y', '-i', tempRawPath, '-vn', '-ab', '192k', '-ar', '44100', targetFilePath]);
+                            proc.on('close', (code) => {
+                                if (code !== 0) return reject(new Error(`ffmpeg falhou com código ${code}`));
+                                resolve();
+                            });
+                            proc.on('error', (err) => {
+                                reject(err);
+                            });
                         });
-                        proc.on('error', (err) => {
-                            try { fs.unlinkSync(tempRawPath); } catch (e) {}
-                            reject(err);
-                        });
-                    });
+                    } finally {
+                        try { if (fs.existsSync(tempRawPath)) fs.unlinkSync(tempRawPath); } catch (_) {}
+                    }
                 } else {
-                    fs.writeFileSync(targetFilePath, Buffer.from(downloadRes.data));
+                    await fs.promises.writeFile(targetFilePath, Buffer.from(downloadRes.data));
                 }
 
                 return { success: true, metadata };
@@ -339,21 +362,23 @@ async function downloadTikTokMedia(url, isAudioOnly, targetFilePath) {
 
             if (isAudioOnly) {
                 const tempRawPath = targetFilePath + '.tmp.mp4';
-                fs.writeFileSync(tempRawPath, Buffer.from(downloadRes.data));
-                await new Promise((resolve, reject) => {
-                    const proc = spawn('ffmpeg', ['-y', '-i', tempRawPath, '-vn', '-ab', '192k', '-ar', '44100', targetFilePath]);
-                    proc.on('close', (code) => {
-                        try { fs.unlinkSync(tempRawPath); } catch (e) {}
-                        if (code !== 0) return reject(new Error(`ffmpeg falhou com código ${code}`));
-                        resolve();
+                await fs.promises.writeFile(tempRawPath, Buffer.from(downloadRes.data));
+                try {
+                    await new Promise((resolve, reject) => {
+                        const proc = spawn('ffmpeg', ['-y', '-i', tempRawPath, '-vn', '-ab', '192k', '-ar', '44100', targetFilePath]);
+                        proc.on('close', (code) => {
+                            if (code !== 0) return reject(new Error(`ffmpeg falhou com código ${code}`));
+                            resolve();
+                        });
+                        proc.on('error', (err) => {
+                            reject(err);
+                        });
                     });
-                    proc.on('error', (err) => {
-                        try { fs.unlinkSync(tempRawPath); } catch (e) {}
-                        reject(err);
-                    });
-                });
+                } finally {
+                    try { if (fs.existsSync(tempRawPath)) fs.unlinkSync(tempRawPath); } catch (_) {}
+                }
             } else {
-                fs.writeFileSync(targetFilePath, Buffer.from(downloadRes.data));
+                await fs.promises.writeFile(targetFilePath, Buffer.from(downloadRes.data));
             }
 
             return { success: true, metadata };
@@ -431,6 +456,14 @@ async function downloadAudio(videoUrl, context = null) {
                 const videoMetadata = parseMetadata(stdout, videoId);
                 resolveAudioFile(videoMetadata);
             } catch (error) {
+                try {
+                    if (fs.existsSync(tempOutputFilePath)) {
+                        fs.unlinkSync(tempOutputFilePath);
+                    }
+                    if (fs.existsSync(`${tempOutputFilePath}.part`)) {
+                        fs.unlinkSync(`${tempOutputFilePath}.part`);
+                    }
+                } catch (_) {}
                 const stdout = error.stdout || '';
                 const stderr = error.stderr || '';
                 console.error(`[MediaHandler] FALHA NO YT-DLP (Áudio):\nSTDOUT: ${stdout}\nSTDERR: ${stderr}\nERROR: ${error.message}`);
@@ -540,6 +573,17 @@ async function downloadVideo(videoUrl, context = null) {
                 const videoMetadata = parseMetadata(stdout, videoId);
                 resolveVideoFile(videoMetadata);
             } catch (error) {
+                try {
+                    const possibleCleanupPaths = [
+                        tempOutputFilePath,
+                        tempOutputFilePath.replace('.mp4', '.webm'),
+                        tempOutputFilePath.replace('.mp4', '.mkv'),
+                        `${tempOutputFilePath}.part`
+                    ];
+                    for (const p of possibleCleanupPaths) {
+                        if (fs.existsSync(p)) fs.unlinkSync(p);
+                    }
+                } catch (_) {}
                 const stdout = error.stdout || '';
                 const stderr = error.stderr || '';
                 console.error(`[MediaHandler] FALHA NO YT-DLP (Vídeo):\nSTDOUT: ${stdout}\nSTDERR: ${stderr}\nERROR: ${error.message}`);

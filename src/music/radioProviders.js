@@ -13,6 +13,16 @@ function extractUrl(str) {
     return match ? match[1] : str.trim();
 }
 
+function isValidHttpUrl(string) {
+    if (!string || typeof string !== 'string') return false;
+    try {
+        const parsed = new URL(string);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch (_) {
+        return false;
+    }
+}
+
 function isYouTubeUrl(str) {
     return /(?:youtube\.com|youtu\.be|music\.youtube\.com)/i.test(str);
 }
@@ -84,6 +94,9 @@ async function resolveDeezerPlaylist(url) {
 
 async function resolveYouTubeTrack(url) {
     const cleanUrl = extractUrl(url);
+    if (!isValidHttpUrl(cleanUrl)) {
+        return null;
+    }
     const videoIdMatch = cleanUrl.match(/(?:v=|\/|embed\/|shorts\/)([0-9A-Za-z_-]{11})/);
     const videoId = videoIdMatch ? videoIdMatch[1] : null;
 
@@ -104,7 +117,7 @@ async function resolveYouTubeTrack(url) {
         if (cookiesPath && fs.existsSync(cookiesPath)) {
             args.push('--cookies', cookiesPath);
         }
-        args.push('-j', cleanUrl);
+        args.push('-j', '--', cleanUrl);
 
         const proc = spawn('yt-dlp', args);
         let stdout = '';
@@ -183,13 +196,16 @@ async function resolveDeezerAlbum(url) {
 function resolveYouTubePlaylist(url) {
     return new Promise((resolve) => {
         const cleanUrl = extractUrl(url);
+        if (!isValidHttpUrl(cleanUrl)) {
+            return resolve([]);
+        }
         const config = require('../config');
         const cookiesPath = config.ytdlpCookiesPath;
         const args = ['--no-warnings', '--no-update'];
         if (cookiesPath && fs.existsSync(cookiesPath)) {
             args.push('--cookies', cookiesPath);
         }
-        args.push('--flat-playlist', '--playlist-end', '100', '-j', cleanUrl);
+        args.push('--flat-playlist', '--playlist-end', '100', '-j', '--', cleanUrl);
 
         const proc = spawn('yt-dlp', args);
         let stdout = '';

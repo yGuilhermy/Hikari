@@ -195,6 +195,7 @@ function formatCurrencyNumber(val) {
 function parseCurrencyQuery(text) {
     if (!text || typeof text !== 'string') return { amount: 1, from: 'USD', to: 'BRL' };
     let clean = text.toLowerCase()
+        .replace(/(?:converter?|convers[aã]o\s*(?:de)?|transformar?)\s*/gi, '')
         .replace(/cota[çc][aã]o\s*(do|da|de)?/gi, '')
         .replace(/quanto\s*(t[aá]|est[aá]|vale|custa)\s*(o|a|um)?/gi, '')
         .trim();

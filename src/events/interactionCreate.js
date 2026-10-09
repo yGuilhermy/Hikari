@@ -105,6 +105,22 @@ module.exports = {
             }
         }
         if (interaction.customId) {
+            const isBanExempt = interaction.customId.startsWith('appeal_ban_') ||
+                                interaction.customId.startsWith('unban_') ||
+                                interaction.customId.startsWith('keepban_') ||
+                                interaction.customId.startsWith('adm_') ||
+                                interaction.customId.startsWith('banlist_') ||
+                                interaction.customId.startsWith('crtcfg_') ||
+                                interaction.customId.startsWith('cfgpanel_');
+            if (!isBanExempt) {
+                const banInfo = checkBan(interaction.user.id, interaction.guildId, interaction.channelId);
+                if (banInfo) {
+                    if (interaction.isRepliable()) {
+                        return interaction.reply({ content: '🛑 **ACESSO NEGADO:** Você ou este servidor/canal está banido da Hikari.', ephemeral: true });
+                    }
+                    return;
+                }
+            }
             if (interaction.customId.startsWith('srvcfg_')) {
                 return await handleServerAdminInteraction(interaction);
             }
@@ -207,7 +223,7 @@ module.exports = {
         }
         if (interaction.isButton()) {
             const cid = interaction.customId;
-            if (!cid.startsWith('appeal_ban_') && !cid.startsWith('unban_') && !cid.startsWith('keepban_') && !cid.startsWith('adm_') && !cid.startsWith('banlist_') && !cid.startsWith('crtcfg_') && !cid.startsWith('cfgpanel_') && !cid.startsWith('srvcfg_') && !cid.startsWith('help_')) {
+            if (!cid.startsWith('appeal_ban_') && !cid.startsWith('unban_') && !cid.startsWith('keepban_') && !cid.startsWith('adm_') && !cid.startsWith('banlist_') && !cid.startsWith('crtcfg_') && !cid.startsWith('cfgpanel_') && !cid.startsWith('help_')) {
                 const banInfo = checkBan(interaction.user.id, interaction.guildId, interaction.channelId);
                 if (banInfo) {
                     return interaction.reply({ content: '🛑 **ACESSO NEGADO:** Você ou este servidor/canal está banido da Hikari.', ephemeral: true });
@@ -502,7 +518,7 @@ module.exports = {
             const visibility = interaction.options.getString('visibilidade');
             const voice = interaction.options.getBoolean('voice');
             const isPublic = visibility === 'public';
-            addToQueue(prompt, interaction, 'slash', {
+            await addToQueue(prompt, interaction, 'slash', {
                 allowSearch: false,
                 public: isPublic,
                 guildId: interaction.guildId,
@@ -552,9 +568,10 @@ module.exports = {
             const width = interaction.options.getInteger('width') || 1024;
             const height = interaction.options.getInteger('height') || 1024;
             const provider = interaction.options.getString('provider') || 'auto';
+            const isNsfw = Boolean(interaction.channel?.nsfw);
             await interaction.deferReply({ ephemeral: false });
             try {
-                const imageData = await generateImage(prompt, negativePrompt, width, height, { provider, bypassSafety: true });
+                const imageData = await generateImage(prompt, negativePrompt, width, height, { provider, bypassSafety: isNsfw });
                 if (imageData) {
                     const drawEmbed = new EmbedBuilder()
                         .setColor(0x7C3AED)
@@ -743,7 +760,7 @@ module.exports = {
                     }
                 }
                 const summaryPrompt = `Faça um resumo: \n${conversationLog}`;
-                addToQueue(summaryPrompt, interaction, 'slash', { allowSearch: false, disableTools: true });
+                await addToQueue(summaryPrompt, interaction, 'slash', { allowSearch: false, disableTools: true });
             } catch (error) {
                 console.error('summary:', error);
                 const errEmbed = new EmbedBuilder()

@@ -182,6 +182,7 @@ function setupRadioVoiceReceiver(connection, guildId, textChannel, client, voice
             activeStreams.delete(streamKey);
             const { isBotPaused } = require('../handlers/ownerCommandHandler');
             if (isBotPaused()) return;
+            const pcmBuffer = Buffer.concat(pcmChunks);
             if (pcmBuffer.length < 9600) return;
 
             const rms = calculatePcmRms(pcmBuffer);

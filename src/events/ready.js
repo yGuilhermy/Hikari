@@ -1,4 +1,7 @@
 const { REST, Routes } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 const { setDiscordClient, setOnQueueUpdate } = require('../handlers/llmHandler');
 const { updateBotActivity } = require('../utils/activity');
 const { registerCommands, commands } = require('../commands/slashCommands');
@@ -19,12 +22,35 @@ module.exports = {
         const rest = new REST({ version: '10' }).setToken(config.discordToken);
         
         try {
-            logger.system(`Iniciando registro global de ${commands.length} comandos slash (/)...`);
-            await rest.put(
-                Routes.applicationCommands(client.user.id),
-                { body: commands },
-            );
-            logger.system('Todos os comandos slash (/) foram sincronizados com sucesso.');
+            let shouldRegister = true;
+            const cachePath = path.join(__dirname, '../data/slash_commands_cache.json');
+            const currentHash = crypto.createHash('sha256').update(JSON.stringify(commands)).digest('hex');
+            if (fs.existsSync(cachePath)) {
+                try {
+                    const cached = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+                    if (cached && cached.hash === currentHash && cached.appId === client.user.id) {
+                        shouldRegister = false;
+                        logger.system(`Comandos slash já sincronizados (${commands.length} comandos). Registro ignorado para evitar chamadas de rede redundantes.`);
+                    }
+                } catch (_) {}
+            }
+
+            if (shouldRegister) {
+                logger.system(`Iniciando registro global de ${commands.length} comandos slash (/)...`);
+                await rest.put(
+                    Routes.applicationCommands(client.user.id),
+                    { body: commands },
+                );
+                try {
+                    fs.writeFileSync(cachePath, JSON.stringify({
+                        hash: currentHash,
+                        appId: client.user.id,
+                        count: commands.length,
+                        updatedAt: new Date().toISOString()
+                    }, null, 2), 'utf8');
+                } catch (_) {}
+                logger.system('Todos os comandos slash (/) foram sincronizados com sucesso.');
+            }
         } catch (error) {
             logger.error('SYSTEM', 'Falha ao registrar comandos slash no Discord', error);
         }
@@ -44,8 +70,6 @@ module.exports = {
             logger.error('SECURITY', 'Erro ao verificar servidores banidos no startup', e);
         }
 
-        const fs = require('fs');
-        const path = require('path');
         const communityPath = path.join(__dirname, '../community');
         if (fs.existsSync(communityPath)) {
             try {

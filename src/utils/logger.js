@@ -218,6 +218,11 @@ function splitIntoDiscordChunks(lines, maxLen = 1850) {
 function sanitizePaths(text) {
     if (typeof text !== 'string') return text;
     return text
+        .replace(/[a-zA-Z0-9_\-]{24,}\.[a-zA-Z0-9_\-]{6,}\.[a-zA-Z0-9_\-]{27,}/g, '[DISCORD_TOKEN_REDACTED]')
+        .replace(/Bearer\s+[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [REDACTED]')
+        .replace(/(?:x-goog-api-key|apiKey|api_key|token)\s*[:=]\s*["']?([a-zA-Z0-9_\-]{16,})["']?/gi, '$1: [REDACTED]')
+        .replace(/([?&](?:key|apiKey|api_key)=)[^&\s]+/gi, '$1[REDACTED]')
+        .replace(/AIza[0-9A-Za-z-_]{35}/g, '[AIZA_KEY_REDACTED]')
         .replace(/[A-Za-z]:\\[Uu]sers\\[^\\]+/g, 'C:\\Users\\***')
         .replace(/\/home\/[^\/]+/g, '/home/***')
         .replace(/```/g, '`\u200b`\u200b`');
@@ -419,5 +424,6 @@ function hookConsoleAndStreams(url) {
 module.exports = {
     logger,
     init,
-    hookConsoleAndStreams
+    hookConsoleAndStreams,
+    sanitizePaths
 };

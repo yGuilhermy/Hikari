@@ -1,5 +1,5 @@
 const axios = require('axios');
-const cheerio = require('cheerio');
+let cheerio = null;
 require('dotenv').config();
 const SEARCH_CONFIG = {
     BING_ENDPOINT: 'https://www.bing.com/search',
@@ -72,6 +72,7 @@ async function executeBingSearch(query) {
             },
             timeout: SEARCH_CONFIG.TIMEOUT_MS
         });
+        if (!cheerio) cheerio = require('cheerio');
         const $ = cheerio.load(response.data);
         const results = [];
         $('.b_algo').each((i, el) => {
@@ -149,7 +150,58 @@ function rankAndFilterResults(rawResults, query) {
     });
     return validResults.sort((a, b) => b.score - a.score);
 }
+
+function isPrivateOrLocalHost(hostname) {
+    if (!hostname) return true;
+    const host = hostname.toLowerCase().trim();
+    if (host === 'localhost' || host.endsWith('.local') || host.endsWith('.internal') || host.endsWith('.lan')) {
+        return true;
+    }
+    if (host === '::1' || host === '::' || host.startsWith('fc00:') || host.startsWith('fe80:')) {
+        return true;
+    }
+    const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+    const match = host.match(ipv4Regex);
+    if (match) {
+        const a = Number(match[1]);
+        const b = Number(match[2]);
+        const c = Number(match[3]);
+        const d = Number(match[4]);
+        if (a > 255 || b > 255 || c > 255 || d > 255) return true;
+        if (a === 0 || a === 127) return true;
+        if (a === 10) return true;
+        if (a === 172 && b >= 16 && b <= 31) return true;
+        if (a === 192 && b === 168) return true;
+        if (a === 169 && b === 254) return true;
+        if (a >= 224) return true;
+    }
+    if (/^\d+$/.test(host) || /^0x[0-9a-f]+$/i.test(host)) {
+        return true;
+    }
+    return false;
+}
+
+function isValidFetchUrl(urlString) {
+    if (!urlString || typeof urlString !== 'string') return false;
+    try {
+        const parsed = new URL(urlString);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return false;
+        }
+        if (isPrivateOrLocalHost(parsed.hostname)) {
+            return false;
+        }
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
 async function fetchPageContent(url) {
+    if (!isValidFetchUrl(url)) {
+        console.warn(`[🔎 SSRF BLOCKED] URL inválida ou privada bloqueada: ${url}`);
+        return null;
+    }
     try {
         console.log(`[🔎 READ] Lendo: ${url}`);
         const response = await axios.get(url, {
@@ -159,6 +211,7 @@ async function fetchPageContent(url) {
             },
             timeout: 5000
         });
+        if (!cheerio) cheerio = require('cheerio');
         const $ = cheerio.load(response.data);
         $('script, style, nav, footer, header, aside, .ads, .menu, .sidebar, .comments, .related, .modal, .popup').remove();
         let root = $('article');
@@ -209,5 +262,8 @@ async function smartSearch(prompt, providerFunc) {
     return finalContext.length > 0 ? finalContext : null;
 }
 module.exports = {
-    smartSearch
+    smartSearch,
+    fetchPageContent,
+    isValidFetchUrl,
+    isPrivateOrLocalHost
 };

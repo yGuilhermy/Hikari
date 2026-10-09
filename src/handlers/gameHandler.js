@@ -1,4 +1,4 @@
-const { ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, AttachmentBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ActionRowBuilder, StringSelectMenuBuilder, AttachmentBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -49,6 +49,23 @@ async function fetchTorrentFile(hash) {
     }
 }
 
+const localDataCache = new Map();
+
+async function getSourceData(source) {
+    if (source.url.startsWith('http')) {
+        const response = await axios.get(source.url);
+        return response.data;
+    }
+    const filePath = path.isAbsolute(source.url) ? source.url : path.join(process.cwd(), source.url);
+    if (localDataCache.has(filePath)) {
+        return localDataCache.get(filePath);
+    }
+    const rawData = await fs.promises.readFile(filePath, 'utf-8');
+    const parsed = JSON.parse(rawData);
+    localDataCache.set(filePath, parsed);
+    return parsed;
+}
+
 async function searchGames(gameName, provider = 'any') {
     let fitgirlMatches = [];
     let dodiMatches = [];
@@ -69,15 +86,7 @@ async function searchGames(gameName, provider = 'any') {
 
     await Promise.all(activeSources.map(async (source) => {
         try {
-            let data;
-            if (source.url.startsWith('http')) {
-                const response = await axios.get(source.url);
-                data = response.data;
-            } else {
-                const filePath = path.isAbsolute(source.url) ? source.url : path.join(process.cwd(), source.url);
-                const rawData = await fs.promises.readFile(filePath, 'utf-8');
-                data = JSON.parse(rawData);
-            }
+            const data = await getSourceData(source);
             const games = data.downloads;
             const found = games.filter(game => {
                 const normTitle = normalizeString(game.title);
@@ -135,19 +144,21 @@ async function getTorrentOrMagnet(game) {
     }
 }
 
-function createPaginationComponents(page, totalPages, itemsInPage, startIndex) {
+function createPaginationComponents(page, totalPages, itemsInPage = [], startIndex = 0) {
+    const safeItems = Array.isArray(itemsInPage) ? itemsInPage : [];
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId('select_game')
         .setPlaceholder('📂 Escolha o arquivo para baixar...')
         .addOptions(
-            itemsInPage.map((game, index) => {
-                const safeTitle = game.title.length > 90 ? game.title.substring(0, 90) + '...' : game.title;
-                return new StringSelectMenuOptionBuilder()
-                    .setLabel(`${startIndex + index + 1}. ${safeTitle}`)
-                    .setDescription(`${game.provider} - ${game.fileSize}`)
-                    .setValue((startIndex + index).toString())
-                    .setEmoji(game.emoji);
-            })
+            safeItems.length > 0 ? safeItems.map((game, index) => {
+                const safeTitle = (game.title || '').length > 90 ? (game.title || '').substring(0, 90) + '...' : (game.title || 'Arquivo');
+                return {
+                    label: `${startIndex + index + 1}. ${safeTitle}`,
+                    description: `${game.provider || 'Fonte'} - ${game.fileSize || 'N/A'}`,
+                    value: (startIndex + index).toString(),
+                    emoji: game.emoji || '🎮'
+                };
+            }) : [{ label: '1. Nenhum jogo', value: '0' }]
         );
     const rowMenu = new ActionRowBuilder().addComponents(selectMenu);
 

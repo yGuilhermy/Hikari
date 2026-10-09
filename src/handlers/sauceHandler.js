@@ -58,7 +58,7 @@ async function getAnimeSource(imageUrl) {
             }
 
             contentType = headerType.split(';')[0].trim() || 'image/jpeg';
-            imageBuffer = fetchRes.data;
+            imageBuffer = Buffer.from(fetchRes.data);
         } catch (downloadErr) {
             if (downloadErr.isUserFacing) throw downloadErr;
             console.warn('[Sauce] Falha ao pré-carregar buffer da imagem, tentando busca por URL direta:', downloadErr.message);

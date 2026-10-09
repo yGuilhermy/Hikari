@@ -10,7 +10,7 @@ function parseRadioIntent(text) {
         let query = addMatch[1].trim();
         query = query.replace(/\s+(?:então|cara|por favor|aí|ai|mano|bro|velho|tipo|assim).*$/i, '').trim();
         query = query.replace(/[.,!?:;]+$/, '').trim();
-        if (query.length >= 2) {
+        if (query.length >= 2 && !/^(?:o\s+som|a\s+m[uú]sica|som|m[uú]sica|a\s+anterior|anterior|a\s+de\s+antes|de\s+antes|a\s+pr[oó]xima|pr[oó]xima|proxima)$/i.test(query)) {
             return { type: 'ADD', query };
         }
     }
@@ -35,7 +35,7 @@ function parseRadioIntent(text) {
         return { type: 'NEXT' };
     }
 
-    if (/\b(anterior|voltar|música anterior|musica anterior|voltar música|voltar musica|toca a anterior|toca anterior|tocar anterior|back)\b/i.test(cleanText)) {
+    if (/\b(anterior|voltar|música anterior|musica anterior|voltar música|voltar musica|toca a anterior|toca anterior|tocar anterior|toca a de antes|a de antes|back)\b/i.test(cleanText)) {
         return { type: 'PREVIOUS' };
     }
 

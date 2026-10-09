@@ -38,10 +38,12 @@ function saveBans() {
         fs.writeFileSync(tempPath, JSON.stringify(bans, null, 2), 'utf8');
         fs.renameSync(tempPath, BANS_FILE);
     } catch (e) {
-        console.error('Erro ao salvar bans.json:', e);
         try {
             fs.writeFileSync(BANS_FILE, JSON.stringify(bans, null, 2), 'utf8');
-        } catch (_) {}
+            try { fs.unlinkSync(`${BANS_FILE}.tmp`); } catch (_) {}
+        } catch (fallbackErr) {
+            console.error('Erro ao salvar bans.json:', fallbackErr);
+        }
     }
 }
 

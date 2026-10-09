@@ -103,12 +103,21 @@ function downloadDeezerTrack(trackUrlOrId) {
             }
 
             if (code !== 0) {
+                if (fs.existsSync(jobFolder)) {
+                    try { fs.rmSync(jobFolder, { recursive: true, force: true }); } catch (_) {}
+                }
                 return reject(new Error(`Falha ao baixar faixa via deemix: ${stderr || `exit code ${code}`}`));
+            }
+            if (fs.existsSync(jobFolder)) {
+                try { fs.rmSync(jobFolder, { recursive: true, force: true }); } catch (_) {}
             }
             reject(new Error('Nenhum arquivo baixado pelo deemix.'));
         });
 
         proc.on('error', (err) => {
+            if (fs.existsSync(jobFolder)) {
+                try { fs.rmSync(jobFolder, { recursive: true, force: true }); } catch (_) {}
+            }
             reject(new Error(`Falha ao iniciar processo Python: ${err.message}`));
         });
     });
@@ -120,7 +129,7 @@ function cleanupTempAudio(filePath) {
             fs.unlinkSync(filePath);
             const parentDir = path.dirname(filePath);
             if (path.basename(parentDir).startsWith('dz_')) {
-                fs.rmdirSync(parentDir, { recursive: true });
+                fs.rmSync(parentDir, { recursive: true, force: true });
             }
         } catch (err) {
             console.error('[DeezerService] Erro ao limpar arquivo temporário:', err.message);

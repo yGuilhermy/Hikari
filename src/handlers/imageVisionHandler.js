@@ -126,7 +126,11 @@ function resetVisionModelCooldowns() {
 }
 
 async function describeWithGemini(buffer, mimeType) {
-    const keys = config.geminiApiKeys || [];
+    let keys = Array.isArray(config.geminiApiKeys) && config.geminiApiKeys.length > 0 ? [...config.geminiApiKeys] : [];
+    if (keys.length === 0 && typeof config.getGeminiKey === 'function') {
+        const k = config.getGeminiKey();
+        if (k) keys.push(k);
+    }
     if (!keys.length) {
         console.warn('[Vision] Nenhuma chave Gemini configurada.');
         return null;
@@ -155,7 +159,7 @@ async function describeWithGemini(buffer, mimeType) {
             }
 
             try {
-                const nativeUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+                const nativeUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
                 const payload = {
                     contents: [{
                         parts: [
@@ -170,7 +174,10 @@ async function describeWithGemini(buffer, mimeType) {
                 };
 
                 const response = await axios.post(nativeUrl, payload, {
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-goog-api-key': key
+                    },
                     timeout: visionTimeoutMs
                 });
 
