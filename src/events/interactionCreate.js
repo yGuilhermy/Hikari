@@ -49,7 +49,7 @@ const { generateResponse } = require('../handlers/llmHandler');
 const { handleConfigCommand, handleConfigButton, handleConfigModal, handleConfigSelect } = require('../handlers/configPanelHandler');
 const { handleMusicSearchAndDownload, clearSession } = require('../handlers/deezerMusicHandler');
 const { handleRadioButton, handleRadioModal, handleAmbiguousSelect, handleRadioSelectRemove } = require('../music/radioModalHandler');
-const { startRadioMode } = require('../music/radioManager');
+const { startRadioMode, startHybridMode } = require('../music/radioManager');
 const { handleServerAdminCommand, handleServerAdminInteraction, handleIaFerramentasCommand } = require('../handlers/serverAdminHandler');
 const { handleCreatorAdminCommand, handleCreatorAdminInteraction } = require('../handlers/creatorAdminHandler');
 const { buildBanListPayload, buildBanDetailPayload } = require('../handlers/banListHandler');
@@ -938,13 +938,42 @@ module.exports = {
                 await interaction.editReply({ embeds: [errEmbed] });
             }
         } else if (commandName === 'entrar-call') {
-            const { joinVoiceCall } = require('../handlers/voiceHandler');
+            const modo = interaction.options.getString('modo') || 'conversa';
             await interaction.deferReply({ ephemeral: true });
-            const result = await joinVoiceCall(interaction.member, interaction.channel);
-            if (result) {
-                await interaction.editReply({ content: '✅ Processando entrada no canal de voz...' });
+            if (modo === 'radio') {
+                const { startRadioMode } = require('../music/radioManager');
+                try {
+                    const result = await startRadioMode(interaction.member, interaction.channel, client);
+                    if (result.success) {
+                        await interaction.editReply({ content: '📻 Entrando no canal de voz em Modo Rádio!' });
+                    } else {
+                        await interaction.editReply({ content: result.error || '❌ Não foi possível entrar no Modo Rádio.' });
+                    }
+                } catch (err) {
+                    console.error('[EntrarCallRadio]', err);
+                    await interaction.editReply({ content: '❌ Erro ao entrar no canal de voz em Modo Rádio.' });
+                }
+            } else if (modo === 'hibrido') {
+                const { startHybridMode } = require('../music/radioManager');
+                try {
+                    const result = await startHybridMode(interaction.member, interaction.channel, client);
+                    if (result.success) {
+                        await interaction.editReply({ content: result.message || '🎙️📻 Entrando no canal de voz em Modo Híbrido!' });
+                    } else {
+                        await interaction.editReply({ content: result.error || '❌ Não foi possível entrar no Modo Híbrido.' });
+                    }
+                } catch (err) {
+                    console.error('[EntrarCallHibrido]', err);
+                    await interaction.editReply({ content: '❌ Erro ao entrar no canal de voz em Modo Híbrido.' });
+                }
             } else {
-                await interaction.editReply({ content: '❌ Não foi possível entrar no canal de voz.' });
+                const { joinVoiceCall } = require('../handlers/voiceHandler');
+                const result = await joinVoiceCall(interaction.member, interaction.channel);
+                if (result) {
+                    await interaction.editReply({ content: '✅ Processando entrada no canal de voz em Modo Conversa...' });
+                } else {
+                    await interaction.editReply({ content: '❌ Não foi possível entrar no canal de voz.' });
+                }
             }
         } else if (commandName === 'sair-call') {
             const { leaveVoiceCall } = require('../handlers/voiceHandler');
@@ -967,6 +996,19 @@ module.exports = {
             } catch (err) {
                 console.error('[ModoRadio]', err);
                 await interaction.editReply({ content: '❌ Erro ao iniciar o Modo Rádio.' });
+            }
+        } else if (commandName === 'modo-hibrido') {
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            try {
+                const result = await startHybridMode(interaction.member, interaction.channel, client);
+                if (result.success) {
+                    await interaction.editReply({ content: result.message || '🎙️📻 Modo Híbrido ativado!' });
+                } else {
+                    await interaction.editReply({ content: result.error || '❌ Não foi possível ativar o Modo Híbrido.' });
+                }
+            } catch (err) {
+                console.error('[ModoHibrido]', err);
+                await interaction.editReply({ content: '❌ Erro ao iniciar o Modo Híbrido.' });
             }
         } else if (commandName === 'baixar_musica_atual') {
             await interaction.deferReply();

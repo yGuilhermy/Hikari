@@ -79,6 +79,13 @@ async function startRadioMode(member, textChannel, client) {
             return { success: false, error: '⚠️ Já estou em outro canal de voz em modo rádio neste servidor.' };
         }
 
+        if (existingSession.isHybrid) {
+            existingSession.isHybrid = false;
+            existingSession.voiceMode = 'DIRECT';
+            existingSession.voiceListening = true;
+            updateSession(guildId, { isHybrid: false, voiceMode: 'DIRECT', voiceListening: true });
+        }
+
         const { embeds, components } = buildRadioEmbed(existingSession);
         const msg = await textChannel.send({ embeds, components });
 
@@ -113,7 +120,7 @@ async function startRadioMode(member, textChannel, client) {
     }
 
     const { isToolDisabled } = require('../handlers/llmHandler');
-    const session = createSession(guildId, voiceChannel.id, textChannel.id);
+    const session = createSession(guildId, voiceChannel.id, textChannel.id, false);
     if (isToolDisabled(guildId, 'radio_voice_stt')) {
         updateSession(guildId, { voiceListening: false, voiceMode: 'OFF' });
     }
@@ -146,6 +153,119 @@ async function startRadioMode(member, textChannel, client) {
     return { success: true };
 }
 
+async function startHybridMode(member, textChannel, client) {
+    const voiceChannel = member?.voice?.channel;
+    if (!voiceChannel) return { success: false, error: '⚠️ Você precisa estar em um canal de voz para ativar o Modo Híbrido.' };
+
+    const guildId = voiceChannel.guild.id;
+    const existingSession = getSession(guildId);
+    const existingConn = getVoiceConnection(guildId);
+
+    if (existingSession) {
+        if (existingSession.voiceChannelId !== voiceChannel.id) {
+            return { success: false, error: '⚠️ Já estou em outro canal de voz neste servidor.' };
+        }
+
+        existingSession.isHybrid = true;
+        if (existingSession.voiceMode === 'DIRECT' || existingSession.voiceMode === 'IA' || !existingSession.voiceMode) {
+            existingSession.voiceMode = 'HYBRID';
+        }
+        existingSession.voiceListening = existingSession.voiceMode !== 'OFF';
+        updateSession(guildId, { isHybrid: true, voiceMode: existingSession.voiceMode, voiceListening: existingSession.voiceListening });
+
+        if (existingSession.embedMessageId) {
+            try {
+                const oldMsg = await textChannel.messages.fetch(existingSession.embedMessageId);
+                await oldMsg.delete().catch(() => {});
+            } catch (_) {}
+        }
+
+        const { embeds, components } = buildRadioEmbed(existingSession);
+        const msg = await textChannel.send({ embeds, components });
+        updateSession(guildId, { embedMessageId: msg.id, textChannelId: textChannel.id });
+        return { success: true, message: '🎙️📻 Modo Híbrido ativado! Playlist e rádio mantidos tocando.' };
+    }
+
+    let connection = existingConn;
+    if (connection && connection.state.status === VoiceConnectionStatus.Ready && voiceChannel.guild.members.me?.voice?.channelId === voiceChannel.id) {
+        const { isToolDisabled } = require('../handlers/llmHandler');
+        const session = createSession(guildId, voiceChannel.id, textChannel.id, true);
+        if (isToolDisabled(guildId, 'radio_voice_stt')) {
+            updateSession(guildId, { voiceListening: false, voiceMode: 'OFF' });
+        }
+        const { embeds, components } = buildRadioEmbed(session);
+        const msg = await textChannel.send({ embeds, components });
+        updateSession(guildId, { embedMessageId: msg.id });
+
+        connection.on(VoiceConnectionStatus.Disconnected, async () => {
+            const s = getSession(guildId);
+            if (s && !s._leaving) {
+                stopPlayer(guildId);
+                if (s.embedMessageId && textChannel) {
+                    try {
+                        const embedMsg = await textChannel.messages.fetch(s.embedMessageId);
+                        await embedMsg?.delete?.().catch(() => {});
+                    } catch (_) {}
+                }
+                cleanupSessionAudioFiles(s);
+                destroySession(guildId);
+            }
+        });
+
+        setupRadioVoiceReceiver(connection, guildId, textChannel, client, voiceChannel);
+        monitorEmptyChannel(guildId, voiceChannel, textChannel);
+        return { success: true, message: '🎙️📻 Modo Híbrido ativado!' };
+    }
+
+    if (connection) {
+        try { connection.destroy(); } catch (_) {}
+    }
+
+    connection = joinVoiceChannel({
+        channelId: voiceChannel.id,
+        guildId,
+        adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+        selfDeaf: false,
+        selfMute: false
+    });
+
+    try {
+        await entersState(connection, VoiceConnectionStatus.Ready, 15000);
+    } catch (err) {
+        try { connection.destroy(); } catch (_) {}
+        return { success: false, error: '❌ Não foi possível conectar ao canal de voz (tempo limite esgotado ou desconectado).' };
+    }
+
+    const { isToolDisabled } = require('../handlers/llmHandler');
+    const session = createSession(guildId, voiceChannel.id, textChannel.id, true);
+    if (isToolDisabled(guildId, 'radio_voice_stt')) {
+        updateSession(guildId, { voiceListening: false, voiceMode: 'OFF' });
+    }
+    const { embeds, components } = buildRadioEmbed(session);
+    const msg = await textChannel.send({ embeds, components });
+    updateSession(guildId, { embedMessageId: msg.id });
+
+    connection.on(VoiceConnectionStatus.Disconnected, async () => {
+        const s = getSession(guildId);
+        if (s && !s._leaving) {
+            stopPlayer(guildId);
+            if (s.embedMessageId && textChannel) {
+                try {
+                    const embedMsg = await textChannel.messages.fetch(s.embedMessageId);
+                    await embedMsg?.delete?.().catch(() => {});
+                } catch (_) {}
+            }
+            cleanupSessionAudioFiles(s);
+            destroySession(guildId);
+        }
+    });
+
+    setupRadioVoiceReceiver(connection, guildId, textChannel, client, voiceChannel);
+    monitorEmptyChannel(guildId, voiceChannel, textChannel);
+
+    return { success: true, message: '🎙️📻 Modo Híbrido ativado!' };
+}
+
 function setupRadioVoiceReceiver(connection, guildId, textChannel, client, voiceChannel) {
     const activeStreams = new Set();
     const receiver = connection.receiver;
@@ -155,7 +275,7 @@ function setupRadioVoiceReceiver(connection, guildId, textChannel, client, voice
         if (isToolDisabled(guildId, 'radio_voice_stt')) return;
 
         const session = getSession(guildId);
-        const currentVoiceMode = session?.voiceMode || (session?.voiceListening ? 'IA' : 'OFF');
+        const currentVoiceMode = session?.voiceMode || (session?.voiceListening ? (session?.isHybrid ? 'HYBRID' : 'IA') : 'OFF');
         if (!session || currentVoiceMode === 'OFF') return;
 
         const streamKey = `${guildId}_${userId}`;
@@ -279,11 +399,18 @@ function setupRadioVoiceReceiver(connection, guildId, textChannel, client, voice
             }
 
             userLastVoiceCommand.set(userKey, now);
-            const activeMode = session.voiceMode || (session.voiceListening ? 'IA' : 'OFF');
-            if (activeMode === 'DIRECT') {
-                await processDirectRadioVoiceCommand(prompt, userId, guildId, textChannel, client);
-            } else {
-                await processRadioVoiceCommand(prompt, userId, guildId, textChannel, client);
+            const activeMode = session.voiceMode || (session.voiceListening ? (session.isHybrid ? 'HYBRID' : 'IA') : 'OFF');
+            const targetChannel = (session.textChannelId && client.channels.cache.get(session.textChannelId)) || textChannel;
+            if (activeMode === 'OFF') {
+                return;
+            } else if (activeMode === 'DIRECT' || activeMode === 'MUSIC_DIRECT') {
+                await processDirectRadioVoiceCommand(prompt, userId, guildId, targetChannel, client);
+            } else if (activeMode === 'IA' || activeMode === 'MUSIC_IA') {
+                await processRadioVoiceCommand(prompt, userId, guildId, targetChannel, client);
+            } else if (activeMode === 'CHAT_ONLY') {
+                await processChatOnlyVoiceCommand(prompt, userId, guildId, targetChannel, client);
+            } else if (activeMode === 'HYBRID') {
+                await processHybridRadioVoiceCommand(prompt, userId, guildId, targetChannel, client);
             }
         });
 
@@ -522,6 +649,142 @@ async function processRadioVoiceCommand(prompt, userId, guildId, textChannel, cl
     });
 }
 
+async function processChatOnlyVoiceCommand(prompt, userId, guildId, textChannel, client) {
+    const { addToQueue } = require('../handlers/llmHandler');
+
+    const voiceChannel = client.channels.cache.get(getSession(guildId)?.voiceChannelId);
+    const member = voiceChannel?.members?.get(userId);
+    const username = member?.user?.username || `user_${userId}`;
+    const userTag = member?.user?.tag || username;
+
+    const contextMessage = {
+        id: `voice_chat_${Date.now()}`,
+        isVoice: true,
+        content: prompt,
+        author: {
+            id: userId,
+            username: username,
+            tag: userTag,
+            bot: false
+        },
+        guild: textChannel.guild,
+        guildId,
+        channel: textChannel,
+        channelId: textChannel.id,
+        mentions: { has: () => false, everyone: false },
+        reply: async (payload) => {
+            let contentText = typeof payload === 'string' ? payload : payload?.content || '';
+            if (contentText && !contentText.includes(`<@${userId}>`)) {
+                contentText = `<@${userId}> ${contentText}`;
+            }
+            if (typeof payload === 'object' && payload !== null) {
+                return await textChannel.send({ ...payload, content: contentText });
+            }
+            return await textChannel.send({ content: contentText });
+        }
+    };
+
+    await addToQueue(prompt, contextMessage, 'mention', {
+        guildId,
+        userId
+    });
+}
+
+async function processHybridRadioVoiceCommand(prompt, userId, guildId, textChannel, client) {
+    const { parseRadioIntent } = require('./radioIntentEngine');
+    const intent = parseRadioIntent(prompt);
+
+    if (intent) {
+        const { handleRadioMCPCall } = require('./radioMCPHandler');
+        let toolName = null;
+        let toolArgs = {};
+
+        if (intent.type === 'ADD') {
+            toolName = 'radio_play_music';
+            toolArgs = { query: intent.query };
+        } else if (intent.type === 'PAUSE' || intent.type === 'RESUME') {
+            toolName = 'radio_pause_resume';
+        } else if (intent.type === 'STOP') {
+            toolName = 'radio_stop_music';
+        } else if (intent.type === 'NEXT') {
+            toolName = 'radio_next_track';
+        } else if (intent.type === 'PREVIOUS') {
+            toolName = 'radio_prev_track';
+        } else if (intent.type === 'SHUFFLE') {
+            toolName = 'radio_toggle_shuffle';
+        } else if (intent.type === 'LOOP') {
+            toolName = 'radio_set_repeat';
+        } else if (intent.type === 'QUEUE') {
+            toolName = 'radio_show_queue';
+        } else if (intent.type === 'INFO') {
+            toolName = 'radio_get_current';
+        } else if (intent.type === 'REMOVE') {
+            toolName = 'radio_remove_track';
+            toolArgs = { position: intent.position };
+        } else if (intent.type === 'LEAVE') {
+            toolName = 'radio_leave_call';
+        }
+
+        if (toolName) {
+            const mcpResult = await handleRadioMCPCall(toolName, toolArgs, userId, guildId, textChannel, client);
+            if (mcpResult) {
+                try {
+                    const replyContent = mcpResult.includes(`<@${userId}>`) ? mcpResult : `<@${userId}> ${mcpResult}`;
+                    const msg = await textChannel.send(replyContent);
+                    setTimeout(() => { msg?.delete?.().catch(() => {}); }, 5000);
+                } catch (_) {}
+            }
+            return;
+        }
+    }
+
+    const { addToQueue } = require('../handlers/llmHandler');
+    const voiceChannel = client.channels.cache.get(getSession(guildId)?.voiceChannelId);
+    const member = voiceChannel?.members?.get(userId);
+    const username = member?.user?.username || `user_${userId}`;
+    const userTag = member?.user?.tag || username;
+
+    const contextMessage = {
+        id: `hybrid_voice_${Date.now()}`,
+        isVoice: true,
+        isHybridVoice: true,
+        hybridGuildId: guildId,
+        hybridTextChannel: textChannel,
+        hybridClient: client,
+        hybridUserId: userId,
+        content: prompt,
+        author: {
+            id: userId,
+            username: username,
+            tag: userTag,
+            bot: false
+        },
+        guild: textChannel.guild,
+        guildId,
+        channel: textChannel,
+        channelId: textChannel.id,
+        mentions: { has: () => false, everyone: false },
+        reply: async (payload) => {
+            let contentText = typeof payload === 'string' ? payload : payload?.content || '';
+            if (contentText && !contentText.includes(`<@${userId}>`)) {
+                contentText = `<@${userId}> ${contentText}`;
+            }
+            if (typeof payload === 'object' && payload !== null) {
+                return await textChannel.send({ ...payload, content: contentText });
+            }
+            return await textChannel.send({ content: contentText });
+        }
+    };
+
+    await addToQueue(prompt, contextMessage, 'mention', {
+        hybridMode: true,
+        isHybridVoice: true,
+        radioMCPTools,
+        guildId,
+        userId
+    });
+}
+
 async function leaveRadioCall(guildId, textChannel) {
     if (emptyChannelIntervals.has(guildId)) {
         clearInterval(emptyChannelIntervals.get(guildId));
@@ -630,6 +893,7 @@ function scheduleAmbiguousAutoSelect(pendingKey, messageTarget) {
 
 module.exports = {
     startRadioMode,
+    startHybridMode,
     leaveRadioCall,
     setupRadioVoiceReceiver,
     radioAmbiguousSessions,

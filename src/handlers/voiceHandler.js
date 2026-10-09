@@ -212,6 +212,11 @@ function setupVoiceReceiver(stateData, client) {
     const receiver = connection.receiver;
 
     receiver.speaking.on('start', (userId) => {
+        try {
+            const { hasActiveSession } = require('../music/radioDatabase');
+            if (hasActiveSession(guildId)) return;
+        } catch (_) {}
+
         const banInfo = checkBan(userId, guildId, stateData.voiceChannelId) || checkBan(userId, guildId, stateData.textChannelId);
         if (banInfo) {
             console.log(`[VOICE] 🛑 Entrada de voz ignorada do usuário banido ${userId}.`);

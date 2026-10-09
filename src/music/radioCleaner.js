@@ -42,9 +42,10 @@ function cleanTempRadioAudio(maxAgeMs = 15 * 60 * 1000) {
 
 function startAutoCleaner(intervalMs = 10 * 60 * 1000) {
     cleanTempRadioAudio(15 * 60 * 1000);
-    setInterval(() => {
+    const interval = setInterval(() => {
         cleanTempRadioAudio(15 * 60 * 1000);
     }, intervalMs);
+    if (interval.unref) interval.unref();
 }
 
 startAutoCleaner();

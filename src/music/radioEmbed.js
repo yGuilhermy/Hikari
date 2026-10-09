@@ -18,13 +18,27 @@ function loopButtonStyle(mode) {
     return ButtonStyle.Success;
 }
 
-function voiceModeLabel(mode) {
+function voiceModeLabel(mode, isHybrid = false) {
+    if (isHybrid) {
+        if (mode === 'HYBRID') return '🎙️ Híbrido (Ambos)';
+        if (mode === 'CHAT_ONLY') return '💬 Apenas Chat';
+        if (mode === 'MUSIC_DIRECT') return '⚡ Música: Direto';
+        if (mode === 'MUSIC_IA') return '🧠 Música: IA';
+        return '🔇 Desligado (Painel)';
+    }
     if (mode === 'DIRECT') return '⚡ Voz: Direct';
     if (mode === 'IA') return '🧠 Voz: IA';
     return '🔇 Voz: Off';
 }
 
-function voiceButtonStyle(mode) {
+function voiceButtonStyle(mode, isHybrid = false) {
+    if (isHybrid) {
+        if (mode === 'HYBRID') return ButtonStyle.Success;
+        if (mode === 'CHAT_ONLY') return ButtonStyle.Primary;
+        if (mode === 'MUSIC_DIRECT') return ButtonStyle.Secondary;
+        if (mode === 'MUSIC_IA') return ButtonStyle.Secondary;
+        return ButtonStyle.Danger;
+    }
     if (mode === 'DIRECT') return ButtonStyle.Success;
     if (mode === 'IA') return ButtonStyle.Primary;
     return ButtonStyle.Danger;
@@ -39,12 +53,13 @@ function buildRadioEmbed(session) {
     const statusLabel = status === 'PLAYING' ? '▶️ Tocando' : status === 'BUFFERING' ? '⏳ Carregando...' : status === 'PAUSED' ? '⏸️ Pausado' : '⏹️ Parado';
     const color = status === 'PLAYING' ? 0x1DB954 : status === 'BUFFERING' ? 0x3B82F6 : status === 'PAUSED' ? 0xF59E0B : 0x6B7280;
 
-    const currentVoiceMode = session.voiceMode || (session.voiceListening ? 'IA' : 'OFF');
+    const isHybrid = !!session.isHybrid;
+    const currentVoiceMode = session.voiceMode || (session.voiceListening ? (isHybrid ? 'HYBRID' : 'DIRECT') : 'OFF');
 
     const embed = new EmbedBuilder()
         .setColor(color)
-        .setTitle('📻 Modo Rádio — Hikari')
-        .setFooter({ text: 'Hikari Radio • Use os botões abaixo para controlar' });
+        .setTitle(isHybrid ? '🎙️📻 Modo Híbrido — Hikari' : '📻 Modo Rádio — Hikari')
+        .setFooter({ text: isHybrid ? 'Hikari Modo Híbrido • Use os botões abaixo para controlar' : 'Hikari Radio • Use os botões abaixo para controlar' });
 
     const isFast = session.streamMode === 'FAST';
     const streamModeText = isFast ? '⚡ Rápido (Converte YT ➔ Deezer)' : '⚖️ Híbrido (Padrão)';
@@ -58,12 +73,13 @@ function buildRadioEmbed(session) {
                 { name: '📋 Playlist Total', value: `${playlist.length} faixa(s)`, inline: true },
                 { name: '🎲 Shuffle', value: session.shuffle ? '✅ Ativo' : '❌ Off', inline: true },
                 { name: '🔁 Loop', value: loopLabel(session.loopMode), inline: true },
-                { name: '🚀 Busca', value: streamModeText, inline: true }
+                { name: '🚀 Busca', value: streamModeText, inline: true },
+                { name: '🎙️ Voz', value: voiceModeLabel(currentVoiceMode, isHybrid), inline: true }
             );
         if (track.cover) embed.setThumbnail(track.cover);
         if (track.addedBy) embed.addFields({ name: '➕ Adicionada por', value: `<@${track.addedBy}>`, inline: true });
     } else {
-        embed.setDescription(`**${statusLabel}**\n\nNenhuma faixa tocando. Playlist com ${playlist.length} música(s). Use ➕ para adicionar!\n🚀 **Modo de Busca:** ${streamModeText}`);
+        embed.setDescription(`**${statusLabel}**\n\nNenhuma faixa tocando. Playlist com ${playlist.length} música(s). Use ➕ para adicionar!\n🚀 **Modo de Busca:** ${streamModeText}\n🎙️ **Modo de Voz:** ${voiceModeLabel(currentVoiceMode, isHybrid)}`);
     }
 
     const prevDisabled = !playlist.length || session.currentIndex <= 0;
@@ -90,7 +106,7 @@ function buildRadioEmbed(session) {
     );
 
     const row3 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('radio_voice_toggle').setLabel(voiceModeLabel(currentVoiceMode)).setStyle(voiceButtonStyle(currentVoiceMode)),
+        new ButtonBuilder().setCustomId('radio_voice_toggle').setLabel(voiceModeLabel(currentVoiceMode, isHybrid)).setStyle(voiceButtonStyle(currentVoiceMode, isHybrid)),
         new ButtonBuilder().setCustomId('radio_stream_mode').setLabel(isFast ? '⚡ Rápido' : '⚖️ Híbrido').setStyle(isFast ? ButtonStyle.Success : ButtonStyle.Secondary),
         new ButtonBuilder().setLabel('Apoie o projeto').setURL('https://bio.site/yGuilhermy').setStyle(ButtonStyle.Link).setEmoji('💖')
     );
@@ -180,5 +196,7 @@ module.exports = {
     buildQueueEmbed,
     buildAmbiguousEmbed,
     buildNotFoundEmbed,
-    formatDuration
+    formatDuration,
+    voiceModeLabel,
+    voiceButtonStyle
 };

@@ -70,8 +70,17 @@ function _syncLegacyFields(session) {
     if (typeof session.currentIndex !== 'number') session.currentIndex = -1;
     if (!Array.isArray(session.shuffleOrder)) session.shuffleOrder = [];
     if (typeof session.shufflePos !== 'number') session.shufflePos = 0;
-    if (!session.voiceMode || session.voiceListening === false) {
-        session.voiceMode = session.voiceListening === false ? 'OFF' : 'IA';
+    session.isHybrid = !!session.isHybrid;
+    if (session.isHybrid) {
+        const validModes = ['HYBRID', 'CHAT_ONLY', 'MUSIC_DIRECT', 'MUSIC_IA', 'OFF'];
+        if (!session.voiceMode || !validModes.includes(session.voiceMode)) {
+            session.voiceMode = session.voiceListening === false ? 'OFF' : 'HYBRID';
+        }
+    } else {
+        const validModes = ['DIRECT', 'IA', 'OFF'];
+        if (!session.voiceMode || !validModes.includes(session.voiceMode)) {
+            session.voiceMode = session.voiceListening === false ? 'OFF' : 'DIRECT';
+        }
     }
     session.voiceListening = (session.voiceMode !== 'OFF');
     if (!session.streamMode) session.streamMode = 'HYBRID';
@@ -87,8 +96,9 @@ function _syncLegacyFields(session) {
     session.queue = session.playlist.slice(Math.max(0, session.currentIndex + 1));
 }
 
-function createSession(guildId, voiceChannelId, textChannelId) {
+function createSession(guildId, voiceChannelId, textChannelId, isHybrid = false) {
     const saved = getGuildSavedSettings(guildId) || {};
+    const defaultVoiceMode = isHybrid ? (saved.hybridVoiceMode || 'HYBRID') : (saved.voiceMode || 'DIRECT');
     const session = {
         guildId,
         voiceChannelId,
@@ -99,8 +109,9 @@ function createSession(guildId, voiceChannelId, textChannelId) {
         shuffle: false,
         shuffleOrder: [],
         shufflePos: 0,
-        voiceMode: saved.voiceMode || 'DIRECT',
-        voiceListening: saved.voiceMode ? (saved.voiceMode !== 'OFF') : true,
+        isHybrid: !!isHybrid,
+        voiceMode: defaultVoiceMode,
+        voiceListening: defaultVoiceMode !== 'OFF',
         streamMode: saved.streamMode || 'HYBRID',
         currentIndex: -1,
         playlist: [],
@@ -123,9 +134,9 @@ function updateSession(guildId, patch) {
     if (!s) return null;
     Object.assign(s, patch);
     _syncLegacyFields(s);
-    if (patch.voiceMode !== undefined || patch.streamMode !== undefined) {
+    if (patch.voiceMode !== undefined || patch.streamMode !== undefined || patch.isHybrid !== undefined) {
         saveGuildSavedSettings(guildId, {
-            ...(patch.voiceMode !== undefined && { voiceMode: patch.voiceMode }),
+            ...(patch.voiceMode !== undefined && (s.isHybrid ? { hybridVoiceMode: patch.voiceMode } : { voiceMode: patch.voiceMode })),
             ...(patch.streamMode !== undefined && { streamMode: patch.streamMode })
         });
     }
@@ -322,15 +333,45 @@ function toggleVoiceListening(guildId) {
 function cycleVoiceMode(guildId) {
     const s = sessions.get(guildId);
     if (!s) return null;
-    const modes = ['OFF', 'IA', 'DIRECT'];
-    const currentMode = s.voiceMode || (s.voiceListening ? 'IA' : 'OFF');
-    const currentIdx = modes.indexOf(currentMode);
-    const nextMode = modes[(currentIdx + 1) % modes.length];
-    s.voiceMode = nextMode;
-    s.voiceListening = (nextMode !== 'OFF');
-    saveGuildSavedSettings(guildId, { voiceMode: s.voiceMode });
+    if (s.isHybrid) {
+        const modes = ['HYBRID', 'CHAT_ONLY', 'MUSIC_DIRECT', 'MUSIC_IA', 'OFF'];
+        const currentMode = s.voiceMode || (s.voiceListening ? 'HYBRID' : 'OFF');
+        const currentIdx = modes.indexOf(currentMode);
+        const nextMode = modes[(currentIdx + 1) % modes.length];
+        s.voiceMode = nextMode;
+        s.voiceListening = (nextMode !== 'OFF');
+        saveGuildSavedSettings(guildId, { hybridVoiceMode: s.voiceMode });
+        _save();
+        return s.voiceMode;
+    } else {
+        const modes = ['OFF', 'IA', 'DIRECT'];
+        const currentMode = s.voiceMode || (s.voiceListening ? 'IA' : 'OFF');
+        const currentIdx = modes.indexOf(currentMode);
+        const nextMode = modes[(currentIdx + 1) % modes.length];
+        s.voiceMode = nextMode;
+        s.voiceListening = (nextMode !== 'OFF');
+        saveGuildSavedSettings(guildId, { voiceMode: s.voiceMode });
+        _save();
+        return s.voiceMode;
+    }
+}
+
+function setSessionHybridMode(guildId, isHybrid) {
+    const s = sessions.get(guildId);
+    if (!s) return null;
+    s.isHybrid = !!isHybrid;
+    if (s.isHybrid) {
+        const saved = getGuildSavedSettings(guildId) || {};
+        s.voiceMode = saved.hybridVoiceMode || 'HYBRID';
+        s.voiceListening = (s.voiceMode !== 'OFF');
+    } else {
+        const saved = getGuildSavedSettings(guildId) || {};
+        s.voiceMode = saved.voiceMode || 'DIRECT';
+        s.voiceListening = (s.voiceMode !== 'OFF');
+    }
+    _syncLegacyFields(s);
     _save();
-    return s.voiceMode;
+    return s;
 }
 
 function getAllSessions() {
@@ -420,6 +461,7 @@ module.exports = {
     toggleVoiceListening,
     cycleVoiceMode,
     toggleStreamMode,
+    setSessionHybridMode,
     getAllSessions,
     stopRadio,
     removeTrackFromPlaylist

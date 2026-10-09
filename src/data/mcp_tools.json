@@ -352,12 +352,22 @@
     "type": "function",
     "function": {
       "name": "join_voice_call",
-      "description": "Conecta a Hikari ao canal de voz onde o usuário está conectado no servidor para iniciar o modo de assistente de voz.",
-      "textual_triggers": "Gatilhos: \"entre na call\", \"entra na call\", \"entra na voz\", \"conecta na call\", \"vem pro canal de voz\", \"entra no voice\".",
-      "textual_args": "{}",
+      "description": "Conecta a Hikari ao canal de voz onde o usuário está conectado no servidor. Pode entrar em modo de conversa comum, modo de rádio de música ou modo híbrido (voz + música). Se o usuário não especificar o modo, use 'conversa'. Se pedir para entrar em modo rádio ou híbrido, defina o parâmetro 'mode' adequadamente.",
+      "textual_triggers": "Gatilhos: \"entre na call\", \"entra na call\", \"entra na voz em modo radio\", \"entra na call modo hibrido\", \"vem pro canal de voz\", \"entra no voice\".",
+      "textual_args": "{ \"mode\": \"conversa\" | \"radio\" | \"hibrido\" }",
       "parameters": {
         "type": "object",
-        "properties": {},
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "conversa",
+              "radio",
+              "hibrido"
+            ],
+            "description": "Modo de operação desejado ao entrar na call: 'conversa' (padrão, apenas conversa/STT), 'radio' (reprodução de músicas com painel) ou 'hibrido' (ambos integrados)."
+          }
+        },
         "required": []
       }
     }

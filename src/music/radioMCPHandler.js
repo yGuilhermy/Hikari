@@ -38,7 +38,7 @@ async function handleRadioMCPCall(toolName, toolArgs, userId, guildId, textChann
     const userMention = `<@${userId}>`;
 
     if (toolName === 'radio_play_music') {
-        const query = toolArgs.query || '';
+        const query = toolArgs.query || toolArgs.music || toolArgs.song || toolArgs.track || toolArgs.name || '';
         if (!query) return `❌ Nenhuma música informada.`;
 
         const resolved = await resolveInput(query, guildId);
@@ -162,7 +162,7 @@ async function handleRadioMCPCall(toolName, toolArgs, userId, guildId, textChann
     }
 
     if (toolName === 'radio_skip_to') {
-        const pos = parseInt(toolArgs.position || 1, 10);
+        const pos = parseInt(toolArgs.position || toolArgs.pos || toolArgs.track_number || 1, 10);
         const updatedSession = skipToTrack(guildId, pos);
         if (!updatedSession) {
             await sendTempMessage(textChannel, `⚠️ ${userMention} A posição **#${pos}** não existe na fila.`);
@@ -177,7 +177,7 @@ async function handleRadioMCPCall(toolName, toolArgs, userId, guildId, textChann
     }
 
     if (toolName === 'radio_remove_track') {
-        const pos = parseInt(toolArgs.position || 1, 10);
+        const pos = parseInt(toolArgs.position || toolArgs.pos || toolArgs.track_number || 1, 10);
         const result = removeTrackFromPlaylist(guildId, pos);
         if (!result) {
             await sendTempMessage(textChannel, `⚠️ ${userMention} A faixa **#${pos}** não foi encontrada na lista.`);
@@ -219,6 +219,15 @@ async function handleRadioMCPCall(toolName, toolArgs, userId, guildId, textChann
     if (toolName === 'radio_show_queue') {
         const { embed, components } = buildQueueEmbed(session, 1);
         try { await textChannel.send({ embeds: [embed], components }); } catch (_) {}
+        return null;
+    }
+
+    if (toolName === 'radio_get_current') {
+        if (session.currentTrack) {
+            await sendTempMessage(textChannel, `🎵 ${userMention} Tocando agora: **${session.currentTrack.title}** — *${session.currentTrack.artist}*`);
+        } else {
+            await sendTempMessage(textChannel, `ℹ️ ${userMention} Nenhuma música tocando no momento.`);
+        }
         return null;
     }
 

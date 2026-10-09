@@ -324,6 +324,15 @@ const commands = [
         new SlashCommandBuilder()
             .setName('entrar-call')
             .setDescription('[User] Faz a Hikari entrar no seu canal de voz atual.')
+            .addStringOption(option =>
+                option.setName('modo')
+                    .setDescription('Modo de operação ao entrar na call (padrão: conversa).')
+                    .setRequired(false)
+                    .addChoices(
+                        { name: '💬 Modo Conversa (Padrão)', value: 'conversa' },
+                        { name: '📻 Modo Rádio de Música', value: 'radio' },
+                        { name: '🎙️📻 Modo Híbrido (Voz + Música)', value: 'hibrido' }
+                    ))
     ),
     setGlobalContext(
         new SlashCommandBuilder()
@@ -334,6 +343,11 @@ const commands = [
         new SlashCommandBuilder()
             .setName('modo-radio')
             .setDescription('[User] Ativa o Modo Rádio de Música.')
+    ),
+    setGlobalContext(
+        new SlashCommandBuilder()
+            .setName('modo-hibrido')
+            .setDescription('[User] Ativa o Modo Híbrido de Voz e Música.')
     ),
     setGlobalContext(
         new SlashCommandBuilder()

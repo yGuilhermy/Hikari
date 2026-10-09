@@ -698,7 +698,14 @@ function extractMcpTargetAndArgs(userText, channelId, fullPrompt) {
         return { tool: 'convert_currency', args: { query: query } };
     }
     if (['voz', 'call', 'conectar', 'entrar', 'join_voice_call'].includes(rawToolKey)) {
-        return { tool: 'join_voice_call', args: {} };
+        let mode = 'conversa';
+        const qLower = (query || '').toLowerCase();
+        if (qLower.includes('hibrid') || qLower.includes('híbrid')) {
+            mode = 'hibrido';
+        } else if (qLower.includes('radio') || qLower.includes('rádio') || qLower.includes('musica') || qLower.includes('música')) {
+            mode = 'radio';
+        }
+        return { tool: 'join_voice_call', args: { mode } };
     }
     if (['sair', 'desconectar', 'desconectar_voz', 'leave_voice_call'].includes(rawToolKey)) {
         return { tool: 'leave_voice_call', args: {} };
@@ -1206,7 +1213,7 @@ async function tryLocal(prompt, systemPrompt, options = {}) {
         stream: true
     };
     if (useMcp && !options.disableTools) {
-        const rawTools = options.radioMCPTools || buildToolsPayload(options.guildId || null, options.userId || null, options);
+        const rawTools = (options.radioMode && !options.hybridMode) ? options.radioMCPTools : (options.hybridMode ? [...(options.radioMCPTools || []), ...buildToolsPayload(options.guildId || null, options.userId || null, options)] : (options.radioMCPTools || buildToolsPayload(options.guildId || null, options.userId || null, options)));
         payload.tools = sanitizeToolsForApi(rawTools);
     }
     const cancelSource = axios.CancelToken.source();
@@ -1353,7 +1360,7 @@ async function tryGemini(prompt, systemPrompt, options = {}) {
                     max_tokens: providerSettings.gemini.max_tokens,
                 };
                 if (!options.disableTools) {
-                    const rawTools = options.radioMCPTools || buildToolsPayload(options.guildId || null, options.userId || null, options);
+                    const rawTools = (options.radioMode && !options.hybridMode) ? options.radioMCPTools : (options.hybridMode ? [...(options.radioMCPTools || []), ...buildToolsPayload(options.guildId || null, options.userId || null, options)] : (options.radioMCPTools || buildToolsPayload(options.guildId || null, options.userId || null, options)));
                     payload.tools = sanitizeToolsForApi(rawTools);
                 }
                 const cancelSource = axios.CancelToken.source();
@@ -1665,7 +1672,7 @@ VOCÊ DEVE ADERIR A ESSA NOVA PERSONA ACIMA DE TUDO.\n`;
             const useNativeMCP = (provider.func === tryLocal && config.lmStudioApiKey) || (provider.func === tryGemini);
             let effectiveSystemPrompt = baseSystemPrompt;
             if (!options.disableTools) {
-                if (options.radioMode) {
+                if (options.radioMode && !options.hybridMode) {
                     effectiveSystemPrompt = "Você é o controlador automático do player de rádio de música (Modo Alexa).\n" +
                         "Sua ÚNICA função é selecionar a ferramenta MCP correta para controlar a música.\n" +
                         "É ESTRITAMENTE PROIBIDO responder com saudações, conversas casuais ou frases como 'E aí, blz?', 'oi', 'oque você precisa'.\n" +
@@ -1683,9 +1690,26 @@ VOCÊ DEVE ADERIR A ESSA NOVA PERSONA ACIMA DE TUDO.\n`;
                 } else if (provider.func === tryLocal && config.lmStudioApiKey) {
                     effectiveSystemPrompt += "\n[SYSTEM NOTICE]: You operate in STRICT TOOL MODE. You MUST ALWAYS call a tool.\n- If the user wants an action (search, download, help), use the specific tool.\n- For EVERYTHING ELSE (chat, math, questions), use the 'generate_reply' tool.\n- DO NOT output plain text. ALWAYS output a tool call.";
                 } else if (provider.func === tryGemini) {
-                    effectiveSystemPrompt += "\n[REGRAS DE FERRAMENTAS (TOOLS)]:\nVocê possui ferramentas poderosas. REGRA CRÍTICA DE OURO: Se o usuário pedir uma AÇÃO que pode ser feita por uma ferramenta, você DEVE chamar a ferramenta imediatamente. NUNCA responda com texto prometendo fazer a ação (ex: PROIBIDO dizer 'blz vou baixar', 'vou procurar', 'ok, buscando' quando houver uma ferramenta aplicável — isso é falso atendimento. Aja ou recuse, nunca prometa).\n- COMANDO UNIVERSAL MCP: Se o usuário citar 'mcp de [ferramenta]' ou 'mcp [ferramenta]' (ex: 'mcp de pesquisa para xxx', 'mcp de musica para xxx', 'mcp de imagem para xxx', 'mcp de jogo para xxx', ou apenas 'mcp de pesquisa' usando o contexto anterior), você DEVE OBRIGATORIAMENTE acionar a ferramenta correspondente em JSON sem hesitar. Se o usuário não fornecer argumento explícito, use o assunto da mensagem anterior como argumento.\n- Pediu para BAIXAR MÚSICA POR NOME/ARTISTA (sem URL)? → OBRIGATÓRIO chamar search_and_download_music com o nome. NUNCA diga que vai baixar sem chamar.\n- Pediu para VER ou BAIXAR a música do status (sua ou de outro usuário como @fulano)? → OBRIGATÓRIO chamar get_current_music (passando user se for de outro usuário).\n- Pediu para GERAR/CRIAR/DESENHAR uma imagem? → OBRIGATÓRIO chamar generate_image. Crie um prompt detalhado e criativo mesmo se o pedido for vago. Se o usuário pedir para gerar uma imagem SUA / da Hikari (ex: 'gere uma imagem sua', 'desenhe você', 'sua foto'), chame primeiro db_read com key: 'hikari_info' para consultar sua aparência oficial antes de gerar.\n- Perguntou sobre a própria Hikari (aparência física, personalidade)? → Chame db_read com key: 'hikari_info'.\n- Perguntou sobre o criador da Hikari (quem criou, sobre ele, etc.)? → Chame db_read com key: 'creator_info'.\n- CONTEXTO DE BANCO ANTES DE FALAR: Se o usuário pedir para falar por voz/áudio sobre o criador, sobre você mesma ou qualquer assunto guardado no banco de dados, você DEVE chamar SEMPRE 'db_read' PRIMEIRO para obter os dados do banco antes de sintetizar ou enviar a voz. Se o usuário perguntar em texto normal sem pedir áudio, responda normalmente em texto puro após consultar o banco.\n- Pediu para ANOTAR, SALVAR, GUARDAR ou LEMBRAR algo no banco de dados (ex: 'anotar no banco pra fazer manutenção', 'salva no banco que...', 'guarde na memória...')? → OBRIGATÓRIO chamar db_write imediatamente! Deduza uma chave curta adequada (ex: 'manutencao', 'lembrete') e use o conteúdo. NUNCA pergunte o que anotar ou prometa anotar depois; chame db_write de imediato.\n- Pediu para EDITAR, MUDAR ou ATUALIZAR anotação do banco? → Chame db_edit.\n- Pediu para APAGAR, ESQUECER ou DELETAR anotação do banco? → Chame db_delete.\n- Perguntou quais são suas funções, capacidades, recursos, comandos ou pediu menu de ajuda (ex: 'qual são suas funções?', 'quais suas funções?', 'o que você pode fazer?', 'menu de ajuda')? → OBRIGATÓRIO chamar show_bot_menu com context: 'geral'. NUNCA responda apenas em texto ou prometa abrir o menu; chame show_bot_menu de imediato.\n- Pediu para falar, mandar áudio ou responder em voz (ou se você mesma preferir e decidir espontaneamente responder por áudio/voz, tipo 'ah vou mandar um áudio dessa vez')? → Chame send_voice_note com fala natural de 1 a 4 frases curtas, sem emojis e sem código.\n- Pediu para BAIXAR áudio/vídeo e deu um link URL? → Chame download_audio ou download_video.\n- Pediu para entrar na call, canal de voz ou conversar por voz? → OBRIGATÓRIO chamar join_voice_call.\n- Pediu para sair da call, canal de voz ou desconectar da voz? → OBRIGATÓRIO chamar leave_voice_call.\n- Dúvidas, perguntas sobre fatos, notícias, curiosidades ou pediu 'pesquisa na web' / 'busca no google'? → Chame search_web imediatamente. Se o usuário disser apenas 'pesquisa na web' sem especificar um termo novo na mensagem atual, use o tema ou pergunta da conversa recente anterior como query. Você NUNCA deve responder que não sabe, não pode ou não consegue ajudar; busque na internet se não tiver certeza absoluta do fato.\n- Pediu jogo/torrent ou para baixar/crackear qualquer jogo de PC? → Chame search_game obrigatoriamente.\n- Pediu preço na Steam? → Chame check_steam.\n- Pediu conversão de moeda/cotação? → Chame convert_currency.\n- Conversa casual sem ação (oi, piada, pergunta simples)? → Responda com texto puro direto, NUNCA chame ferramenta.\n\n[ANTI-LOOP DE CONTEXTO]: O histórico da conversa pode conter chamadas de ferramenta anteriores (como downloads de música). Isso NÃO significa que você deve chamar essas ferramentas novamente. Analise APENAS a mensagem mais recente do usuário para decidir qual ação tomar.\n\n[FORMATO DA RESPOSTA]:\n- Para texto: escreva APENAS a fala final pro usuário. Sem análise interna, sem mencionar ferramentas.\n- NUNCA escreva 'tool_code', 'print()', 'default_api.' ou código na resposta.\n- NUNCA encapsule em JSON como {\"response\": \"...\"}. Texto puro sempre.\n- NUNCA exponha qual ferramenta vai usar ou seu raciocínio de decisão.\n- NUNCA repita literalmente o que o usuário acabou de dizer nem o que você disse na mensagem anterior.";
+                    effectiveSystemPrompt += "\n[REGRAS DE FERRAMENTAS (TOOLS)]:\nVocê possui ferramentas poderosas. REGRA CRÍTICA DE OURO: Se o usuário pedir uma AÇÃO que pode ser feita por uma ferramenta, você DEVE chamar a ferramenta imediatamente. NUNCA responda com texto prometendo fazer a ação (ex: PROIBIDO dizer 'blz vou baixar', 'vou procurar', 'ok, buscando' quando houver uma ferramenta aplicável — isso é falso atendimento. Aja ou recuse, nunca prometa).\n- COMANDO UNIVERSAL MCP: Se o usuário citar 'mcp de [ferramenta]' ou 'mcp [ferramenta]' (ex: 'mcp de pesquisa para xxx', 'mcp de musica para xxx', 'mcp de imagem para xxx', 'mcp de jogo para xxx', ou apenas 'mcp de pesquisa' usando o contexto anterior), você DEVE OBRIGATORIAMENTE acionar a ferramenta correspondente em JSON sem hesitar. Se o usuário não fornecer argumento explícito, use o assunto da mensagem anterior como argumento.\n- Pediu para BAIXAR MÚSICA POR NOME/ARTISTA (sem URL)? → OBRIGATÓRIO chamar search_and_download_music com o nome. NUNCA diga que vai baixar sem chamar.\n- Pediu para VER ou BAIXAR a música do status (sua ou de outro usuário como @fulano)? → OBRIGATÓRIO chamar get_current_music (passando user se for de outro usuário).\n- Pediu para GERAR/CRIAR/DESENHAR uma imagem? → OBRIGATÓRIO chamar generate_image. Crie um prompt detalhado e criativo mesmo se o pedido for vago. Se o usuário pedir para gerar uma imagem SUA / da Hikari (ex: 'gere uma imagem sua', 'desenhe você', 'sua foto'), chame primeiro db_read com key: 'hikari_info' para consultar sua aparência oficial antes de gerar.\n- Perguntou sobre a própria Hikari (aparência física, personalidade)? → Chame db_read com key: 'hikari_info'.\n- Perguntou sobre o criador da Hikari (quem criou, sobre ele, etc.)? → Chame db_read com key: 'creator_info'.\n- CONTEXTO DE BANCO ANTES DE FALAR: Se o usuário pedir para falar por voz/áudio sobre o criador, sobre você mesma ou qualquer assunto guardado no banco de dados, você DEVE chamar SEMPRE 'db_read' PRIMEIRO para obter os dados do banco antes de sintetizar ou enviar a voz. Se o usuário perguntar em texto normal sem pedir áudio, responda normalmente em texto puro após consultar o banco.\n- Pediu para ANOTAR, SALVAR, GUARDAR ou LEMBRAR algo no banco de dados (ex: 'anotar no banco pra fazer manutenção', 'salva no banco que...', 'guarde na memória...')? → OBRIGATÓRIO chamar db_write imediatamente! Deduza uma chave curta adequada (ex: 'manutencao', 'lembrete') e use o conteúdo. NUNCA pergunte o que anotar ou prometa anotar depois; chame db_write de imediato.\n- Pediu para EDITAR, MUDAR ou ATUALIZAR anotação do banco? → Chame db_edit.\n- Pediu para APAGAR, ESQUECER ou DELETAR anotação do banco? → Chame db_delete.\n- Perguntou quais são suas funções, capacidades, recursos, comandos ou pediu menu de ajuda (ex: 'qual são suas funções?', 'quais suas funções?', 'o que você pode fazer?', 'menu de ajuda')? → OBRIGATÓRIO chamar show_bot_menu com context: 'geral'. NUNCA responda apenas em texto ou prometa abrir o menu; chame show_bot_menu de imediato.\n- Pediu para falar, mandar áudio ou responder em voz (ou se você mesma preferir e decidir espontaneamente responder por áudio/voz, tipo 'ah vou mandar um áudio dessa vez')? → Chame send_voice_note com fala natural de 1 a 4 frases curtas, sem emojis e sem código.\n- Pediu para BAIXAR áudio/vídeo e deu um link URL? → Chame download_audio ou download_video.\n- Pediu para entrar na call, canal de voz ou conversar por voz? → OBRIGATÓRIO chamar join_voice_call. Se não especificar modo, use mode: 'conversa'. Se pedir para tocar músicas ou entrar em modo rádio/música, use mode: 'radio'. Se pedir para entrar em modo híbrido ou misto, use mode: 'hibrido'.\n- Pediu para sair da call, canal de voz ou desconectar da voz? → OBRIGATÓRIO chamar leave_voice_call.\n- Dúvidas, perguntas sobre fatos, notícias, curiosidades ou pediu 'pesquisa na web' / 'busca no google'? → Chame search_web imediatamente. Se o usuário disser apenas 'pesquisa na web' sem especificar um termo novo na mensagem atual, use o tema ou pergunta da conversa recente anterior como query. Você NUNCA deve responder que não sabe, não pode ou não consegue ajudar; busque na internet se não tiver certeza absoluta do fato.\n- Pediu jogo/torrent ou para baixar/crackear qualquer jogo de PC? → Chame search_game obrigatoriamente.\n- Pediu preço na Steam? → Chame check_steam.\n- Pediu conversão de moeda/cotação? → Chame convert_currency.\n- Conversa casual sem ação (oi, piada, pergunta simples)? → Responda com texto puro direto, NUNCA chame ferramenta.\n\n[ANTI-LOOP DE CONTEXTO]: O histórico da conversa pode conter chamadas de ferramenta anteriores (como downloads de música). Isso NÃO significa que você deve chamar essas ferramentas novamente. Analise APENAS a mensagem mais recente do usuário para decidir qual ação tomar.\n\n[FORMATO DA RESPOSTA]:\n- Para texto: escreva APENAS a fala final pro usuário. Sem análise interna, sem mencionar ferramentas.\n- NUNCA escreva 'tool_code', 'print()', 'default_api.' ou código na resposta.\n- NUNCA encapsule em JSON como {\"response\": \"...\"}. Texto puro sempre.\n- NUNCA exponha qual ferramenta vai usar ou seu raciocínio de decisão.\n- NUNCA repita literalmente o que o usuário acabou de dizer nem o que você disse na mensagem anterior.";
                 } else {
                     effectiveSystemPrompt += buildToolsDefinition(guildId, options.userId || null, options);
+                }
+                if (options.hybridMode || options.isHybridVoice) {
+                    effectiveSystemPrompt += "\n[MODO HÍBRIDO DE VOZ E RÁDIO ATIVADO]:\n" +
+                        "Você está operando simultaneamente como assistente conversacional no chat e controladora do player de rádio.\n" +
+                        "- Se o usuário pedir para tocar música ou controlar o rádio, use a ferramenta MCP correspondente:\n" +
+                        "  * radio_play_music: args { \"query\": \"nome da música ou artista\" }\n" +
+                        "  * radio_pause_resume: args {}\n" +
+                        "  * radio_stop_music: args {}\n" +
+                        "  * radio_next_track: args {}\n" +
+                        "  * radio_prev_track: args {}\n" +
+                        "  * radio_show_queue: args {}\n" +
+                        "  * radio_toggle_shuffle: args {}\n" +
+                        "  * radio_set_repeat: args {}\n" +
+                        "  * radio_get_current: args {}\n" +
+                        "  * radio_leave_call: args {}\n" +
+                        "  * radio_remove_track: args { \"position\": 1 }\n" +
+                        "- Se o usuário fizer uma pergunta casual, dúvida geral ou comentário (ex: 'quem foi Einstein?', 'como você está?', 'conta uma piada'), responda DIRETAMENTE com texto natural no chat como Hikari. NUNCA gere chamada de ferramenta nem recuse responder conversas gerais.";
                 }
             }
             let finalPrompt = prompt;
@@ -2764,18 +2788,18 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                         await executeAgentLoop([{ tool: toolData.tool, args: toolData.args }], toolData.thought, prompt, channelId, userId, userTag, interaction, type, unifiedReply, replyMessage, modelFooter, duration, options, guildId, guildName, channelName);
                         return;
                     }
-                    if (options && options.radioMode && toolData.tool && toolData.tool.startsWith('radio_')) {
+                    if (options && (options.radioMode || options.hybridMode) && toolData.tool && toolData.tool.startsWith('radio_')) {
                         const { handleRadioMCPCall } = require('../music/radioMCPHandler');
                         const radioGuildId = options.guildId || interaction.guildId;
-                        const radioTextChannel = interaction.radioTextChannel || interaction.channel;
-                        const radioUserId = interaction.radioUserId || userId;
+                        const radioTextChannel = interaction.hybridTextChannel || interaction.radioTextChannel || interaction.channel;
+                        const radioUserId = interaction.hybridUserId || interaction.radioUserId || userId;
                         const radioResult = await handleRadioMCPCall(
                             toolData.tool,
                             toolData.args,
                             radioUserId,
                             radioGuildId,
                             radioTextChannel,
-                            interaction.radioClient || null
+                            interaction.hybridClient || interaction.radioClient || null
                         );
                         if (radioResult) await unifiedReply(radioResult);
                         savePromptToHistory(prompt, userTag, userId, `[TOOL: RADIO_MCP]`, interaction);
@@ -3135,15 +3159,34 @@ Como o projeto é open-source, você pode hospedar sua própria versão e ter co
                     }
                 }
                 if (toolData.tool === 'join_voice_call') {
-                    const { joinVoiceCall } = require('./voiceHandler');
                     const member = interaction.member;
                     const textChannel = interaction.channel;
                     if (!member) {
                         await unifiedReply('⚠️ Não foi possível identificar seu usuário para entrar no canal de voz.');
                         return;
                     }
-                    await joinVoiceCall(member, textChannel, unifiedReply);
-                    savePromptToHistory(prompt, userTag, userId, `[TOOL: JOIN_VOICE_CALL]`, interaction);
+                    const rawMode = (toolData.args?.mode || toolData.args?.modo || 'conversa').toLowerCase();
+                    if (rawMode.includes('radio') || rawMode.includes('rádio')) {
+                        const { startRadioMode } = require('../music/radioManager');
+                        const res = await startRadioMode(member, textChannel, discordClient);
+                        if (res.success) {
+                            await unifiedReply('📻 Entrando no canal de voz em Modo Rádio!');
+                        } else {
+                            await unifiedReply(res.error || '❌ Não foi possível entrar no Modo Rádio.');
+                        }
+                    } else if (rawMode.includes('hibrid') || rawMode.includes('híbrid')) {
+                        const { startHybridMode } = require('../music/radioManager');
+                        const res = await startHybridMode(member, textChannel, discordClient);
+                        if (res.success) {
+                            await unifiedReply(res.message || '🎙️📻 Entrando no canal de voz em Modo Híbrido!');
+                        } else {
+                            await unifiedReply(res.error || '❌ Não foi possível entrar no Modo Híbrido.');
+                        }
+                    } else {
+                        const { joinVoiceCall } = require('./voiceHandler');
+                        await joinVoiceCall(member, textChannel, unifiedReply);
+                    }
+                    savePromptToHistory(prompt, userTag, userId, `[TOOL: JOIN_VOICE_CALL (${rawMode})]`, interaction);
                     return;
                 }
                 if (toolData.tool === 'leave_voice_call') {
@@ -4145,7 +4188,7 @@ Responda APENAS com texto (NÃO USE JSON/TOOLS AGORA). Seja direto e informativo
             console.error('[SECURITY BLOCK] Bloqueado vazamento de Tool Use/JSON Raw:', processedResponse);
             processedResponse = "⚠️ **Erro de Processamento:** A IA tentou usar uma ferramenta mas o formato do MCP saiu inválido, isso é normal, não é um bug. Tente novamente ou use os comandos /buscar_jogo, /baixar_musica ou /baixar_video";
         }
-        if (options && options.radioMode) {
+        if (options && options.radioMode && !options.hybridMode) {
             const cleanPrompt = (prompt || '').toLowerCase().trim();
             let fallbackTool = null;
             let fallbackArgs = {};
@@ -4432,7 +4475,7 @@ async function addToQueue(prompt, interaction, type, options = {}) {
     const isAtCapacity = maxConcurrency > 0 && activeWorkers >= maxConcurrency;
 
     if (isAtCapacity) {
-        if (type === 'mention' && !options.radioMode) {
+        if (type === 'mention' && !options.radioMode && !options.hybridMode && !options.isHybridVoice) {
             const queuePosition = serverQueue.length;
             try {
                 const queueMsg = await interaction.reply({

@@ -90,11 +90,15 @@ const COMMAND_DETAILS = {
         name: '/entrar-call',
         category: '🎙️ Voz & Calls',
         permission: '👥 Todos os Usuários',
-        description: 'Faz a Hikari entrar no seu canal de voz atual para interagir, responder a gatilhos de voz e atuar como assistente falante.',
-        syntax: '/entrar-call',
-        options: [],
+        description: 'Faz a Hikari entrar no seu canal de voz atual nos modos Conversa, Rádio ou Híbrido.',
+        syntax: '/entrar-call [modo:conversa|radio|hibrido]',
+        options: [
+            { name: 'modo', desc: 'Modo de operação: conversa (padrão), radio ou hibrido.', required: false }
+        ],
         examples: [
-            '/entrar-call'
+            '/entrar-call',
+            '/entrar-call modo:radio',
+            '/entrar-call modo:hibrido'
         ]
     },
     'sair-call': {
@@ -117,6 +121,17 @@ const COMMAND_DETAILS = {
         options: [],
         examples: [
             '/modo-radio'
+        ]
+    },
+    'modo-hibrido': {
+        name: '/modo-hibrido',
+        category: '🎙️ Voz & Calls',
+        permission: '👥 Todos os Usuários',
+        description: 'Ativa o Modo Híbrido integrando player de música e respostas por voz no chat.',
+        syntax: '/modo-hibrido',
+        options: [],
+        examples: [
+            '/modo-hibrido'
         ]
     },
     'ia_imagem': {
@@ -300,7 +315,7 @@ function buildHelpCommandListPayload() {
             },
             {
                 name: '🎙️ Voz & Assistente de Call',
-                value: '• `/entrar-call` — Conecta a Hikari ao seu canal de voz para voz por IA.\n• `/sair-call` — Desconecta a Hikari do canal de voz.\n• `/modo-radio` — Inicia o sistema de rádio de música no canal de voz.'
+                value: '• `/entrar-call` — Conecta a Hikari ao seu canal de voz para voz por IA.\n• `/sair-call` — Desconecta a Hikari do canal de voz.\n• `/modo-radio` — Inicia o sistema de rádio de música no canal de voz.\n• `/modo-hibrido` — Ativa o Modo Híbrido de música e respostas por voz no chat.'
             },
             {
                 name: '🎨 Arte, Multimídia & Downloads',

@@ -176,6 +176,22 @@
   },
   {
     "meta": {
+      "label": "ℹ️ Faixa Atual",
+      "description": "Informa qual música está tocando atualmente no rádio"
+    },
+    "type": "function",
+    "function": {
+      "name": "radio_get_current",
+      "description": "Informa qual música está tocando atualmente no rádio. Use quando o usuário perguntar qual música é essa, quem está cantando ou pedir o nome da música atual.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    }
+  },
+  {
+    "meta": {
       "label": "🚪 Sair da Call",
       "description": "Encerra o modo rádio e sai do canal de voz"
     },
