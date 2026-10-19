@@ -474,7 +474,7 @@
     "type": "function",
     "function": {
       "name": "db_write",
-      "description": "Salva ou atualiza um registro no banco de dados interno persistente. Use quando o usuário pedir para lembrar, anotar, guardar ou salvar uma informação para consultas futuras (ex: 'anotar no banco pra fazer manutenção', 'salve no banco que...'). Se o usuário não especificar chave e conteúdo separadamente, deduza uma chave curta (ex: 'manutencao') e salve a anotação imediatamente. A IA avalia com inteligência se o dado é importante (defina important: true) ou simples/casual (important: false, padrão). CRÍTICO - CONDUTA, SEGURANÇA E TERMOS DE SERVIÇO: É terminantemente proibido salvar ou registrar informações tóxicas, difamatórias, ofensivas, depreciativas, acusações ou conteúdo negativo contra qualquer usuário ou pessoa, coisas que violem os Termos de Serviço (TOS) do Discord, apologia a crimes ou atividades ilegais. Se o usuário pedir para guardar algo ilícito, difamatório, prejudicial ou contra outro usuário, NÃO execute esta ferramenta; recuse o pedido diretamente na sua fala de forma natural e calma (no estilo da Hikari, com emojis simples ou kaomojis), explicando que você não guarda esse tipo de coisa.",
+      "description": "Salva ou atualiza um registro no banco de dados interno persistente. Use quando o usuário pedir para lembrar, anotar, guardar ou salvar uma informação para consultas futuras (ex: 'anotar no banco pra fazer manutenção', 'salve no banco que...'). Se o usuário não especificar chave e conteúdo separadamente, deduza uma chave curta (ex: 'manutencao') e salve a anotação imediatamente. A IA avalia com inteligência se o dado é importante (defina important: true) ou simples/casual (important: false, padrão). CRÍTICO - CONDUTA, SEGURANÇA E TERMOS DE SERVIÇO: É terminantemente proibido salvar ou registrar informações tóxicas, difamatórias, ofensivas, depreciativas, acusações ou conteúdo negativo contra qualquer usuário ou pessoa, coisas que violem os Termos de Serviço (TOS) do Discord, apologia a crimes ou atividades ilegais. Se o usuário pedir para guardar algo ilícito, difamatório, prejudicial ou contra outro usuário, NÃO execute esta ferramenta; recuse o pedido diretamente na sua fala de forma natural e calma (no estilo da Hikari, sem emojis normais e kaomojis raros), explicando que você não guarda esse tipo de coisa.",
       "textual_triggers": "Gatilhos: \"anotar no banco pra fazer manutenção\", \"lembre-se que X\", \"salve no banco que Y\", \"guarde essa informação: Z\".",
       "textual_args": "{ \"key\": \"nome_do_topico\", \"content\": \"informação a ser salva\", \"important\": false }",
       "parameters": {
@@ -509,7 +509,7 @@
     "type": "function",
     "function": {
       "name": "db_edit",
-      "description": "Edita ou atualiza um registro já existente no banco de dados interno persistente. Use quando o usuário pedir para alterar, corrigir, acrescentar ou atualizar uma anotação salva anteriormente. Não cria novos registros (para novos, use db_write). AVISO: Registros protegidos pelo criador (como 'creator_info') não podem ser alterados. Se a anotação pertencer a outro usuário e estiver marcada como importante, apenas o próprio autor que a criou ou a moderação/administração do servidor têm permissão para editá-la para evitar trolls; se for simples, qualquer membro pode editar. CRÍTICO - CONDUTA, SEGURANÇA E TERMOS DE SERVIÇO: É terminantemente proibido alterar registros para incluir conteúdos tóxicos, difamatórios, depreciativos ou ataques contra usuários, violações aos Termos de Serviço ou atos ilícitos. Se solicitado, recuse diretamente na sua fala de forma natural e calma (emojis simples ou kaomojis liberados).",
+      "description": "Edita ou atualiza um registro já existente no banco de dados interno persistente. Use quando o usuário pedir para alterar, corrigir, acrescentar ou atualizar uma anotação salva anteriormente. Não cria novos registros (para novos, use db_write). AVISO: Registros protegidos pelo criador (como 'creator_info') não podem ser alterados. Se a anotação pertencer a outro usuário e estiver marcada como importante, apenas o próprio autor que a criou ou a moderação/administração do servidor têm permissão para editá-la para evitar trolls; se for simples, qualquer membro pode editar. CRÍTICO - CONDUTA, SEGURANÇA E TERMOS DE SERVIÇO: É terminantemente proibido alterar registros para incluir conteúdos tóxicos, difamatórios, depreciativos ou ataques contra usuários, violações aos Termos de Serviço ou atos ilícitos. Se solicitado, recuse diretamente na sua fala de forma natural e calma (sem emojis normais e kaomojis raros).",
       "textual_triggers": "Gatilhos: \"mude a anotação de X para Y\", \"corrija no banco que X agora é Y\", \"atualize a anotação Z\", \"acrescente à anotação de X que Y\".",
       "textual_args": "{ \"key\": \"nome_do_topico\", \"content\": \"informação atualizada\", \"append\": false }",
       "parameters": {
@@ -574,7 +574,7 @@
     "type": "function",
     "function": {
       "name": "send_voice_note",
-      "description": "Envia uma mensagem de áudio oficial (Discord Voice Message com player de microfone e waveform) falando diretamente com o usuário com sua própria voz neural de estúdio. Use sempre que o usuário pedir para você falar, mandar um áudio, soltar a voz, responder por áudio, ou quando você mesma decidir espontaneamente responder por voz ('ah, vou mandar um áudio dessa vez'). Se precisar de fatos sobre seu criador ou sobre você mesma, consulte antes o banco de dados via db_read para obter o contexto. Forneça em 'text' a sua fala em português, mantendo seu estilo (curto, natural, 1 a 4 frases, sem emojis, sem links, sem código).",
+      "description": "Envia uma mensagem de áudio oficial (Discord Voice Message com player de microfone e waveform) falando diretamente com o usuário com sua própria voz neural de estúdio. Use sempre que o usuário pedir para você falar, mandar um áudio, soltar a voz, responder por áudio, ou quando você mesma decidir espontaneamente responder por voz ('ah, vou mandar um áudio dessa vez'). Se precisar de fatos sobre seu criador ou sobre você mesma, consulte antes o banco de dados via db_read para obter o contexto. Forneça em 'text' a sua fala em português, mantendo seu estilo (curto, natural, 1 a 4 frases, sem emojis, sem kaomojis, sem links, sem código).",
       "textual_triggers": "Gatilhos: \"manda áudio\", \"fala por áudio\", \"quero ouvir sua voz\", \"grava um áudio\", \"solta a voz\", \"fala comigo por voz\".",
       "textual_args": "{ \"text\": \"Texto conciso que a Hikari vai falar no áudio\" }",
       "parameters": {
@@ -582,7 +582,7 @@
         "properties": {
           "text": {
             "type": "string",
-            "description": "O texto exato e natural em português que você vai falar no áudio de voz (curto, direto, 1 a 4 frases, sem emojis e sem código)."
+            "description": "O texto exato e natural em português que você vai falar no áudio de voz (curto, direto, 1 a 4 frases, sem emojis, sem kaomojis e sem código)."
           }
         },
         "required": [

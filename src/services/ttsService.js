@@ -52,7 +52,10 @@ function cleanForTts(rawText) {
         .replace(/<a?:\w+:\d+>/g, '')
         .replace(/https?:\/\/\S+/gi, '')
         .replace(/[*_~#>-]/g, ' ')
-        .replace(/\n-# .*$/gm, '');
+        .replace(/\n-# .*$/gm, '')
+        .replace(/\p{Extended_Pictographic}/gu, '')
+        .replace(/\([^a-zA-Z0-9\s\n]*[^\p{L}\p{N}\s\n,.:;?!'"\-_/][^\n)]*\)/gu, '')
+        .replace(/\([^\p{L}\p{N}\s]{1,}\)/gu, '');
 
     for (const key of Object.keys(PHONETIC_DICT)) {
         const [pattern, replacement] = PHONETIC_DICT[key];

@@ -70,7 +70,7 @@ async function buildMessagePrompt(message, client, options = {}) {
         envInfo = `Servidor: ${message.guild?.name || 'DM'} | Canal: #${message.channel?.name || 'Chat'}\n`;
     }
     const instruction = options.forceVoice
-        ? 'INSTRUÇÃO: Responda diretamente à mensagem atual de forma natural e concisa para ser falada em áudio (1 a 4 frases curtas, sem emojis, sem markdown complexo, sem listas, sem código).'
+        ? 'INSTRUÇÃO: Responda diretamente à mensagem atual de forma natural e concisa para ser falada em áudio (1 a 4 frases curtas, sem emojis, sem kaomojis, sem markdown complexo, sem listas, sem código).'
         : isChatter
             ? 'INSTRUÇÃO: Entre na conversa espontaneamente sem repetir o que foi dito.'
             : 'INSTRUÇÃO: Responda diretamente à mensagem atual.';
@@ -88,7 +88,7 @@ module.exports = {
             if (config.sendEnvironmentInfo) {
                 envInfo = `Servidor: ${message.guild?.name || 'DM'} | Canal: #${message.channel?.name || 'Chat'}\n`;
             }
-            const instruction = 'INSTRUÇÃO: Responda diretamente à mensagem atual de forma natural e concisa para ser falada em áudio (1 a 4 frases curtas, sem emojis, sem markdown complexo, sem listas, sem código).';
+            const instruction = 'INSTRUÇÃO: Responda diretamente à mensagem atual de forma natural e concisa para ser falada em áudio (1 a 4 frases curtas, sem emojis, sem kaomojis, sem markdown complexo, sem listas, sem código).';
             const finalPrompt = `--- CONTEXTO ---\nData: ${currentDate}\n${envInfo}\n--- MENSAGEM ATUAL ---\n${message.author.username}: "${options.customPrompt}"\n${instruction}`;
             return { prompt: finalPrompt, searchPrompt: options.customPrompt };
         }
