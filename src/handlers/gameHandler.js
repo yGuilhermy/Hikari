@@ -13,7 +13,10 @@ const aliases = {
     'gta 5': 'grand theft auto v',
     'rdr2': 'red dead redemption 2',
     'rdr 2': 'red dead redemption 2',
-    'cod': 'call of duty'
+    'cod': 'call of duty',
+    'elder ring': 'elden ring',
+    'elderring': 'elden ring',
+    'eldenring': 'elden ring'
 };
 
 function normalizeString(str) {
@@ -25,6 +28,34 @@ function normalizeString(str) {
         .replace(/[:\-\/\(\)\[\]\?!.,]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+}
+
+function levenshtein(a, b) {
+    const m = a.length, n = b.length;
+    if (m === 0) return n;
+    if (n === 0) return m;
+    const dp = Array.from({ length: m + 1 }, (_, i) => [i]);
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            dp[i][j] = a[i - 1] === b[j - 1]
+                ? dp[i - 1][j - 1]
+                : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+        }
+    }
+    return dp[m][n];
+}
+
+function fuzzyWordMatch(searchWord, titleWord) {
+    if (titleWord.includes(searchWord)) return true;
+    if (searchWord.length < 3) return searchWord === titleWord;
+    const maxDist = searchWord.length <= 6 ? 1 : 2;
+    return levenshtein(searchWord, titleWord) <= maxDist;
+}
+
+function fuzzyTitleMatch(searchWords, normTitle) {
+    const titleWords = normTitle.split(' ').filter(w => w.length > 0);
+    return searchWords.every(sw => titleWords.some(tw => fuzzyWordMatch(sw, tw)));
 }
 
 function cleanMagnet(magnetLink) {
@@ -72,7 +103,7 @@ async function searchGames(gameName, provider = 'any') {
     
     let query = normalizeString(gameName);
     for (const [key, value] of Object.entries(aliases)) {
-        const regex = new RegExp(`\\b${key}\\b`, 'g');
+        const regex = new RegExp('\\b' + key + '\\b', 'g');
         query = query.replace(regex, value);
     }
     
@@ -84,32 +115,53 @@ async function searchGames(gameName, provider = 'any') {
         return s.name.toLowerCase() === provider.toLowerCase();
     });
 
+    const buildResult = (game, source, fuzzy = false) => {
+        const originalMagnet = game.uris && game.uris.find(u => u.startsWith('magnet:?'));
+        if (!originalMagnet) return null;
+        const cleanData = cleanMagnet(originalMagnet);
+        return {
+            provider: source.name,
+            emoji: source.emoji,
+            title: game.title.trim(),
+            fileSize: (game.fileSize || '').replace(/\s+/g, ' ').trim(),
+            uploadDate: game.uploadDate,
+            magnet: cleanData.magnet,
+            hash: cleanData.hash,
+            isFuzzy: fuzzy
+        };
+    };
+
     await Promise.all(activeSources.map(async (source) => {
         try {
             const data = await getSourceData(source);
+            if (!data || !Array.isArray(data.downloads)) {
+                console.error(`[gameHandler] Dados inválidos ou ausentes para fonte ${source.name}`);
+                return;
+            }
             const games = data.downloads;
-            const found = games.filter(game => {
-                const normTitle = normalizeString(game.title);
-                return searchWords.every(word => normTitle.includes(word));
-            }).map(game => {
-                const originalMagnet = game.uris.find(u => u.startsWith('magnet:?'));
-                if (!originalMagnet) return null;
-                const cleanData = cleanMagnet(originalMagnet);
-                return {
-                    provider: source.name,
-                    emoji: source.emoji,
-                    title: game.title.trim(),
-                    fileSize: game.fileSize.replace(/\s+/g, ' ').trim(),
-                    uploadDate: game.uploadDate,
-                    magnet: cleanData.magnet,
-                    hash: cleanData.hash
-                };
-            }).filter(item => item !== null);
-            
+
+            let found = games
+                .filter(game => {
+                    const normTitle = normalizeString(game.title);
+                    return searchWords.every(word => normTitle.includes(word));
+                })
+                .map(game => buildResult(game, source, false))
+                .filter(Boolean);
+
+            if (found.length === 0) {
+                found = games
+                    .filter(game => fuzzyTitleMatch(searchWords, normalizeString(game.title)))
+                    .map(game => buildResult(game, source, true))
+                    .filter(Boolean);
+                if (found.length > 0) {
+                    console.log(`[gameHandler] Fuzzy fallback ativado para "${gameName}" em ${source.name}: ${found.length} resultado(s)`);
+                }
+            }
+
             if (source.name === 'FitGirl') fitgirlMatches = found;
             if (source.name === 'DODI') dodiMatches = found;
         } catch (err) {
-            console.error(`Erro ao buscar em ${source.name}:`, err.message);
+            console.error(`[gameHandler] Erro ao buscar em ${source.name}:`, err.message, err.stack);
         }
     }));
 
@@ -203,8 +255,13 @@ async function executeGameCommand(interaction) {
             const startIndex = page * pageSize;
             const endIndex = Math.min(startIndex + pageSize, finalResults.length);
             const pageItems = finalResults.slice(startIndex, endIndex);
-            
-            let description = 'Selecione uma das opções no menu abaixo para receber o arquivo de download.\n\n';
+            const hasFuzzy = finalResults.some(g => g.isFuzzy);
+
+            let description = '';
+            if (hasFuzzy) {
+                description += `> ⚠️ **Busca aproximada:** Nenhum resultado exato encontrado para **"${gameName}"**. Exibindo resultados similares.\n\n`;
+            }
+            description += 'Selecione uma das opções no menu abaixo para receber o arquivo de download.\n\n';
             pageItems.forEach((game, index) => {
                 const date = new Date(game.uploadDate).toLocaleDateString('pt-BR');
                 const safeTitle = game.title.length > 70 ? game.title.substring(0, 67) + '...' : game.title;
@@ -216,7 +273,7 @@ async function executeGameCommand(interaction) {
             const embed = new EmbedBuilder()
                 .setTitle(`🔍 Resultados para: "${gameName}" (Página ${page + 1}/${totalPages})`)
                 .setDescription(description)
-                .setColor('#8F55FD')
+                .setColor(hasFuzzy ? '#F59E0B' : '#8F55FD')
                 .setFooter({ text: 'Hikari Torrent • by yGuilhermy' });
             
             const components = createPaginationComponents(page, totalPages, pageItems, startIndex);
