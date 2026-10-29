@@ -1,4 +1,5 @@
 const { joinVoiceChannel, VoiceConnectionStatus, EndBehaviorType, getVoiceConnection, createAudioPlayer, createAudioResource, StreamType, entersState } = require('@discordjs/voice');
+const { PermissionFlagsBits } = require('discord.js');
 const prism = require('prism-media');
 const { Readable } = require('stream');
 const { transcribeAudio } = require('../services/sttService');
@@ -95,6 +96,24 @@ async function joinVoiceCall(member, textChannel, replyFn = null) {
     }
 
     const me = voiceChannel.guild.members.me;
+    const permissions = voiceChannel.permissionsFor(me);
+    if (!permissions || !permissions.has(PermissionFlagsBits.ViewChannel)) {
+        await sendOrReply('❌ Não tenho permissão para visualizar este canal de voz (`Ver canal`).', textChannel, replyFn);
+        return false;
+    }
+    if (!permissions.has(PermissionFlagsBits.Connect)) {
+        await sendOrReply('❌ Não tenho permissão para conectar neste canal de voz (`Conectar`). Peça a um administrador para liberar essa permissão para o meu cargo.', textChannel, replyFn);
+        return false;
+    }
+    if (!permissions.has(PermissionFlagsBits.Speak)) {
+        await sendOrReply('❌ Não tenho permissão para falar neste canal de voz (`Falar`). Peça a um administrador para liberar essa permissão para o meu cargo.', textChannel, replyFn);
+        return false;
+    }
+    if (voiceChannel.userLimit > 0 && voiceChannel.members.size >= voiceChannel.userLimit && !permissions.has(PermissionFlagsBits.MoveMembers)) {
+        await sendOrReply('❌ O canal de voz está lotado.', textChannel, replyFn);
+        return false;
+    }
+
     let existingConn = getVoiceConnection(guildId) || activeConnections.get(guildId)?.connection;
 
     if (existingConn && existingConn.state.status === VoiceConnectionStatus.Ready && me?.voice?.channelId === voiceChannel.id) {
@@ -166,7 +185,15 @@ async function joinVoiceCall(member, textChannel, replyFn = null) {
     } catch (error) {
         console.error('[VOICE] ❌ Erro ao conectar no canal de voz:', error.message || error);
         activeConnections.delete(guildId);
-        await sendOrReply('❌ Erro ao tentar entrar no canal de voz.', textChannel, replyFn);
+        try {
+            const conn = getVoiceConnection(guildId);
+            if (conn) conn.destroy();
+        } catch (e) {}
+        const isAborted = (error.message || '').toLowerCase().includes('aborted');
+        const userMsg = isAborted
+            ? '❌ Tempo limite esgotado ao tentar conectar no canal de voz. Verifique as permissões de voz ou a conexão.'
+            : '❌ Erro ao tentar entrar no canal de voz.';
+        await sendOrReply(userMsg, textChannel, replyFn);
         return false;
     }
 }

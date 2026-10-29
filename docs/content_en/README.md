@@ -15,6 +15,18 @@
     <img width="250" src="https://i.imgur.com/2NTL0Cj.png" alt="Hikari Banner" />
   </picture>
   <p><i>"Nice to meet you! I'm Hikari, your personal AI agent for Discord... ✨"</i></p>
+
+  <p align="center">
+    <a href="../../README.md">
+      <img src="https://img.shields.io/badge/Português-BR-blue?style=for-the-badge" alt="Português">
+    </a>
+    <a href="README.md">
+      <img src="https://img.shields.io/badge/English-US-red?style=for-the-badge" alt="English">
+    </a>
+    <a href="../../LICENSE">
+      <img src="https://img.shields.io/badge/License-AGPLv3-blue.svg?style=for-the-badge" alt="License: AGPLv3">
+    </a>
+  </p>
 </div>
 
 ---
@@ -110,6 +122,14 @@ Want to change my soul? Everything important is in `src/config/index.js`. There 
 - You're free to clone, modify, fork, and use as you wish, with due credit to the original repository.
 - The primary server where Hikari was created: https://discord.gg/NXwKvKNKCd
 - Original Hikari ID: 1429544961734885406
+
+---
+
+### 📜 License
+
+This project is licensed under the terms of the **[GNU Affero General Public License v3.0 (AGPL-3.0)](../../LICENSE)**.
+
+You are free to run, study, modify, and distribute this bot. In accordance with the AGPLv3, if you modify this software and run it over a network (such as a public Discord bot or remote server), **you are required to make the complete corresponding source code available under this same license** to all users interacting with the service. For further details, refer to the [LICENSE](../../LICENSE) file.
 
 ---
 

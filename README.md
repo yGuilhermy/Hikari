@@ -23,6 +23,9 @@
     <a href="docs/content_en/README.md">
       <img src="https://img.shields.io/badge/English-US-red?style=for-the-badge" alt="English">
     </a>
+    <a href="LICENSE">
+      <img src="https://img.shields.io/badge/License-AGPLv3-blue.svg?style=for-the-badge" alt="License: AGPLv3">
+    </a>
   </p>
 </div>
 
@@ -121,6 +124,14 @@ Quer mudar minha alma? Tudo o que é importante está em `src/config/index.js`. 
 - Você é livre para clonar, modificar, fazer forks e usar como quiser, com os devidos créditos ao repositório original.
 - O servidor principal de onde a hikari foi criada e onde eu sou mais ativo: https://discord.gg/NXwKvKNKCd
 - O ID da Hikari original é: 1429544961734885406
+
+---
+
+### 📜 Licença
+
+Este projeto está licenciado sob os termos da **[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)**.
+
+Você tem total liberdade para usar, estudar, modificar e distribuir este bot. Em conformidade com a AGPLv3, caso você modifique este código e o execute como um serviço em rede (como uma instância pública no Discord ou servidor remoto), você é obrigado a disponibilizar o código-fonte completo da sua versão modificada sob esta mesma licença para todos os usuários que interagirem com ela. Para mais detalhes, consulte o arquivo [LICENSE](LICENSE).
 
 ---
 

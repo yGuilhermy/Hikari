@@ -5,6 +5,7 @@ const {
     entersState,
     EndBehaviorType
 } = require('@discordjs/voice');
+const { PermissionFlagsBits } = require('discord.js');
 const prism = require('prism-media');
 const { transcribeAudio } = require('../services/sttService');
 const {
@@ -68,6 +69,21 @@ function calculatePcmRms(pcmBuffer) {
 async function startRadioMode(member, textChannel, client) {
     const voiceChannel = member?.voice?.channel;
     if (!voiceChannel) return { success: false, error: '⚠️ Você precisa estar em um canal de voz para ativar o Modo Rádio.' };
+
+    const me = voiceChannel.guild.members.me;
+    const permissions = voiceChannel.permissionsFor(me);
+    if (!permissions || !permissions.has(PermissionFlagsBits.ViewChannel)) {
+        return { success: false, error: '❌ Não tenho permissão para visualizar este canal de voz (`Ver canal`).' };
+    }
+    if (!permissions.has(PermissionFlagsBits.Connect)) {
+        return { success: false, error: '❌ Não tenho permissão para conectar neste canal de voz (`Conectar`). Peça a um administrador para liberar essa permissão para o meu cargo.' };
+    }
+    if (!permissions.has(PermissionFlagsBits.Speak)) {
+        return { success: false, error: '❌ Não tenho permissão para falar neste canal de voz (`Falar`). Peça a um administrador para liberar essa permissão para o meu cargo.' };
+    }
+    if (voiceChannel.userLimit > 0 && voiceChannel.members.size >= voiceChannel.userLimit && !permissions.has(PermissionFlagsBits.MoveMembers)) {
+        return { success: false, error: '❌ O canal de voz está lotado.' };
+    }
 
     const guildId = voiceChannel.guild.id;
     const existingSession = getSession(guildId);
@@ -156,6 +172,21 @@ async function startRadioMode(member, textChannel, client) {
 async function startHybridMode(member, textChannel, client) {
     const voiceChannel = member?.voice?.channel;
     if (!voiceChannel) return { success: false, error: '⚠️ Você precisa estar em um canal de voz para ativar o Modo Híbrido.' };
+
+    const me = voiceChannel.guild.members.me;
+    const permissions = voiceChannel.permissionsFor(me);
+    if (!permissions || !permissions.has(PermissionFlagsBits.ViewChannel)) {
+        return { success: false, error: '❌ Não tenho permissão para visualizar este canal de voz (`Ver canal`).' };
+    }
+    if (!permissions.has(PermissionFlagsBits.Connect)) {
+        return { success: false, error: '❌ Não tenho permissão para conectar neste canal de voz (`Conectar`). Peça a um administrador para liberar essa permissão para o meu cargo.' };
+    }
+    if (!permissions.has(PermissionFlagsBits.Speak)) {
+        return { success: false, error: '❌ Não tenho permissão para falar neste canal de voz (`Falar`). Peça a um administrador para liberar essa permissão para o meu cargo.' };
+    }
+    if (voiceChannel.userLimit > 0 && voiceChannel.members.size >= voiceChannel.userLimit && !permissions.has(PermissionFlagsBits.MoveMembers)) {
+        return { success: false, error: '❌ O canal de voz está lotado.' };
+    }
 
     const guildId = voiceChannel.guild.id;
     const existingSession = getSession(guildId);
