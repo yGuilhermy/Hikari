@@ -1939,15 +1939,28 @@ async function executeAgentLoop(initialTools, initialThought, prompt, channelId,
                     }
                 } else if (item.tool === 'db_write') {
                     const { writeDb } = require('./databaseHandler');
+                    const { PermissionFlagsBits } = require('discord.js');
                     const targetKey = item.args?.key || item.args?.chave;
                     const targetContent = item.args?.content || item.args?.conteudo || item.args?.texto || item.args?.data;
                     const isImportant = Boolean(item.args?.important || item.args?.importante);
                     const isOwner = config.isOwner(userId);
+                    const member = interaction?.member;
+                    const isStaff = Boolean(
+                        isOwner ||
+                        (member && member.permissions && (
+                            member.permissions.has(PermissionFlagsBits.Administrator) ||
+                            member.permissions.has(PermissionFlagsBits.ManageGuild) ||
+                            member.permissions.has(PermissionFlagsBits.ManageMessages)
+                        )) ||
+                        (interaction?.guild && interaction.guild.ownerId === userId)
+                    );
                     const meta = {
                         salvo_por: userTag && userId ? `${userTag} - ${userId}` : (userTag || userId || 'desconhecido'),
+                        userId: userId || null,
                         savedById: userId || null,
                         savedByTag: userTag || null,
-                        important: isImportant
+                        important: isImportant,
+                        isStaff: isStaff
                     };
                     const writeResult = writeDb(targetKey, targetContent, targetGuildId, isOwner, meta);
                     collectedResults.push(`[Banco de Dados]: ${writeResult.success ? `Chave "${targetKey}" gravada com sucesso com conteúdo: "${targetContent}".` : writeResult.message}`);
@@ -3487,16 +3500,29 @@ Consuma todos os dados e fatos acima recuperados do banco de dados para responde
                 }
                 if (toolData.tool === 'db_write') {
                     const { writeDb } = require('./databaseHandler');
+                    const { PermissionFlagsBits } = require('discord.js');
                     const targetKey = toolData.args ? (toolData.args.key || toolData.args.chave) : null;
                     const targetContent = toolData.args ? (toolData.args.content || toolData.args.conteudo || toolData.args.texto || toolData.args.data) : null;
                     const isImportant = Boolean(toolData.args && (toolData.args.important === true || toolData.args.importante === true));
                     const targetGuildId = options.guildId || guildId;
                     const isOwner = config.isOwner(userId);
+                    const member = interaction?.member;
+                    const isStaff = Boolean(
+                        isOwner ||
+                        (member && member.permissions && (
+                            member.permissions.has(PermissionFlagsBits.Administrator) ||
+                            member.permissions.has(PermissionFlagsBits.ManageGuild) ||
+                            member.permissions.has(PermissionFlagsBits.ManageMessages)
+                        )) ||
+                        (interaction?.guild && interaction.guild.ownerId === userId)
+                    );
                     const meta = {
                         salvo_por: userTag && userId ? `${userTag} - ${userId}` : (userTag || userId || 'desconhecido'),
+                        userId: userId || null,
                         savedById: userId || null,
                         savedByTag: userTag || null,
-                        important: isImportant
+                        important: isImportant,
+                        isStaff: isStaff
                     };
                     const writeResult = writeDb(targetKey, targetContent, targetGuildId, isOwner, meta);
                     if (!writeResult.success) {

@@ -242,7 +242,7 @@ function readDb(key, guildId = null, isOwner = false) {
             success: false,
             error: 'not_found',
             key: cleanKey,
-            availableKeys: Object.keys(database),
+            availableKeys: isOwner ? Object.keys(database) : [],
             message: `Nenhum dado encontrado para a chave "${key}".`
         };
     }
@@ -319,6 +319,16 @@ function writeDb(key, data, guildId = null, isOwner = false, meta = {}) {
             success: false,
             error: 'protected',
             message: `O registro "${cleanKey}" é protegido pelo criador e não pode ser sobrescrito.`
+        };
+    }
+    const currentUserId = meta.userId || meta.savedById || null;
+    const isStaff = Boolean(meta.isStaff || meta.isAdmin);
+    const isAuthor = Boolean(existing && existing.savedById && currentUserId && String(existing.savedById) === String(currentUserId));
+    if (existing && !isOwner && !isStaff && !isAuthor) {
+        return {
+            success: false,
+            error: 'permission_denied',
+            message: `O registro "${cleanKey}" já existe e pertence a ${existing.salvo_por || existing.savedByTag || 'outro usuário'}. Apenas o autor original, a moderação ou o criador da Hikari podem sobrescrevê-lo.`
         };
     }
     const salvoPor = meta.salvo_por || (meta.userTag && meta.userId ? `${meta.userTag} - ${meta.userId}` : (existing && existing.salvo_por ? existing.salvo_por : null));
@@ -509,16 +519,15 @@ function deleteDb(key, guildId = null, userContext = {}) {
     }
 
     const isAuthor = Boolean(existing.savedById && currentUserId && String(existing.savedById) === String(currentUserId));
-    const isImportant = Boolean(existing.important);
 
-    if (isImportant && !isOwner && !isStaff && !isAuthor) {
+    if (!isOwner && !isStaff && !isAuthor) {
         return {
             success: false,
-            error: 'author_confirmation_required',
+            error: 'permission_denied',
             key: resolvedKey,
             savedBy: existing.salvo_por || existing.savedByTag || 'outro usuário',
             savedById: existing.savedById || null,
-            message: `O registro "${resolvedKey}" é importante e foi salvo por ${existing.salvo_por || existing.savedByTag || 'outro usuário'}. Apenas o próprio autor ou a administração podem autorizar a exclusão.`
+            message: `O registro "${resolvedKey}" foi salvo por ${existing.salvo_por || existing.savedByTag || 'outro usuário'}. Apenas o autor original, a moderação do servidor ou o criador da Hikari podem excluí-lo.`
         };
     }
 

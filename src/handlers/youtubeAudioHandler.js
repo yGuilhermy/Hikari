@@ -763,7 +763,56 @@ function unlockAllUsers() {
     return count;
 }
 
+function cleanTempMedia(maxAgeMs = 30 * 60 * 1000) {
+    const targetDirs = [TEMP_AUDIO_DIR, TEMP_VIDEO_DIR];
+    const now = Date.now();
+    const activePaths = new Set();
+
+    for (const entry of pendingVideoFiles.values()) {
+        if (entry && entry.filePath) {
+            activePaths.add(path.resolve(entry.filePath));
+        }
+    }
+
+    try {
+        const { getAllSessions } = require('../music/radioDatabase');
+        const sessions = getAllSessions();
+        for (const s of sessions) {
+            if (s && s.currentTrack && s.currentTrack.localPath) {
+                activePaths.add(path.resolve(s.currentTrack.localPath));
+            }
+        }
+    } catch (_) {}
+
+    for (const dir of targetDirs) {
+        if (!fs.existsSync(dir)) continue;
+        try {
+            const items = fs.readdirSync(dir);
+            for (const item of items) {
+                const itemPath = path.join(dir, item);
+                const resolved = path.resolve(itemPath);
+                if (activePaths.has(resolved)) continue;
+                try {
+                    const stat = fs.statSync(itemPath);
+                    if (now - stat.mtimeMs > maxAgeMs) {
+                        if (stat.isDirectory()) {
+                            fs.rmSync(itemPath, { recursive: true, force: true });
+                        } else {
+                            fs.unlinkSync(itemPath);
+                        }
+                    }
+                } catch (_) {}
+            }
+        } catch (_) {}
+    }
+}
+
+cleanTempMedia();
+const tempMediaInterval = setInterval(() => cleanTempMedia(), 15 * 60 * 1000);
+if (tempMediaInterval.unref) tempMediaInterval.unref();
+
 module.exports = {
+    cleanTempMedia,
     downloadAudio,
     downloadVideo,
     sanitizeFilenameForDiscord,
