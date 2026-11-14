@@ -15,8 +15,8 @@ const YOUTUBE_VIDEO_REGEX = /^(?:https?:\/\/)?(?:www\.)?(?:m\.)?(?:youtube\.com|
 const YOUTUBE_MUSIC_REGEX = /^(?:https?:\/\/)?(?:www\.)?music\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11,})(?:\S+)?$/;
 const YOUTUBE_PLAYLIST_REGEX = /(?:youtube\.com|youtu\.be)\/playlist\?list=|youtube\.com\/watch\?v=[a-zA-Z0-9_-]{11,}&list=([a-zA-Z0-9_-]+)|music\.youtube\.com\/playlist\?list=|music\.youtube\.com\/watch\?v=[a-zA-Z0-9_-]{11,}&list=/;
 const YOUTUBE_SHORTS_REGEX = /^(?:https?:\/\/)?(?:www\.)?(?:m\.)?(?:youtube\.com|youtu\.be)\/shorts\/([a-zA-Z0-9_-]{11,})(?:\S+)?$/;
-const INSTAGRAM_REGEX = /^(?:https?:\/\/)?(?:www\.)?instagram\.com\/(?:reel|reels)\/([a-zA-Z0-9_-]+)(?:\/|\?.*)?$/;
-const TIKTOK_REGEX = /^(?:https?:\/\/)?(?:[a-z0-9-]+\.)?tiktok\.com\/(?:@[a-zA-Z0-9_.-]+\/video\/\d+|t\/[a-zA-Z0-9]+|[a-zA-Z0-9_.-]+)(?:\/|\?.*)?$/;
+const INSTAGRAM_REGEX = /^(?:https?:\/\/)?(?:(?:www|m|dd|kk)\.)?(?:instagram\.com|instagr\.am)\/(?:(?:[a-zA-Z0-9_.]+\/)?(?:reel|reels|p|tv)\/|share\/(?:reel\/|reels\/|p\/)?)([a-zA-Z0-9_-]+)(?:\/?(?:[?#].*)?)?$/i;
+const TIKTOK_REGEX = /^(?:https?:\/\/)?(?:[a-z0-9-]+\.)?tiktok\.com\/(?:@[a-zA-Z0-9_.-]+\/(?:video|photo)\/\d+|t\/[a-zA-Z0-9_-]+|v\/\d+|[a-zA-Z0-9_.-]+)(?:\/?(?:[?#].*)?)?$/i;
 const TWITTER_REGEX = /^(?:https?:\/\/)?(?:[a-zA-Z0-9-]+\.)?(?:twitter\.com|x\.com|fxtwitter\.com|vxtwitter\.com|fixupx\.com)\/(?:(?:i\/status\/|[a-zA-Z0-9_]+\/status\/)(\d+))(?:\S*)?$/i;
 
 function isSafeUrl(url) {
@@ -204,7 +204,14 @@ function buildYtdlpAudioFlags(outputPath, url) {
 }
 
 function buildYtdlpVideoFlags(outputPath, url) {
-    const flags = ['--no-playlist', '--no-exec', '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'];
+    const flags = [
+        '--no-playlist',
+        '--no-exec',
+        '-f',
+        'bestvideo[ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc]/best[ext=mp4]/bestvideo+bestaudio/best',
+        '--merge-output-format',
+        'mp4'
+    ];
     const cookiesPath = config.ytdlpCookiesPath;
     if (cookiesPath && fs.existsSync(cookiesPath)) {
         flags.push('--cookies', cookiesPath);
@@ -214,6 +221,55 @@ function buildYtdlpVideoFlags(outputPath, url) {
     }
     flags.push('-o', outputPath, '--print-json', '--', url);
     return flags;
+}
+
+function ensureCompatibleMp4(filePath) {
+    return new Promise((resolve) => {
+        const probe = spawn('ffprobe', [
+            '-v', 'error',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=codec_name',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            filePath
+        ]);
+        let codec = '';
+        probe.stdout.on('data', (d) => { codec += d.toString(); });
+        probe.on('error', () => resolve(filePath));
+        probe.on('close', () => {
+            const cleanCodec = codec.trim().toLowerCase();
+            if (cleanCodec === 'h264') {
+                return resolve(filePath);
+            }
+            const tempFixedPath = filePath.replace(/\.[^.]+$/, `_h264_${Date.now()}.mp4`);
+            const ff = spawn('ffmpeg', [
+                '-y',
+                '-i', filePath,
+                '-c:v', 'libx264',
+                '-preset', 'veryfast',
+                '-crf', '23',
+                '-pix_fmt', 'yuv420p',
+                '-c:a', 'aac',
+                '-b:a', '128k',
+                '-movflags', '+faststart',
+                tempFixedPath
+            ]);
+            ff.on('error', () => {
+                try { if (fs.existsSync(tempFixedPath)) fs.unlinkSync(tempFixedPath); } catch (_) {}
+                resolve(filePath);
+            });
+            ff.on('close', (code) => {
+                if (code === 0 && fs.existsSync(tempFixedPath) && fs.statSync(tempFixedPath).size > 0) {
+                    try {
+                        fs.unlinkSync(filePath);
+                        fs.renameSync(tempFixedPath, filePath);
+                    } catch (_) {}
+                } else {
+                    try { if (fs.existsSync(tempFixedPath)) fs.unlinkSync(tempFixedPath); } catch (_) {}
+                }
+                resolve(filePath);
+            });
+        });
+    });
 }
 
 function isUserBusy(userId) {
@@ -529,7 +585,7 @@ async function downloadVideo(videoUrl, context = null) {
         const tempOutputFilename = `${videoId}.mp4`;
         const tempOutputFilePath = path.join(TEMP_VIDEO_DIR, tempOutputFilename);
 
-        const resolveVideoFile = (videoMetadata) => {
+        const resolveVideoFile = async (videoMetadata) => {
             const sanitizedTitle = sanitizeFilenameForDiscord(videoMetadata.title || `Media_${videoId}`);
             const possiblePaths = [
                 tempOutputFilePath,
@@ -550,6 +606,7 @@ async function downloadVideo(videoUrl, context = null) {
                         foundPath = finalFilePath;
                     } catch (e) {}
                 }
+                await ensureCompatibleMp4(foundPath);
                 const fileSize = fs.statSync(foundPath).size;
                 const sizeMB = (fileSize / (1024 * 1024)).toFixed(1);
                 logMediaAction('Download Vídeo', platform, videoUrl, context, 'Sucesso', `Título: "${videoMetadata.title}" | Tamanho: ${sizeMB} MB`);
@@ -571,7 +628,7 @@ async function downloadVideo(videoUrl, context = null) {
             try {
                 const { stdout } = await execYtdlp(args);
                 const videoMetadata = parseMetadata(stdout, videoId);
-                resolveVideoFile(videoMetadata);
+                await resolveVideoFile(videoMetadata);
             } catch (error) {
                 try {
                     const possibleCleanupPaths = [
